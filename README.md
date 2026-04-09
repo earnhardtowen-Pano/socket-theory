@@ -2,7 +2,7 @@
 
 **A biologically grounded framework for automotive design.**
 
-Socket Theory proposes that every compelling surface transition in automotive form can be understood as a ball-and-socket articulation — a convex volume nesting into a concave receiver, the same fundamental relationship that governs how bones meet in a shoulder joint, how a leaf emerges from its stem, and how embryonic tissue folds inward to create structure. By grounding design language in this single biological primitive, Socket Theory replaces subjective aesthetic debate with a testable, cross-domain principle: if the ball–socket ratio is anatomically coherent, the surface will read as alive; if it collapses into a flat crease or an arbitrary fillet, the form goes inert. The framework draws its evidence from six domains — musculoskeletal anatomy, neuroscience, botany, embryology, palaeontology, and fluid dynamics — and offers designers a shared vocabulary for creating vehicles that feel grown rather than styled.
+Socket Theory argues that body panels should function as architectural frames — like the bones of a skull — cradling deeply recessed functional elements such as headlamps, grilles, and taillights. When these elements are set back into shadowed sockets rather than surface-mounted, the vehicle's face triggers involuntary pareidolia through the fusiform face area, a region of the brain that detects face-like patterns within 165 milliseconds. The result is a car that reads as a living presence before the viewer consciously registers it as a machine. The framework is supported by a six-domain evidence base spanning the Alfa Romeo 159 precedent, pareidolia neuroscience, Korean design inflection analysis, cross-vehicle scalability, shadow engineering, and a $110K–$140K market white-space opportunity.
 
 ---
 
@@ -13,7 +13,7 @@ socket-theory/
 ├── README.md                          ← This file
 ├── docs/
 │   ├── socket-theory-manifesto.pdf    ← The Socket Theory manifesto
-│   └── six-domain-evidence-base.pdf   ← Evidence across six biological domains
+│   └── six-domain-evidence-base.pdf   ← Evidence across six domains
 ├── demonstrator/
 │   └── SocketDemonstrator.jsx         ← Interactive React demonstrator
 ├── vehicles/
@@ -27,11 +27,18 @@ socket-theory/
 
 ### docs/
 
-Core written works. The **manifesto** lays out the theory's principles and design operations. The **six-domain evidence base** catalogues biological precedents across musculoskeletal anatomy, neuroscience, botany, embryology, palaeontology, and fluid dynamics.
+Core written works. The **manifesto** lays out Socket Theory's principles — how skull-like framing and deep recession create involuntary face recognition in automotive form. The **six-domain evidence base** documents the case across:
+
+1. **Alfa Romeo 159 precedent** — the modern benchmark for socketed lighting and deep-set grille architecture
+2. **Pareidolia neuroscience** — how the fusiform face area processes vehicle faces within 165ms
+3. **Korean design inflection analysis** — the shift in Korean automotive design language and where socket logic diverges
+4. **Cross-vehicle scalability** — applying the framework from sports cars to SUVs and sedans
+5. **Shadow engineering** — controlling depth, penumbra, and ambient occlusion to intensify socket reads
+6. **Market white space ($110K–$140K)** — the pricing segment where no current vehicle fully exploits socket architecture
 
 ### demonstrator/
 
-An interactive React component that lets users drag a ball–socket ratio slider and watch how the relationship between convex and concave volumes reshapes a car's shoulder line, wheel arches, and greenhouse junction in real time. Each of the six evidence domains can be toggled to colour-code the profile and read a domain-specific annotation.
+An interactive React component that visualises how socket depth, brow ridge, and aperture ratio shape a vehicle's face. Users can adjust each parameter independently and toggle between day and night modes to see how shadow behaviour changes the pareidolia response under different lighting conditions.
 
 ### vehicles/
 
@@ -39,7 +46,7 @@ Four vehicle projects developed under Socket Theory. Each folder will contain co
 
 ### sketches/
 
-Freehand and digital sketches exploring socket articulations, surface studies, and form-language development.
+Freehand and digital sketches exploring socket depths, brow ridges, aperture studies, and shadow-engineering techniques.
 
 ### website/
 

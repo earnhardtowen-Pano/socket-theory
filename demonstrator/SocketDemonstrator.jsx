@@ -1,101 +1,96 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 
 /**
  * Socket Theory Interactive Demonstrator
  *
- * Visualises the core principle of Socket Theory: that every automotive
- * surface transition can be described as a biological ball-and-socket
- * articulation — a convex "ball" form nesting into a concave "socket"
- * receiver.  Users drag the Ball–Socket Ratio slider to see how the
- * relationship between the two volumes reshapes a car's shoulder line,
- * wheel-arch lip, and greenhouse-to-body junction in real time.
+ * Visualises how socket depth, brow ridge, and aperture ratio shape a
+ * vehicle's face — triggering involuntary pareidolia via the fusiform
+ * face area.  Includes day/night mode to demonstrate how shadow
+ * behaviour under different lighting intensifies or softens the
+ * face-recognition response.
  */
 
 const DOMAINS = [
   {
-    key: "musculoskeletal",
-    label: "Musculoskeletal",
-    colour: "#E85D3A",
+    key: "alfa159",
+    label: "Alfa Romeo 159 Precedent",
+    colour: "#C0392B",
     description:
-      "Ball-and-socket joints allow omnidirectional rotation.  In automotive form, this maps to the way a fender crown (ball) rolls into the door pocket (socket), producing a shoulder line that reads as a living hinge rather than a stamped crease.",
+      "The Alfa Romeo 159 is the modern benchmark for socketed automotive design. Its headlamps are deeply recessed beneath a pronounced brow ridge, and the shield grille sits in a sculpted cavity rather than flush with the bumper — producing a face that registers as alert, even predatory, before the viewer consciously identifies it as a car.",
   },
   {
-    key: "neuroscience",
-    label: "Neuroscience",
-    colour: "#3A8EE8",
+    key: "pareidolia",
+    label: "Pareidolia Neuroscience",
+    colour: "#2980B9",
     description:
-      "Human visual processing favours curvature continuity (G2+) over tangent-only (G1) transitions.  Socket Theory leverages this perceptual bias: the ball-to-socket blend is inherently G2-continuous, so the eye tracks it without friction.",
+      "The fusiform face area (FFA) in the temporal lobe detects face-like patterns within 165 milliseconds — faster than conscious recognition. When headlamps sit in deep sockets and a brow ridge casts shadow above them, the FFA fires involuntarily. Socket Theory exploits this hard-wired response: the deeper the recess, the stronger the face read.",
   },
   {
-    key: "botany",
-    label: "Botany",
-    colour: "#4CAF50",
+    key: "korean",
+    label: "Korean Design Inflection",
+    colour: "#8E44AD",
     description:
-      "Phyllotactic growth produces convex lobes that nest into concave axils.  The same additive logic governs how a wheel-arch flare (ball) emerges from the body-side cavity (socket), giving the form an organic, growth-driven character.",
+      "Korean automotive design has shifted from conservative surface language to aggressive, feature-rich faces. Socket Theory analyses this inflection — where Korean brands push surface complexity outward (additive detail) versus the socket approach of carving inward (subtractive depth) — and identifies the divergence point where deeper recession creates presence without clutter.",
   },
   {
-    key: "embryology",
-    label: "Embryology",
-    colour: "#9C27B0",
+    key: "scalability",
+    label: "Cross-Vehicle Scalability",
+    colour: "#27AE60",
     description:
-      "Invagination and evagination — tissue folding inward and outward — are the morphogenetic moves that Socket Theory abstracts into design operations.  Every tuck of a rear haunch into a tail-lamp recess re-enacts embryonic folding.",
+      "Socket architecture must scale from compact sports cars to full-size SUVs. The framework defines how socket depth, brow-ridge prominence, and aperture ratio adjust proportionally across vehicle segments — maintaining the pareidolia trigger at every scale without requiring segment-specific redesign.",
   },
   {
-    key: "palaeontology",
-    label: "Palaeontology",
-    colour: "#FF9800",
+    key: "shadow",
+    label: "Shadow Engineering",
+    colour: "#F39C12",
     description:
-      "Arthropod exoskeletons achieve both protection and mobility through overlapping convex plates seated in concave sockets.  This principle translates directly to panel-gap strategy: each shut-line becomes a functional socket joint.",
+      "Shadow is the active ingredient in socket design. By controlling the geometry of brow ridges and cavity walls, designers engineer the penumbra — the gradient from light to dark — that gives sockets their depth read. Shadow engineering defines how ambient occlusion, direct sun, and artificial lighting each alter the socket's perceived depth and emotional register.",
   },
   {
-    key: "fluid_dynamics",
-    label: "Fluid Dynamics",
-    colour: "#00BCD4",
+    key: "whitespace",
+    label: "$110K–$140K Market White Space",
+    colour: "#1ABC9C",
     description:
-      "Streamlined biological bodies (fish, birds) manage pressure gradients through smooth convex-to-concave surface changes.  Socket Theory applies the same curvature logic to aerodynamic surfaces, aligning aesthetic intent with airflow.",
+      "Between the $80K–$110K premium segment and the $150K+ ultra-luxury tier sits a white-space opportunity at $110K–$140K where no current vehicle fully exploits socket architecture. This domain maps the competitive landscape and demonstrates how a Socket Theory vehicle would own the segment through design differentiation rather than powertrain or badge alone.",
   },
 ];
 
 /* ------------------------------------------------------------------ */
-/*  SVG car-profile generator                                          */
+/*  SVG vehicle-face generator                                         */
 /* ------------------------------------------------------------------ */
 
-function generateProfile(ratio) {
-  // ratio 0 → flat / creased (no socket), ratio 1 → deep socket
-  const r = ratio / 100;
+function generateFace({ socketDepth, browRidge, apertureRatio, nightMode }) {
+  const sd = socketDepth / 100; // 0–1
+  const br = browRidge / 100;
+  const ar = apertureRatio / 100;
 
-  // Shoulder-line curvature
-  const shoulderBulge = 8 + r * 22;
-  const shoulderConcavity = 2 + r * 18;
+  // Shadow intensity driven by socket depth + lighting
+  const shadowOpacity = nightMode
+    ? 0.15 + sd * 0.35
+    : 0.08 + sd * 0.55;
 
-  // Wheel-arch depth
-  const archDepth = 10 + r * 30;
+  // Brow ridge height
+  const browHeight = 8 + br * 28;
 
-  // Greenhouse taper
-  const roofInset = 30 + r * 15;
+  // Headlamp aperture size
+  const lampWidth = 30 + ar * 35;
+  const lampHeight = 12 + ar * 18;
+
+  // Socket recess depth (visual offset)
+  const recessDepth = 4 + sd * 20;
+
+  // Grille aperture
+  const grilleWidth = 40 + ar * 30;
+  const grilleHeight = 20 + ar * 20;
 
   return {
-    body: `
-      M 40,200
-      C 40,200  60,${200 - shoulderBulge}  120,${200 - shoulderBulge}
-      C 150,${200 - shoulderBulge}  155,${200 - shoulderBulge + shoulderConcavity}  180,${200 - shoulderBulge + shoulderConcavity}
-      C 210,${200 - shoulderBulge + shoulderConcavity}  280,${200 - shoulderBulge}  340,${200 - shoulderBulge}
-      C 380,${200 - shoulderBulge}  385,${200 - shoulderBulge + shoulderConcavity}  410,${200 - shoulderBulge + shoulderConcavity}
-      C 440,${200 - shoulderBulge + shoulderConcavity}  480,${200 - shoulderBulge}  520,200
-      L 520,230  40,230 Z
-    `,
-    roof: `
-      M ${80 + roofInset},${200 - shoulderBulge}
-      C ${80 + roofInset},${140 - r * 10}  ${480 - roofInset},${140 - r * 10}  ${480 - roofInset},${200 - shoulderBulge}
-    `,
-    frontArch: `
-      M 100,230
-      C 100,${230 - archDepth}  170,${230 - archDepth}  170,230
-    `,
-    rearArch: `
-      M 390,230
-      C 390,${230 - archDepth}  460,${230 - archDepth}  460,230
-    `,
+    shadowOpacity,
+    browHeight,
+    lampWidth,
+    lampHeight,
+    recessDepth,
+    grilleWidth,
+    grilleHeight,
   };
 }
 
@@ -133,47 +128,193 @@ function DomainCard({ domain, isActive, onClick }) {
   );
 }
 
-function ProfileViewer({ ratio, activeDomain }) {
-  const paths = generateProfile(ratio);
-  const colour = activeDomain ? activeDomain.colour : "#333";
+function FaceViewer({ socketDepth, browRidge, apertureRatio, nightMode, accentColour }) {
+  const face = generateFace({ socketDepth, browRidge, apertureRatio, nightMode });
+  const bg = nightMode ? "#0D1117" : "#F5F5F0";
+  const bodyColour = nightMode ? "#1A1F2E" : "#D4D0C8";
+  const strokeColour = nightMode ? "#3A3F4E" : "#888";
+  const accent = accentColour || (nightMode ? "#6EA8D7" : "#333");
+
+  const cx = 280; // centre x
+  const cy = 160; // centre y
 
   return (
     <svg
-      viewBox="0 0 560 280"
-      style={{ width: "100%", maxWidth: 560, display: "block", margin: "0 auto" }}
+      viewBox="0 0 560 340"
+      style={{
+        width: "100%",
+        maxWidth: 560,
+        display: "block",
+        margin: "0 auto",
+        borderRadius: 12,
+        background: bg,
+        transition: "background 0.4s ease",
+      }}
       role="img"
-      aria-label={`Car profile at ball-socket ratio ${ratio}%`}
+      aria-label={`Vehicle face — socket depth ${socketDepth}%, brow ridge ${browRidge}%, aperture ratio ${apertureRatio}%`}
     >
-      {/* Ground line */}
-      <line x1="20" y1="232" x2="540" y2="232" stroke="#ccc" strokeWidth="1" />
+      {/* Body shell outline */}
+      <path
+        d={`
+          M ${cx - 140},${cy + 80}
+          C ${cx - 140},${cy - 60} ${cx + 140},${cy - 60} ${cx + 140},${cy + 80}
+          L ${cx + 140},${cy + 100}
+          L ${cx - 140},${cy + 100} Z
+        `}
+        fill={bodyColour}
+        stroke={strokeColour}
+        strokeWidth="2"
+      />
 
-      {/* Body */}
-      <path d={paths.body} fill={colour + "22"} stroke={colour} strokeWidth="2.5" />
+      {/* Left headlamp socket */}
+      <g>
+        {/* Socket cavity (shadow) */}
+        <ellipse
+          cx={cx - 80}
+          cy={cy + 10}
+          rx={face.lampWidth}
+          ry={face.lampHeight + face.recessDepth}
+          fill={`rgba(0,0,0,${face.shadowOpacity})`}
+        />
+        {/* Brow ridge */}
+        <path
+          d={`
+            M ${cx - 80 - face.lampWidth - 4},${cy + 10 - face.lampHeight}
+            Q ${cx - 80},${cy + 10 - face.lampHeight - face.browHeight}
+              ${cx - 80 + face.lampWidth + 4},${cy + 10 - face.lampHeight}
+          `}
+          fill="none"
+          stroke={accent}
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        {/* Lamp element */}
+        <ellipse
+          cx={cx - 80}
+          cy={cy + 10}
+          rx={face.lampWidth * 0.6}
+          ry={face.lampHeight * 0.55}
+          fill={nightMode ? "#FFF5CC" : accent + "44"}
+          stroke={accent}
+          strokeWidth="1.5"
+          opacity={nightMode ? 0.9 : 0.7}
+        />
+        {nightMode && (
+          <ellipse
+            cx={cx - 80}
+            cy={cy + 10}
+            rx={face.lampWidth * 0.9}
+            ry={face.lampHeight * 0.8}
+            fill="none"
+            stroke="#FFF5CC"
+            strokeWidth="0.5"
+            opacity="0.3"
+          />
+        )}
+      </g>
 
-      {/* Roof */}
-      <path d={paths.roof} fill="none" stroke={colour} strokeWidth="2" strokeDasharray={ratio < 20 ? "6 4" : "none"} />
+      {/* Right headlamp socket */}
+      <g>
+        <ellipse
+          cx={cx + 80}
+          cy={cy + 10}
+          rx={face.lampWidth}
+          ry={face.lampHeight + face.recessDepth}
+          fill={`rgba(0,0,0,${face.shadowOpacity})`}
+        />
+        <path
+          d={`
+            M ${cx + 80 - face.lampWidth - 4},${cy + 10 - face.lampHeight}
+            Q ${cx + 80},${cy + 10 - face.lampHeight - face.browHeight}
+              ${cx + 80 + face.lampWidth + 4},${cy + 10 - face.lampHeight}
+          `}
+          fill="none"
+          stroke={accent}
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <ellipse
+          cx={cx + 80}
+          cy={cy + 10}
+          rx={face.lampWidth * 0.6}
+          ry={face.lampHeight * 0.55}
+          fill={nightMode ? "#FFF5CC" : accent + "44"}
+          stroke={accent}
+          strokeWidth="1.5"
+          opacity={nightMode ? 0.9 : 0.7}
+        />
+        {nightMode && (
+          <ellipse
+            cx={cx + 80}
+            cy={cy + 10}
+            rx={face.lampWidth * 0.9}
+            ry={face.lampHeight * 0.8}
+            fill="none"
+            stroke="#FFF5CC"
+            strokeWidth="0.5"
+            opacity="0.3"
+          />
+        )}
+      </g>
 
-      {/* Wheel arches */}
-      <path d={paths.frontArch} fill="#fff" stroke={colour} strokeWidth="2" />
-      <path d={paths.rearArch} fill="#fff" stroke={colour} strokeWidth="2" />
-
-      {/* Wheels */}
-      <circle cx="135" cy="232" r="18" fill="#222" />
-      <circle cx="135" cy="232" r="8" fill="#555" />
-      <circle cx="425" cy="232" r="18" fill="#222" />
-      <circle cx="425" cy="232" r="8" fill="#555" />
+      {/* Grille socket */}
+      <g>
+        <rect
+          x={cx - face.grilleWidth}
+          y={cy + 40}
+          width={face.grilleWidth * 2}
+          height={face.grilleHeight}
+          rx={face.grilleHeight * 0.4}
+          fill={`rgba(0,0,0,${face.shadowOpacity * 1.2})`}
+        />
+        <rect
+          x={cx - face.grilleWidth + 6}
+          y={cy + 44}
+          width={(face.grilleWidth - 6) * 2}
+          height={face.grilleHeight - 8}
+          rx={(face.grilleHeight - 8) * 0.35}
+          fill="none"
+          stroke={accent}
+          strokeWidth="1"
+          opacity="0.5"
+        />
+      </g>
 
       {/* Labels */}
-      <text x="280" y="20" textAnchor="middle" fontSize="13" fill="#666">
-        Ball–Socket Ratio: {ratio}%
+      <text x={cx} y={20} textAnchor="middle" fontSize="12" fill={nightMode ? "#667" : "#999"}>
+        {nightMode ? "Night — shadow defines the socket" : "Day — brow ridge reads as bone structure"}
       </text>
-      <text x="135" y="270" textAnchor="middle" fontSize="10" fill="#999">
-        {ratio < 30 ? "flat arch" : ratio < 70 ? "emerging socket" : "deep socket"}
-      </text>
-      <text x="425" y="270" textAnchor="middle" fontSize="10" fill="#999">
-        {ratio < 30 ? "flat arch" : ratio < 70 ? "emerging socket" : "deep socket"}
+
+      {/* FFA timing annotation */}
+      <text x={cx} y={cy + 130} textAnchor="middle" fontSize="11" fill={accent} opacity="0.7">
+        Fusiform face area fires in {"<"}165ms
       </text>
     </svg>
+  );
+}
+
+function Slider({ label, value, onChange, min, max, leftLabel, rightLabel }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+        {label}: {value}%
+      </label>
+      <input
+        type="range"
+        min={min || 0}
+        max={max || 100}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ width: "100%", cursor: "pointer" }}
+        aria-label={label}
+      />
+      {leftLabel && rightLabel && (
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#aaa", marginTop: 2 }}>
+          <span>{leftLabel}</span>
+          <span>{rightLabel}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -182,14 +323,13 @@ function ProfileViewer({ ratio, activeDomain }) {
 /* ------------------------------------------------------------------ */
 
 export default function SocketDemonstrator() {
-  const [ratio, setRatio] = useState(50);
+  const [socketDepth, setSocketDepth] = useState(60);
+  const [browRidge, setBrowRidge] = useState(50);
+  const [apertureRatio, setApertureRatio] = useState(50);
+  const [nightMode, setNightMode] = useState(false);
   const [activeDomainKey, setActiveDomainKey] = useState(null);
 
   const activeDomain = DOMAINS.find((d) => d.key === activeDomainKey) || null;
-
-  const handleSlider = useCallback((e) => {
-    setRatio(Number(e.target.value));
-  }, []);
 
   return (
     <div
@@ -198,52 +338,114 @@ export default function SocketDemonstrator() {
         maxWidth: 960,
         margin: "0 auto",
         padding: 32,
-        color: "#222",
+        color: nightMode ? "#E0E0E0" : "#222",
+        background: nightMode ? "#0A0E14" : "#fff",
+        transition: "all 0.4s ease",
+        minHeight: "100vh",
       }}
     >
       <header style={{ textAlign: "center", marginBottom: 40 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>
           Socket Theory — Interactive Demonstrator
         </h1>
-        <p style={{ fontSize: 15, color: "#666", marginTop: 8, maxWidth: 600, margin: "8px auto 0" }}>
-          Drag the slider to adjust the <em>ball–socket ratio</em> and watch
-          how biological articulation logic reshapes every surface transition
-          on the car profile.
+        <p
+          style={{
+            fontSize: 15,
+            color: nightMode ? "#889" : "#666",
+            marginTop: 8,
+            maxWidth: 640,
+            margin: "8px auto 0",
+          }}
+        >
+          Adjust socket depth, brow ridge, and aperture ratio to see how
+          skull-like panel framing and deep recession trigger face pareidolia.
+          Toggle day/night mode to see how shadow behaviour transforms the read.
         </p>
       </header>
 
-      {/* Profile viewer */}
-      <ProfileViewer ratio={ratio} activeDomain={activeDomain} />
+      {/* Face viewer */}
+      <FaceViewer
+        socketDepth={socketDepth}
+        browRidge={browRidge}
+        apertureRatio={apertureRatio}
+        nightMode={nightMode}
+        accentColour={activeDomain?.colour}
+      />
 
-      {/* Slider */}
-      <div style={{ textAlign: "center", margin: "24px 0 40px" }}>
-        <label style={{ display: "block", fontSize: 13, color: "#888", marginBottom: 6 }}>
-          Ball–Socket Ratio
-        </label>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={ratio}
-          onChange={handleSlider}
-          style={{ width: "60%", maxWidth: 400, cursor: "pointer" }}
-          aria-label="Ball-socket ratio"
-        />
-        <div style={{ fontSize: 12, color: "#aaa", marginTop: 4, display: "flex", justifyContent: "space-between", maxWidth: 400, margin: "4px auto 0" }}>
-          <span>0 — Flat / Creased</span>
-          <span>100 — Deep Socket</span>
+      {/* Controls */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 32,
+          maxWidth: 640,
+          margin: "32px auto",
+        }}
+      >
+        <div>
+          <Slider
+            label="Socket Depth"
+            value={socketDepth}
+            onChange={setSocketDepth}
+            leftLabel="Flush"
+            rightLabel="Deep recess"
+          />
+          <Slider
+            label="Brow Ridge"
+            value={browRidge}
+            onChange={setBrowRidge}
+            leftLabel="Flat"
+            rightLabel="Pronounced"
+          />
+        </div>
+        <div>
+          <Slider
+            label="Aperture Ratio"
+            value={apertureRatio}
+            onChange={setApertureRatio}
+            leftLabel="Narrow"
+            rightLabel="Wide open"
+          />
+
+          {/* Day / Night toggle */}
+          <div style={{ marginTop: 8 }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+              Lighting Mode
+            </label>
+            <button
+              onClick={() => setNightMode(!nightMode)}
+              style={{
+                background: nightMode ? "#1A1F2E" : "#F5F5F0",
+                border: `2px solid ${nightMode ? "#3A5F8A" : "#ccc"}`,
+                borderRadius: 8,
+                padding: "8px 20px",
+                cursor: "pointer",
+                fontSize: 14,
+                color: nightMode ? "#6EA8D7" : "#555",
+                transition: "all 0.3s ease",
+                width: "100%",
+              }}
+            >
+              {nightMode ? "Night Mode" : "Day Mode"} — tap to switch
+            </button>
+            <div style={{ fontSize: 11, color: nightMode ? "#556" : "#aaa", marginTop: 4 }}>
+              {nightMode
+                ? "Shadow dominates — sockets read as eye cavities"
+                : "Brow ridges cast directional shadow — bone structure reads"}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Six-domain evidence grid */}
-      <section>
+      <section style={{ maxWidth: 640, margin: "0 auto" }}>
         <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>
           Six-Domain Evidence Base
         </h2>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
             gap: 12,
             marginBottom: 24,
           }}
@@ -253,7 +455,9 @@ export default function SocketDemonstrator() {
               key={d.key}
               domain={d}
               isActive={activeDomainKey === d.key}
-              onClick={() => setActiveDomainKey(activeDomainKey === d.key ? null : d.key)}
+              onClick={() =>
+                setActiveDomainKey(activeDomainKey === d.key ? null : d.key)
+              }
             />
           ))}
         </div>
@@ -267,16 +471,27 @@ export default function SocketDemonstrator() {
               padding: "20px 24px",
               fontSize: 14,
               lineHeight: 1.65,
-              color: "#333",
+              color: nightMode ? "#CCC" : "#333",
             }}
           >
-            <strong style={{ color: activeDomain.colour }}>{activeDomain.label}:</strong>{" "}
+            <strong style={{ color: activeDomain.colour }}>
+              {activeDomain.label}:
+            </strong>{" "}
             {activeDomain.description}
           </div>
         )}
       </section>
 
-      <footer style={{ marginTop: 48, borderTop: "1px solid #eee", paddingTop: 16, fontSize: 12, color: "#aaa", textAlign: "center" }}>
+      <footer
+        style={{
+          marginTop: 48,
+          borderTop: `1px solid ${nightMode ? "#1A1F2E" : "#eee"}`,
+          paddingTop: 16,
+          fontSize: 12,
+          color: nightMode ? "#445" : "#aaa",
+          textAlign: "center",
+        }}
+      >
         Socket Theory © Owen Earnhardt. All rights reserved.
       </footer>
     </div>
