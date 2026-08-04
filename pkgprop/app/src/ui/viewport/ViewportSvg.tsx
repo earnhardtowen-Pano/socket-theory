@@ -83,6 +83,30 @@ export function ViewportSvg({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [pxW, setPxW] = useState(800);
+  const spaceHeld = useRef(false);
+  const [panReady, setPanReady] = useState(false);
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      const t = e.target as HTMLElement | null;
+      if (t && ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(t.tagName)) return;
+      e.preventDefault();
+      spaceHeld.current = true;
+      setPanReady(true);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      spaceHeld.current = false;
+      setPanReady(false);
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, []);
 
   // Height follows the content's aspect so the frame hugs the car.
   const aspect = (fitBox.y1 - fitBox.y0) / Math.max(1, fitBox.x1 - fitBox.x0);
@@ -144,9 +168,18 @@ export function ViewportSvg({
 
   const panState = useRef<{ x: number; y: number } | null>(null);
   const onPointerDown = (e: React.PointerEvent) => {
-    // Pan on background drag; control points stop propagation before this.
-    if (e.button !== 0 && e.button !== 1) return;
-    onBackgroundDown?.();
+    // Panning belongs to the middle button and the space bar, the way every
+    // canvas tool does it. Plain left-drag used to pan, so every missed grab
+    // threw the whole drawing across the screen.
+    const wantsPan = e.button === 1 || (e.button === 0 && spaceHeld.current);
+    if (e.button === 0 && !spaceHeld.current) {
+      // Only a press on bare canvas clears the selection. Relying on children
+      // to stop propagation is fragile; asking who was actually hit is not.
+      if (e.target === e.currentTarget) onBackgroundDown?.();
+      return;
+    }
+    if (!wantsPan) return;
+    e.preventDefault();
     panState.current = { x: e.clientX, y: e.clientY };
     const move = (ev: PointerEvent) => {
       const p = panState.current;
@@ -192,12 +225,13 @@ export function ViewportSvg({
     >
       <svg
         ref={svgRef}
-        className="view-svg"
+        className={`view-svg ${panReady ? 'pan-ready' : ''}`}
         width={pxW}
         height={heightPx}
         viewBox={`0 0 ${pxW} ${heightPx}`}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
+        onAuxClick={(e) => e.preventDefault()}
       >
         {!hideChrome && <g>{gridLines}</g>}
         {children(m)}

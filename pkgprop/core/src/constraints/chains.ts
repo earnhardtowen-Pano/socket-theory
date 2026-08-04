@@ -1,5 +1,6 @@
 import type { ArchitectureInput, SeatingInput } from '../inputs.js';
 import type { Registry } from '../registry.js';
+import { degToRad } from '../units.js';
 
 /**
  * Derivation chains as plain functions over the registry.
@@ -9,6 +10,21 @@ import type { Registry } from '../registry.js';
  * readout invoked them. Never pass their results into a trace from outside —
  * that severs the chain and the wall forgets why it stands where it does.
  */
+
+/**
+ * Seated height above the H-point, with the seat back where it actually is.
+ *
+ * The torso swings about the hip, so reclining lowers the head; the neck and
+ * head sit on top of that and stay near vertical, so reclining never buys
+ * their height back. This is the difference between a car that can be a
+ * sports car and one that is always a crossover.
+ */
+export function seatedHeightOf(reg: Registry): number {
+  const rise = reg.value('anthro_shoulder_rise');
+  const head = reg.value('anthro_head_stack');
+  const back = degToRad(reg.value('seat_back_angle_deg'));
+  return rise * Math.cos(back) + head;
+}
 
 /** Cabin floor height above ground. The EV battery raises the whole cabin. */
 export function floorOf(reg: Registry, arch: ArchitectureInput): number {
@@ -73,7 +89,7 @@ export function rowRoofMinOf(
   rowIndex: number,
 ): number {
   const h30 = rowH30Of(reg, seating, h30Front, rowIndex);
-  const headTop = floorOf(reg, arch) + h30 + reg.value('anthro_seated_height_above_hpoint');
+  const headTop = floorOf(reg, arch) + h30 + seatedHeightOf(reg);
   return headTop + reg.value('anthro_headroom_clearance') + reg.value('body_roof_stack');
 }
 

@@ -22,14 +22,33 @@ export const GLOBAL_PARAMS: readonly ParamDef[] = [
 
   // ---- occupant chain (anthropometrics) ---------------------------------
   {
-    id: 'anthro_seated_height_above_hpoint',
-    label: 'top of head above H-point, seated',
+    id: 'anthro_shoulder_rise',
+    label: 'hip to shoulder along the spine',
     unit: 'mm',
-    value: 910,
+    value: 684,
     license: 'ASSUMED',
-    note: 'stand-in for a large adult male, normal posture. Settle against SAE J833 / ANSUR II seated height minus buttock compression.',
-    range: [800, 1020],
+    note: 'the part of seated height that swings when the seat back reclines. Settle against SAE J833 / ANSUR II seated height minus head-and-neck.',
+    range: [560, 780],
     pending: true,
+  },
+  {
+    id: 'anthro_head_stack',
+    label: 'shoulder to top of head',
+    unit: 'mm',
+    value: 290,
+    license: 'ASSUMED',
+    note: 'neck and head above the shoulder. Stays near vertical whatever the back does, so reclining never buys this back.',
+    range: [240, 340],
+    pending: true,
+  },
+  {
+    id: 'seat_back_angle_deg',
+    label: 'seat back angle',
+    unit: 'deg',
+    value: 25,
+    license: 'ASSUMED',
+    note: 'torso recline from vertical. This is how a sports car gets low: lay the driver back and the roof follows. 25 is a normal seating position; 40-plus is a racing recline.',
+    range: [8, 50],
   },
   {
     id: 'anthro_eye_above_hpoint',

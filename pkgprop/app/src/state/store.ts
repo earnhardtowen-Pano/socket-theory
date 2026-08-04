@@ -1,6 +1,7 @@
 import { solve, type SolveResult, type ControlId } from '@pkgprop/core';
 import { buildSolveInput, type PackageState } from '@pkgprop/data';
 import { useMemo, useReducer } from 'react';
+import { defaultFeatures, type FeatureMap } from '../model/features.js';
 import {
   DEFAULT_RENDER,
   defaultLines,
@@ -21,9 +22,21 @@ export type PanelId = 'PACKAGE' | 'SIDE' | 'SECTIONS' | 'BODY' | 'BOUNCE' | 'LED
 export interface Snapshot {
   readonly pkg: PackageState;
   readonly drawing: DrawingState;
+  /** Parametric features: things with real parameters, not loose points. */
+  readonly features: FeatureMap;
   /** How the car is presented. Authored, saved, undoable — never solved. */
   readonly render: RenderState;
 }
+
+/**
+ * What is in your hand. The inspector shows this and nothing else, and only
+ * this thing's handles are drawn — which is what stops the canvas from being
+ * a field of interchangeable dots.
+ */
+export type Selection =
+  | { readonly kind: 'feature'; readonly id: string }
+  | { readonly kind: 'line'; readonly id: LineId; readonly point: number | null }
+  | null;
 
 export interface AppState {
   readonly now: Snapshot;
@@ -36,6 +49,7 @@ export interface AppState {
   readonly ledgerOpen: boolean;
   /** DRAFT shows the machinery; RENDER shows the car. Not part of the project. */
   readonly mode: ViewMode;
+  readonly selection: Selection;
 }
 
 export type ViewMode = 'DRAFT' | 'RENDER';
@@ -47,13 +61,19 @@ export const INITIAL_PKG: PackageState = {
 
 export function initialState(): AppState {
   return {
-    now: { pkg: INITIAL_PKG, drawing: defaultLines(), render: DEFAULT_RENDER },
+    now: {
+      pkg: INITIAL_PKG,
+      drawing: defaultLines(),
+      features: defaultFeatures(),
+      render: DEFAULT_RENDER,
+    },
     pendingBase: null,
     history: [],
     future: [],
     panel: 'SIDE',
     ledgerOpen: false,
     mode: 'RENDER',
+    selection: null,
   };
 }
 
@@ -67,6 +87,9 @@ export type Action =
   | { type: 'set-tension'; line: LineId; tension: number; commit: boolean }
   | { type: 'reset-line'; line: LineId }
   | { type: 'reset-drawing' }
+  | { type: 'set-feature-param'; id: string; key: string; value: number; commit: boolean }
+  | { type: 'reset-feature'; id: string }
+  | { type: 'select'; selection: Selection }
   | { type: 'set-render'; patch: Partial<RenderState>; commit: boolean }
   | { type: 'load'; snapshot: Snapshot }
   | { type: 'panel'; id: PanelId }
@@ -143,6 +166,31 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'reset-drawing':
       return push(state, { ...state.now, drawing: defaultLines() }, true);
+    case 'set-feature-param': {
+      const f = state.now.features[action.id];
+      if (!f) return state;
+      const next = {
+        ...state.now,
+        features: {
+          ...state.now.features,
+          [action.id]: { ...f, params: { ...f.params, [action.key]: action.value } },
+        },
+      };
+      return push(state, next, action.commit);
+    }
+    case 'reset-feature': {
+      const f = state.now.features[action.id];
+      if (!f) return state;
+      const fresh = defaultFeatures()[action.id];
+      if (!fresh) return state;
+      return push(
+        state,
+        { ...state.now, features: { ...state.now.features, [action.id]: fresh } },
+        true,
+      );
+    }
+    case 'select':
+      return { ...state, selection: action.selection };
     case 'set-render':
       return push(state, { ...state.now, render: { ...state.now.render, ...action.patch } }, action.commit);
     case 'mode':

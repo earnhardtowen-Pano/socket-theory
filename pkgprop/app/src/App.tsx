@@ -10,9 +10,11 @@ import {
   norm,
   type LineId,
 } from './state/lines.js';
+import { defaultFeatures } from './model/features.js';
 import { useApp, type PanelId, type Snapshot } from './state/store.js';
 import { ConflictBar } from './ui/ConflictBar.js';
 import { Ledger } from './ui/Ledger.js';
+import { Inspector } from './ui/Inspector.js';
 import { PackageRail } from './ui/PackageRail.js';
 import { PlanView } from './ui/PlanView.js';
 import { ReadoutStrip } from './ui/ReadoutStrip.js';
@@ -33,7 +35,7 @@ export default function App() {
 function Shell() {
   const { state, dispatch, result } = useApp();
   const { cam, requestFit } = useCamera();
-  const [selected, setSelected] = useState<{ line: LineId; index: number } | null>(null);
+  const selection = state.selection;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -54,13 +56,13 @@ function Shell() {
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.shiftKey && e.key === 'z'))) {
         e.preventDefault();
         dispatch({ type: 'redo' });
-      } else if (selected && e.key.startsWith('Arrow')) {
+      } else if (selection?.kind === 'line' && selection.point !== null && e.key.startsWith('Arrow')) {
         e.preventDefault();
-        const def = LINE_DEFS.find((d) => d.id === selected.line);
+        const def = LINE_DEFS.find((d) => d.id === selection.id);
         if (!def) return;
         const frame = frameOf(result);
-        const pts = linePoints(selected.line, state.now.drawing, result);
-        const p = pts[selected.index];
+        const pts = linePoints(selection.id, state.now.drawing, result);
+        const p = pts[selection.point];
         if (!p) return;
         const step = e.shiftKey ? 25 : 5;
         const { x, z } = denorm(frame, p);
@@ -68,13 +70,13 @@ function Shell() {
         const nz = z + (e.key === 'ArrowUp' ? step : e.key === 'ArrowDown' ? -step : 0);
         const c = clampLinePoint(def, result, nx, nz);
         const next = [...pts];
-        next[selected.index] = norm(frame, c.x, c.z);
-        dispatch({ type: 'set-line', line: selected.line, pts: next, commit: true });
+        next[selection.point] = norm(frame, c.x, c.z);
+        dispatch({ type: 'set-line', line: selection.id, pts: next, commit: true });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, state.ledgerOpen, state.now.drawing, selected, result, requestFit]);
+  }, [dispatch, state.ledgerOpen, state.now.drawing, selection, result, requestFit]);
 
   const fileRef = useRef<HTMLInputElement | null>(null);
   const saveProject = () => {
@@ -99,6 +101,7 @@ function Shell() {
       snapshot: {
         pkg: parsed.pkg,
         drawing: migrateDrawing(parsed.drawing),
+        features: { ...defaultFeatures(), ...(parsed.features ?? {}) },
         render: { ...DEFAULT_RENDER, ...(parsed.render ?? {}) },
       },
     });
@@ -106,9 +109,12 @@ function Shell() {
 
   const c = result.counts;
   const panel = state.panel;
-  const selectedLineLabel = selected
-    ? LINE_DEFS.find((d) => d.id === selected.line)?.label
-    : null;
+  const selectedLabel =
+    selection?.kind === 'line'
+      ? LINE_DEFS.find((d) => d.id === selection.id)?.label
+      : selection?.kind === 'feature'
+        ? `${state.now.features[selection.id]?.slot ?? ''} wheel opening`
+        : null;
 
   return (
     <div className="app">
@@ -149,14 +155,21 @@ function Shell() {
         </div>
       </header>
       <div className="main">
-        <PackageRail
-          pkg={state.now.pkg}
-          drawing={state.now.drawing}
-          render={state.now.render}
-          mode={state.mode}
+        <Inspector
+          snapshot={state.now}
+          selection={selection}
           result={result}
           dispatch={dispatch}
-        />
+        >
+          <PackageRail
+            pkg={state.now.pkg}
+            drawing={state.now.drawing}
+            render={state.now.render}
+            mode={state.mode}
+            result={result}
+            dispatch={dispatch}
+          />
+        </Inspector>
         <div className="stage">
           <div className="stage-top">
             <Toolbar
@@ -185,11 +198,11 @@ function Shell() {
                 <SideView
                   result={result}
                   drawing={state.now.drawing}
+                  features={state.now.features}
                   render={state.now.render}
                   mode={state.mode}
+                  selection={selection}
                   dispatch={dispatch}
-                  selected={selected}
-                  onSelect={setSelected}
                 />
                 {state.mode === 'DRAFT' && (
                   <PlanView result={result} drawing={state.now.drawing} dispatch={dispatch} />
@@ -218,9 +231,9 @@ function Shell() {
           <ReadoutStrip result={result} />
           <div className="hint-bar">
             <span>
-              scale 1px = {cam.mmPerPx.toFixed(1)}mm · wheel zooms · drag pans · F fits
+              1px = {cam.mmPerPx.toFixed(1)}mm · wheel zooms · space-drag pans · F fits
             </span>
-            <span>{selectedLineLabel ? `selected: ${selectedLineLabel} — arrows nudge` : 'drag points · walls name themselves on contact'}</span>
+            <span>{selectedLabel ? `selected: ${selectedLabel}` : 'click a part to shape it'}</span>
             <span>L ledger · ctrl+Z undo</span>
           </div>
           {state.ledgerOpen && <Ledger result={result} pkg={state.now.pkg} dispatch={dispatch} />}

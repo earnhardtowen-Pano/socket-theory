@@ -86,8 +86,6 @@ export interface LineDef {
 
 export const LINE_DEFS: readonly LineDef[] = [
   { id: 'rocker', label: 'rocker', view: 'side', clamp: 'rocker' },
-  { id: 'arch_front', label: 'front wheel opening', view: 'side', clamp: 'envelope', lane: 'outboard' },
-  { id: 'arch_rear', label: 'rear wheel opening', view: 'side', clamp: 'envelope', lane: 'outboard' },
   { id: 'hood', label: 'hood', view: 'side', clamp: 'envelope', lane: 'center' },
   { id: 'glass', label: 'windshield', view: 'side', clamp: 'envelope', lane: 'center' },
   { id: 'roof', label: 'roof', view: 'side', clamp: 'envelope', lane: 'center' },

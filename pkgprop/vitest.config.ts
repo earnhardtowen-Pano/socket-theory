@@ -7,6 +7,7 @@ export default defineConfig({
       'data/test/**/*.test.ts',
       'geometry/test/**/*.test.ts',
       'validation/test/**/*.test.ts',
+      'app/test/**/*.test.ts',
     ],
   },
 });

@@ -1,5 +1,6 @@
 import type { ConstraintMeta, SolveResult } from '@pkgprop/core';
 import { useState } from 'react';
+import { generateFeature, type FeatureMap } from '../model/features.js';
 import { stationsOf } from '../model/stations.js';
 import {
   clampLinePoint,
@@ -18,18 +19,20 @@ import {
   type LineId,
   type RenderState,
 } from '../state/lines.js';
-import type { Action, ViewMode } from '../state/store.js';
+import type { Action, Selection, ViewMode } from '../state/store.js';
 import { tick } from './sound.js';
 import { ViewportSvg, type Mapper } from './viewport/ViewportSvg.js';
 import { MarkerRender } from './render/MarkerRender.js';
 import { sunScreenPos } from './render/paint.js';
 
 /**
- * SIDE — two modes over the same authored lines. DRAFT shows the machinery:
- * thresholds dashed, occupants, hard masses, every control point. RENDER
- * paints the car the lines describe and hides the scaffolding.
+ * SIDE — the car, and only the car.
  *
- * The solver never draws the car. This is the car, drawn on the solver.
+ * Nothing shows its control points until you select it. Hovering names the
+ * part under the cursor before you commit to grabbing it, and the hit targets
+ * are generous whatever the zoom. Missing a grab selects; it never throws the
+ * drawing across the screen, because panning now lives on space and the
+ * middle button where every canvas tool keeps it.
  */
 
 interface Touch {
@@ -44,23 +47,24 @@ const SILHOUETTE: LineId[] = ['hood', 'glass', 'roof', 'backlight', 'deck'];
 export function SideView({
   result,
   drawing,
+  features,
   render,
   mode,
+  selection,
   dispatch,
-  selected,
-  onSelect,
 }: {
   result: SolveResult;
   drawing: DrawingState;
+  features: FeatureMap;
   render: RenderState;
   mode: ViewMode;
+  selection: Selection;
   dispatch: React.Dispatch<Action>;
-  selected: { line: LineId; index: number } | null;
-  onSelect: (sel: { line: LineId; index: number } | null) => void;
 }) {
   const g = result.geometry;
   const frame = frameOf(result);
   const [liveTouch, setLiveTouch] = useState<Touch | null>(null);
+  const [hover, setHover] = useState<{ kind: 'line' | 'feature'; id: string } | null>(null);
   const headR = paramValue(result, 'anthro_head_radius', 110);
   const isRender = mode === 'RENDER';
 
@@ -73,27 +77,39 @@ export function SideView({
     return { def, pts, tension: lineTension(def.id, drawing) };
   });
 
+  // Parametric features generate their own curves from their parameters.
+  const featureGeo = Object.values(features).map((f) => ({
+    feature: f,
+    geo: generateFeature(f, result),
+  }));
+
   const ptsById: Record<string, readonly { x: number; z: number }[]> = {};
   for (const r of rendered) ptsById[r.def.id] = r.pts;
+  for (const { feature, geo } of featureGeo) {
+    ptsById[feature.slot === 'front' ? 'arch_front' : 'arch_rear'] = geo.curve;
+  }
+
+  const selectedLine = selection?.kind === 'line' ? selection.id : null;
+  const selectedFeature = selection?.kind === 'feature' ? selection.id : null;
 
   const touchToShow =
     liveTouch ??
-    (selected
+    (selection?.kind === 'line' && selection.point !== null
       ? (() => {
-          const r = rendered.find((l) => l.def.id === selected.line);
-          const p = r?.pts[selected.index];
-          return p?.touching ? { line: selected.line, index: selected.index, ...p.touching } : null;
+          const r = rendered.find((l) => l.def.id === selection.id);
+          const p = r?.pts[selection.point];
+          return p?.touching
+            ? { line: selection.id, index: selection.point, ...p.touching }
+            : null;
         })()
       : null);
-
-  /** The constraint currently being pressed against — for the wall flash. */
   const flashId = touchToShow?.constraint.id ?? null;
 
-  const beginDrag =
+  const beginPointDrag =
     (m: Mapper, line: LineId, index: number) => (down: React.PointerEvent) => {
       down.preventDefault();
       down.stopPropagation();
-      onSelect({ line, index });
+      dispatch({ type: 'select', selection: { kind: 'line', id: line, point: index } });
       const def = LINE_DEFS.find((d) => d.id === line)!;
       const basePts = [...linePoints(line, drawing, result)];
       let lastWall: string | null = null;
@@ -121,18 +137,46 @@ export function SideView({
       window.addEventListener('pointerup', up);
     };
 
-  /** Double-click a line to add a point where the click landed. */
+  /** A feature handle writes one parameter; the drag axis says which way. */
+  const beginHandleDrag =
+    (m: Mapper, featureId: string, param: string, axis: 'x' | 'z' | 'radial') =>
+    (down: React.PointerEvent) => {
+      down.preventDefault();
+      down.stopPropagation();
+      const f = features[featureId];
+      if (!f) return;
+      const start = m.toWorld(down.clientX, down.clientY);
+      const base = f.params[param] ?? 0;
+      const axleX = f.slot === 'rear' ? g.wheelbase : 0;
+      const apply = (e: PointerEvent, commit: boolean) => {
+        const w = m.toWorld(e.clientX, e.clientY);
+        let next = base;
+        if (axis === 'z') next = base + (w.y - start.y);
+        else if (axis === 'x') next = base - (w.x - start.x);
+        else next = base + Math.hypot(w.x - axleX, w.y) - Math.hypot(start.x - axleX, start.y);
+        dispatch({ type: 'set-feature-param', id: featureId, key: param, value: next, commit });
+      };
+      const move = (e: PointerEvent) => apply(e, false);
+      const up = (e: PointerEvent) => {
+        apply(e, true);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    };
+
   const addPoint = (m: Mapper, line: LineId) => (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const def = LINE_DEFS.find((d) => d.id === line)!;
     const base = [...linePoints(line, drawing, result)];
+    const host = (e.currentTarget as SVGElement).ownerSVGElement!;
+    const box = host.getBoundingClientRect();
     const screen = base.map((p) => {
       const { x, z } = denorm(frame, p);
       return { x: m.sx(x), y: m.sy(z) };
     });
-    const host = (e.currentTarget as SVGElement).ownerSVGElement!;
-    const box = host.getBoundingClientRect();
     const near = nearestSegment(screen, e.clientX - box.left, e.clientY - box.top);
     if (!near) return;
     const w = m.toWorld(e.clientX, e.clientY);
@@ -140,17 +184,16 @@ export function SideView({
     const pts = [...base];
     pts.splice(near.index + 1, 0, norm(frame, c.x, c.z));
     dispatch({ type: 'set-line', line, pts, commit: true });
-    onSelect({ line, index: near.index + 1 });
+    dispatch({ type: 'select', selection: { kind: 'line', id: line, point: near.index + 1 } });
     tick();
   };
 
-  /** Alt-click a point to remove it. */
   const removePoint = (line: LineId, index: number, count: number) => {
     if (!isDeletable(line, index, count)) return;
     const pts = [...linePoints(line, drawing, result)];
     pts.splice(index, 1);
     dispatch({ type: 'set-line', line, pts, commit: true });
-    onSelect(null);
+    dispatch({ type: 'select', selection: { kind: 'line', id: line, point: null } });
     tick();
   };
 
@@ -183,6 +226,12 @@ export function SideView({
       .join(' ');
 
   const frameTop = result.bounds.roof_z.upper?.value ?? g.roofZ;
+  const hoverLabel =
+    hover?.kind === 'feature'
+      ? `${features[hover.id]?.slot ?? ''} wheel opening`
+      : hover?.kind === 'line'
+        ? LINE_DEFS.find((d) => d.id === hover.id)?.label
+        : null;
 
   return (
     <div className="view-block" data-testid="side-view">
@@ -203,12 +252,10 @@ export function SideView({
         <span className="view-note">
           {isRender
             ? 'drag the sun · the light follows'
-            : 'dashed is the buildable space — thresholds, not a car'}
+            : 'click a part to shape it · space-drag to pan'}
         </span>
       </div>
 
-      {/* Overlay, never in flow: inserting this mid-drag used to shove the
-          canvas under the cursor and make the whole view shudder. */}
       {touchToShow && (
         <div className="wall-chip overlay" data-testid="drawing-wall-chip">
           <span className="who">{touchToShow.constraint.label}</span>
@@ -228,7 +275,7 @@ export function SideView({
         fitBox={{ x0: frame.xMin - 140, x1: frame.xMax + 140, y0: -90, y1: frame.zMax + 110 }}
         rulerEdge="top"
         stations={stationsOf(result)}
-        onBackgroundDown={() => onSelect(null)}
+        onBackgroundDown={() => dispatch({ type: 'select', selection: null })}
         minHeightPx={320}
         maxHeightPx={600}
         hideChrome={isRender}
@@ -237,15 +284,11 @@ export function SideView({
           <>
             {isRender ? (
               <>
-                <MarkerRender
-                  input={{ result, drawing, render, pts: ptsById }}
-                  m={m}
-                />
+                <MarkerRender input={{ result, drawing, render, pts: ptsById }} m={m} />
                 <SunHandle m={m} render={render} g={g} frameTop={frameTop} onDown={dragSun(m)} />
               </>
             ) : (
               <>
-                {/* ground */}
                 <line x1={0} y1={m.sy(0)} x2={m.pxW} y2={m.sy(0)} className="ground-line" />
 
                 {[0, g.wheelbase].map((ax) => (
@@ -257,21 +300,6 @@ export function SideView({
                       r={(g.tireRadius * 0.62) / m.mmPerPx}
                       className="wheel-rim"
                     />
-                    {Array.from({ length: 5 }, (_, i) => {
-                      const a = (i / 5) * Math.PI * 2 + Math.PI / 10;
-                      const r1 = (g.tireRadius * 0.16) / m.mmPerPx;
-                      const r2 = (g.tireRadius * 0.56) / m.mmPerPx;
-                      return (
-                        <line
-                          key={i}
-                          x1={m.sx(ax) + r1 * Math.cos(a)}
-                          y1={m.sy(g.tireRadius) + r1 * Math.sin(a)}
-                          x2={m.sx(ax) + r2 * Math.cos(a)}
-                          y2={m.sy(g.tireRadius) + r2 * Math.sin(a)}
-                          className="wheel-spoke"
-                        />
-                      );
-                    })}
                     <circle cx={m.sx(ax)} cy={m.sy(g.tireRadius)} r={2.4} className="wheel-hub" />
                   </g>
                 ))}
@@ -285,9 +313,7 @@ export function SideView({
                         width={(b.x1 - b.x0) / m.mmPerPx}
                         height={(b.z1 - b.z0) / m.mmPerPx}
                         className="hard-mass"
-                      >
-                        <title>hard mass</title>
-                      </rect>
+                      />
                     ),
                 )}
                 {g.occupants.map((o) => (
@@ -296,17 +322,10 @@ export function SideView({
                     <path
                       d={`M ${m.sx(o.heel.x)} ${m.sy(o.heel.z)} L ${m.sx(o.hpoint.x)} ${m.sy(o.hpoint.z)} L ${m.sx(o.headCenter.x)} ${m.sy(o.headCenter.z)}`}
                     />
-                    <circle cx={m.sx(o.hpoint.x)} cy={m.sy(o.hpoint.z)} r={3.4} className="hpoint">
-                      <title>{`H-point row ${o.row}`}</title>
-                    </circle>
+                    <circle cx={m.sx(o.hpoint.x)} cy={m.sy(o.hpoint.z)} r={3.4} className="hpoint" />
                   </g>
                 ))}
-                <g className="eye-cross">
-                  <line x1={m.sx(g.eye.x) - 6} y1={m.sy(g.eye.z)} x2={m.sx(g.eye.x) + 6} y2={m.sy(g.eye.z)} />
-                  <line x1={m.sx(g.eye.x)} y1={m.sy(g.eye.z) - 6} x2={m.sx(g.eye.x)} y2={m.sy(g.eye.z) + 6} />
-                </g>
 
-                {/* thresholds — the wall being pressed lights up */}
                 {result.envelope.floor.segments.map((s, i) => (
                   <path
                     key={`f${i}`}
@@ -337,68 +356,144 @@ export function SideView({
                     />
                   ))}
 
-                {/* fat invisible hit strokes: double-click adds a point */}
-                {rendered.map(({ def, pts, tension }) => (
-                  <path
-                    key={`hit-${def.id}`}
-                    d={smoothPath(pts.map((p) => ({ x: m.sx(p.x), y: m.sy(p.z) })), tension)}
-                    className="line-hit"
-                    onDoubleClick={addPoint(m, def.id)}
-                  >
-                    <title>{`${def.label} — double-click to add a point`}</title>
-                  </path>
-                ))}
-
-                {rendered.map(({ def, pts }) =>
-                  pts.map((p, i) => {
-                    if (isBoundPoint(def.id, i, pts.length)) {
-                      return (
-                        <rect
-                          key={`${def.id}${i}`}
-                          x={m.sx(p.x) - 2.5}
-                          y={m.sy(p.z) - 2.5}
-                          width={5}
-                          height={5}
-                          className="hard-pt"
-                        >
-                          <title>{`${def.label} — welded to the cowl hard point`}</title>
-                        </rect>
-                      );
-                    }
-                    const isSel = selected?.line === def.id && selected.index === i;
-                    return (
-                      <circle
-                        key={`${def.id}${i}`}
-                        data-testid={`pt-${def.id}-${i}`}
-                        cx={m.sx(p.x)}
-                        cy={m.sy(p.z)}
-                        r={isSel ? 7 : 4.5}
-                        className={`ctl-pt ${p.touching ? 'touching' : ''} ${isSel ? 'selected' : ''}`}
-                        onPointerDown={(e) => {
-                          if (e.altKey) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            removePoint(def.id, i, pts.length);
-                            return;
-                          }
-                          beginDrag(m, def.id, i)(e);
+                {/* line hit strokes: click selects, double-click adds a point */}
+                {rendered.map(({ def, pts, tension }) => {
+                  const d = smoothPath(pts.map((p) => ({ x: m.sx(p.x), y: m.sy(p.z) })), tension);
+                  const isHov = hover?.kind === 'line' && hover.id === def.id;
+                  const isSel = selectedLine === def.id;
+                  return (
+                    <g key={`hit-${def.id}`}>
+                      {(isHov || isSel) && (
+                        <path d={d} className={`feature-curve ${isSel ? 'selected' : 'hovered'}`} />
+                      )}
+                      <path
+                        d={d}
+                        className="feature-hit"
+                        data-testid={`line-${def.id}`}
+                        onPointerEnter={() => setHover({ kind: 'line', id: def.id })}
+                        onPointerLeave={() => setHover(null)}
+                        onPointerDownCapture={(e) => {
+                          e.stopPropagation();
+                          dispatch({ type: 'select', selection: { kind: 'line', id: def.id, point: null } });
                         }}
-                      >
-                        <title>
-                          {p.touching
-                            ? `${def.label} — on ${p.touching.constraint.label}`
-                            : `${def.label} — alt-click to remove`}
-                        </title>
-                      </circle>
-                    );
-                  }),
-                )}
+                        onDoubleClick={addPoint(m, def.id)}
+                      />
+                    </g>
+                  );
+                })}
+
+                {/* parametric features: wheel openings drawn from their arcs */}
+                {featureGeo.map(({ feature, geo }) => {
+                  const d = smoothPath(
+                    geo.curve.map((p) => ({ x: m.sx(p.x), y: m.sy(p.z) })),
+                    1,
+                  );
+                  const isSel = selectedFeature === feature.id;
+                  const isHov = hover?.kind === 'feature' && hover.id === feature.id;
+                  return (
+                    <g key={feature.id}>
+                      <path
+                        d={d}
+                        className={`feature-curve ${isSel ? 'selected' : ''} ${isHov ? 'hovered' : ''}`}
+                      />
+                      <path
+                        d={d}
+                        className="feature-hit"
+                        data-testid={`feature-${feature.id}`}
+                        onPointerEnter={() => setHover({ kind: 'feature', id: feature.id })}
+                        onPointerLeave={() => setHover(null)}
+                        onPointerDownCapture={(e) => {
+                          e.stopPropagation();
+                          dispatch({ type: 'select', selection: { kind: 'feature', id: feature.id } });
+                        }}
+                      />
+                      {isSel &&
+                        geo.handles.map((h) => (
+                          <g key={h.id}>
+                            <circle
+                              cx={m.sx(h.at.x)}
+                              cy={m.sy(h.at.z)}
+                              r={13}
+                              className="handle-hit"
+                              onPointerDown={beginHandleDrag(m, feature.id, h.param, h.axis)}
+                            >
+                              <title>{h.label}</title>
+                            </circle>
+                            <circle cx={m.sx(h.at.x)} cy={m.sy(h.at.z)} r={5.5} className="handle" />
+                          </g>
+                        ))}
+                    </g>
+                  );
+                })}
+
+                {/* points, only for the line in your hand */}
+                {rendered
+                  .filter(({ def }) => selectedLine === def.id)
+                  .map(({ def, pts }) =>
+                    pts.map((p, i) => {
+                      if (isBoundPoint(def.id, i, pts.length)) {
+                        return (
+                          <rect
+                            key={`${def.id}${i}`}
+                            x={m.sx(p.x) - 3}
+                            y={m.sy(p.z) - 3}
+                            width={6}
+                            height={6}
+                            className="hard-pt"
+                          >
+                            <title>welded to the cowl hard point</title>
+                          </rect>
+                        );
+                      }
+                      const held = selection?.kind === 'line' && selection.point === i;
+                      return (
+                        <g key={`${def.id}${i}`}>
+                          <circle
+                            cx={m.sx(p.x)}
+                            cy={m.sy(p.z)}
+                            r={13}
+                            fill="transparent"
+                            style={{ cursor: 'grab' }}
+                            data-testid={`pt-${def.id}-${i}`}
+                            onPointerDown={(e) => {
+                              if (e.altKey) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removePoint(def.id, i, pts.length);
+                                return;
+                              }
+                              beginPointDrag(m, def.id, i)(e);
+                            }}
+                          >
+                            <title>{`${def.label} — drag to move, alt-click to remove`}</title>
+                          </circle>
+                          <circle
+                            cx={m.sx(p.x)}
+                            cy={m.sy(p.z)}
+                            r={held ? 6.5 : 5}
+                            className={`ctl-pt ${p.touching ? 'touching' : ''} ${held ? 'selected' : ''}`}
+                            style={{ pointerEvents: 'none' }}
+                          />
+                        </g>
+                      );
+                    }),
+                  )}
+
+                {hoverLabel && !selection && <HoverTag m={m} label={hoverLabel} />}
               </>
             )}
           </>
         )}
       </ViewportSvg>
     </div>
+  );
+}
+
+function HoverTag({ m, label }: { m: Mapper; label: string }) {
+  return (
+    <text x={12} y={m.pxH - 12} className="feature-label">
+      {label}
+    </text>
   );
 }
 

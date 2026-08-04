@@ -377,3 +377,49 @@ select {
 }
 
 .tick-toggle { font-size: var(--fs-micro); letter-spacing: var(--track-tight); padding: 3px var(--s3); }
+
+/* ---- inspector ---- */
+.inspect-head {
+  display: grid; grid-template-columns: auto 1fr; gap: var(--s1) var(--s3);
+  align-items: baseline;
+  padding: var(--s4) var(--s4) var(--s3);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+.inspect-back {
+  grid-row: 1 / 3;
+  border: 1px solid var(--hairline); background: transparent;
+  font: inherit; color: var(--ink); cursor: pointer;
+  width: 22px; height: 22px; line-height: 1; padding: 0;
+}
+.inspect-back:hover { background: var(--ink); color: var(--panel); }
+.inspect-title { font-size: var(--fs-label); letter-spacing: var(--track-label); text-transform: uppercase; }
+.inspect-blurb { grid-column: 2; color: var(--ink-faint); font-size: var(--fs-label); }
+.inspect-foot { padding: var(--s4); }
+.control.param { padding: var(--s3) var(--s4) var(--s2); }
+.param-hint { color: var(--ink-faint); font-size: var(--fs-label); margin-top: var(--s1); line-height: 1.4; }
+.param-hint.block { padding: 0 var(--s4); margin-top: var(--s4); }
+.control.param .plain-range {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 2px; background: var(--ink); outline: none; margin: var(--s2) 0 0;
+}
+.control.param .plain-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 12px; height: 12px; border-radius: 0;
+  background: var(--panel-raised); border: 2px solid var(--ink); cursor: ew-resize;
+}
+
+/* ---- selection and hover on the canvas ---- */
+.view-svg.pan-ready { cursor: grab; }
+.feature-hit { fill: none; stroke: transparent; stroke-width: 22; pointer-events: stroke; cursor: pointer; }
+.feature-curve { fill: none; stroke: var(--ink); stroke-width: var(--stroke-feature); stroke-linecap: round; }
+.feature-curve.hovered { stroke-width: 3; }
+.feature-curve.selected { stroke: var(--accent); stroke-width: 3.2; }
+.feature-label {
+  fill: var(--accent); font-size: var(--fs-label); letter-spacing: var(--track-tight);
+  paint-order: stroke; stroke: var(--panel); stroke-width: 3px;
+}
+.handle {
+  fill: var(--panel-raised); stroke: var(--accent); stroke-width: 2.2; cursor: grab;
+}
+.handle-hit { fill: transparent; cursor: grab; }

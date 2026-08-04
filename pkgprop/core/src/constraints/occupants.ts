@@ -1,5 +1,5 @@
 import type { Bound } from '../graph.js';
-import { floorOf, legroomOf, rowH30Of, rowHipXOf, rowRoofMinOf } from './chains.js';
+import { floorOf, legroomOf, rowH30Of, rowHipXOf, rowRoofMinOf, seatedHeightOf } from './chains.js';
 import type { Ctx, Pt } from './ctx.js';
 import { M } from './metas.js';
 
@@ -47,7 +47,7 @@ export function placeOccupants(ctx: Ctx, heelX: number, h30Front: number): Occup
     const h30 = rowH30Of(r, ctx.seating, h30Front, i);
     const hipX = rowHipXOf(r, ctx.seating, heelX, h30Front, i);
     const hipZ = floorZ + h30;
-    const headTopZ = hipZ + r.value('anthro_seated_height_above_hpoint');
+    const headTopZ = hipZ + seatedHeightOf(r);
     rows.push({
       row: i + 1,
       seats: def.seats,
