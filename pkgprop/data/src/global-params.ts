@@ -148,6 +148,15 @@ export const GLOBAL_PARAMS: readonly ParamDef[] = [
     range: [8000, 60000],
   },
   {
+    id: 'glass_backlight_aft_of_last_hip',
+    label: 'backlight base aft of the last hip',
+    unit: 'mm',
+    value: 650,
+    license: 'ASSUMED',
+    note: 'where the rear glass meets the deck. The rearward sight ceiling applies to the opaque deck aft of here; the glass ahead of it transmits the view.',
+    range: [300, 1200],
+  },
+  {
     id: 'vision_side_drop',
     label: 'beltline drop below eye level',
     unit: 'mm',
@@ -327,9 +336,9 @@ export const GLOBAL_PARAMS: readonly ParamDef[] = [
     id: 'style_overall_height_max',
     label: 'overall height ceiling',
     unit: 'mm',
-    value: 1400,
+    value: 1700,
     license: 'ASSUMED',
-    note: 'a stance target, not physics: the tallest car the owner will accept.',
+    note: 'a stance target, not physics: the tallest car the owner will accept. Pull it down to chase a low car and the conflicts will name what pushes back.',
     range: [1020, 2200],
   },
   {

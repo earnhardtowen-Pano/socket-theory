@@ -126,14 +126,21 @@ export function buildEnvelope(ctx: Ctx, e: EnvelopeInputs): Envelope {
     });
   }
 
-  // ...and the rearward sight line over the deck.
+  // ...and the rearward sight line over the opaque deck. The backlight
+  // transmits the view, so the ceiling begins where the glass ends.
   {
-    const groundX = e.eye.x + r.value('vision_rear_ground_sight');
-    ceilSegs.push({
-      kind: 'line', x0: e.eye.x, x1: e.tailX,
-      z0: sightLineZ(e.eye, groundX, e.eye.x), z1: sightLineZ(e.eye, groundX, e.tailX),
-      constraint: M.sightOverDeck,
-    });
+    const last = e.occupants[e.occupants.length - 1];
+    if (last) {
+      const backlightX = last.hpoint.x + r.value('glass_backlight_aft_of_last_hip');
+      const groundX = e.eye.x + r.value('vision_rear_ground_sight');
+      if (backlightX < e.tailX) {
+        ceilSegs.push({
+          kind: 'line', x0: backlightX, x1: e.tailX,
+          z0: sightLineZ(e.eye, groundX, backlightX), z1: sightLineZ(e.eye, groundX, e.tailX),
+          constraint: M.sightOverDeck,
+        });
+      }
+    }
   }
 
   const floor = new FloorProfile(floorSegs);

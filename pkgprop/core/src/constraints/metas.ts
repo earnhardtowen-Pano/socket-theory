@@ -176,6 +176,18 @@ export const M = {
     reason: 'the engine and its crush length must fit inside the rear overhang',
     license: 'DERIVED',
   },
+  groundClearance: {
+    id: 'ground_clearance',
+    label: 'running ground clearance',
+    reason: 'the sill cannot hang below the running clearance',
+    license: 'ASSUMED',
+  },
+  cabinFloor: {
+    id: 'cabin_floor',
+    label: 'cabin floor',
+    reason: 'the sill line is the visible edge of the floor structure; it cannot rise above the cabin floor',
+    license: 'DERIVED',
+  },
   wheelsOnTrack: {
     id: 'wheels_on_track',
     label: 'wheels on the track',

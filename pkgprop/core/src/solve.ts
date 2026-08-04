@@ -9,6 +9,7 @@ import {
   frontPowertrainBox,
   h30Bound,
   heelBound,
+  rockerBound,
   type Box,
 } from './constraints/structure.js';
 import { tireGeometry } from './constraints/tires.js';
@@ -42,15 +43,16 @@ const DEFAULT_CONTROLS: Record<ControlId, number> = {
   front_overhang: 0.35,
   h30: 0.4,
   heel_x: 0.15,
-  roof_z: 0.2,
-  cowl_z: 0.65,
-  hood_z: 0.3,
+  roof_z: 0.15,
+  cowl_z: 0.85,
+  hood_z: 0.5,
   header_x: 0.7,
   belt_z: 0.4,
   wheelbase: 0.35,
   rear_overhang: 0.35,
-  deck_z: 0.25,
+  deck_z: 0.3,
   overall_width: 0.4,
+  rocker_z: 0.3,
 };
 
 export interface SideGeometry {
@@ -72,6 +74,7 @@ export interface SideGeometry {
   readonly battery: Box | null;
   readonly overallWidth: number;
   readonly track: number;
+  readonly rockerZ: number;
 }
 
 export interface SolveResult {
@@ -161,6 +164,7 @@ export function solve(input: SolveInput): SolveResult {
   const rearBox = rearPowertrainBox(ctx, wheelbase.value, rearOverhang.value);
   const battery = batterySlab(ctx, wheelbase.value);
   const width = place('overall_width', widthBound(ctx, occupants));
+  const rocker = place('rocker_z', rockerBound(ctx));
 
   // 10 — the buildable space
   const bumperX = -frontOverhang.value;
@@ -205,6 +209,7 @@ export function solve(input: SolveInput): SolveResult {
     battery,
     overallWidth: width.value,
     track: reg.value('chassis_track'),
+    rockerZ: rocker.value,
   };
 
   return {

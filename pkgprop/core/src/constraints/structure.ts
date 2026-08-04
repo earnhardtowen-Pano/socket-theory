@@ -55,6 +55,15 @@ export function frontPowertrainBox(ctx: Ctx, frontOverhang: PlacedControl): Box 
   return null;
 }
 
+/** The rocker (sill) band: running clearance below, cabin floor above. */
+export function rockerBound(ctx: Ctx): Bound {
+  ctx.cs.contribute('rocker_z', 'lower', M.groundClearance, () =>
+    ctx.reg.value('structure_ground_clearance'),
+  );
+  ctx.cs.contribute('rocker_z', 'upper', M.cabinFloor, () => floorOf(ctx.reg, ctx.arch));
+  return ctx.cs.bound('rocker_z');
+}
+
 /** Seat height band for this architecture. */
 export function h30Bound(ctx: Ctx): Bound {
   ctx.cs.contribute('h30', 'lower', M.seatBand, () => ctx.reg.value('arch_h30_min'));
