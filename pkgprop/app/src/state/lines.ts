@@ -30,10 +30,49 @@ export interface NormPt {
   readonly fz: number;
 }
 
+/** One authored line: its points and how tightly the curve pulls through them. */
+export interface LineState {
+  readonly pts: readonly NormPt[];
+  /** 0 = straight polyline, 1 = full curve. Defaults to 1. */
+  readonly tension?: number;
+}
+
 export interface DrawingState {
   /** Authored lines only; a missing entry renders its live default. */
-  readonly lines: Partial<Record<LineId, readonly NormPt[]>>;
+  readonly lines: Partial<Record<LineId, LineState>>;
 }
+
+/** How the car is presented. Authored, not solved — Law 2 keeps these apart. */
+export interface RenderState {
+  /** Marker paint hue, degrees. */
+  readonly hue: number;
+  /** Paint saturation, 0..1 — silver and graphite sit near zero. */
+  readonly sat: number;
+  /** Glass darkness, 0..1. */
+  readonly tint: number;
+  /** Sun azimuth: -1 hard behind, 0 overhead, +1 hard ahead. */
+  readonly sunAz: number;
+  /** Sun elevation: 0 on the horizon, 1 straight overhead. */
+  readonly sunEl: number;
+}
+
+export const DEFAULT_RENDER: RenderState = {
+  hue: 205,
+  sat: 0.1,
+  tint: 0.72,
+  sunAz: 0.45,
+  sunEl: 0.62,
+};
+
+/** Marker palette — hue and saturation pairs, named the way markers are. */
+export const PAINT_CHIPS: readonly { id: string; label: string; hue: number; sat: number }[] = [
+  { id: 'silver', label: 'silver', hue: 210, sat: 0.05 },
+  { id: 'graphite', label: 'graphite', hue: 220, sat: 0.08 },
+  { id: 'oxide', label: 'oxide red', hue: 12, sat: 0.62 },
+  { id: 'steel', label: 'steel blue', hue: 205, sat: 0.42 },
+  { id: 'sage', label: 'sage', hue: 128, sat: 0.24 },
+  { id: 'amber', label: 'amber', hue: 38, sat: 0.66 },
+];
 
 export interface LineDef {
   readonly id: LineId;
@@ -47,15 +86,15 @@ export interface LineDef {
 
 export const LINE_DEFS: readonly LineDef[] = [
   { id: 'rocker', label: 'rocker', view: 'side', clamp: 'rocker' },
-  { id: 'arch_front', label: 'front arch', view: 'side', clamp: 'envelope', lane: 'outboard' },
-  { id: 'arch_rear', label: 'rear arch', view: 'side', clamp: 'envelope', lane: 'outboard' },
+  { id: 'arch_front', label: 'front wheel opening', view: 'side', clamp: 'envelope', lane: 'outboard' },
+  { id: 'arch_rear', label: 'rear wheel opening', view: 'side', clamp: 'envelope', lane: 'outboard' },
   { id: 'hood', label: 'hood', view: 'side', clamp: 'envelope', lane: 'center' },
-  { id: 'glass', label: 'glass', view: 'side', clamp: 'envelope', lane: 'center' },
+  { id: 'glass', label: 'windshield', view: 'side', clamp: 'envelope', lane: 'center' },
   { id: 'roof', label: 'roof', view: 'side', clamp: 'envelope', lane: 'center' },
   { id: 'backlight', label: 'backlight', view: 'side', clamp: 'envelope', lane: 'center' },
-  { id: 'deck', label: 'deck', view: 'side', clamp: 'envelope', lane: 'center' },
-  { id: 'belt', label: 'belt', view: 'side', clamp: 'belt' },
-  { id: 'plan_side', label: 'body side (plan)', view: 'plan', clamp: 'plan' },
+  { id: 'deck', label: 'decklid', view: 'side', clamp: 'envelope', lane: 'center' },
+  { id: 'belt', label: 'beltline', view: 'side', clamp: 'belt' },
+  { id: 'plan_side', label: 'body side, plan', view: 'plan', clamp: 'plan' },
 ];
 
 /** The live frame both views normalize into. */
@@ -164,6 +203,24 @@ export function defaultLines(): DrawingState {
   return { lines: {} };
 }
 
+/**
+ * Read a project file's drawing block leniently: earlier files stored a bare
+ * point array per line, before tension existed.
+ */
+export function migrateDrawing(raw: unknown): DrawingState {
+  const lines: Record<string, LineState> = {};
+  const source = (raw as { lines?: Record<string, unknown> } | null)?.lines;
+  if (source && typeof source === 'object') {
+    for (const [id, entry] of Object.entries(source)) {
+      if (Array.isArray(entry)) lines[id] = { pts: entry as NormPt[] };
+      else if (entry && typeof entry === 'object' && Array.isArray((entry as LineState).pts)) {
+        lines[id] = entry as LineState;
+      }
+    }
+  }
+  return { lines: lines as DrawingState['lines'] };
+}
+
 /** Read a parameter's effective value out of the solve, by id. */
 export function paramValue(result: SolveResult, id: string, fallback: number): number {
   return result.params.find((p) => p.id === id)?.effective ?? fallback;
@@ -247,12 +304,23 @@ export function defaultPoints(id: LineId, result: SolveResult): NormPt[] {
 
 /** Authored points if present, else the live default. */
 export function linePoints(id: LineId, drawing: DrawingState, result: SolveResult): readonly NormPt[] {
-  return drawing.lines[id] ?? defaultPoints(id, result);
+  const authored = drawing.lines[id]?.pts;
+  // An entry can exist carrying only a tension, with no points authored yet.
+  return authored && authored.length > 0 ? authored : defaultPoints(id, result);
 }
 
-/** Catmull-Rom through the clamped points, as an SVG path in view space. */
-export function smoothPath(pts: readonly { x: number; y: number }[]): string {
+/** How tightly this line's curve pulls through its points. */
+export function lineTension(id: LineId, drawing: DrawingState): number {
+  return drawing.lines[id]?.tension ?? 1;
+}
+
+/**
+ * A cardinal spline through the points, as an SVG path in view space.
+ * Tension scales the handles: 0 gives straight segments, 1 the full curve.
+ */
+export function smoothPath(pts: readonly { x: number; y: number }[], tension = 1): string {
   if (pts.length < 2) return '';
+  const t = Math.max(0, Math.min(1, tension)) / 6;
   const p = (i: number) => pts[Math.max(0, Math.min(pts.length - 1, i))]!;
   let d = `M ${p(0).x.toFixed(1)} ${p(0).y.toFixed(1)}`;
   for (let i = 0; i < pts.length - 1; i += 1) {
@@ -260,13 +328,45 @@ export function smoothPath(pts: readonly { x: number; y: number }[]): string {
     const p1 = p(i);
     const p2 = p(i + 1);
     const p3 = p(i + 2);
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
+    const c1x = p1.x + (p2.x - p0.x) * t;
+    const c1y = p1.y + (p2.y - p0.y) * t;
+    const c2x = p2.x - (p3.x - p1.x) * t;
+    const c2y = p2.y - (p3.y - p1.y) * t;
     d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
   }
   return d;
+}
+
+/**
+ * Which segment a click landed on, and therefore where a new point goes.
+ * Screen-space perpendicular distance to each segment; the nearest wins.
+ */
+export function nearestSegment(
+  screenPts: readonly { x: number; y: number }[],
+  x: number,
+  y: number,
+): { index: number; dist: number } | null {
+  let best: { index: number; dist: number } | null = null;
+  for (let i = 0; i < screenPts.length - 1; i += 1) {
+    const a = screenPts[i]!;
+    const b = screenPts[i + 1]!;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    const u = len2 > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2)) : 0;
+    const px = a.x + u * dx;
+    const py = a.y + u * dy;
+    const dist = Math.hypot(x - px, y - py);
+    if (!best || dist < best.dist) best = { index: i, dist };
+  }
+  return best;
+}
+
+/** Points that may not be deleted: the ends, and anything welded to the solver. */
+export function isDeletable(id: LineId, index: number, count: number): boolean {
+  if (count <= 2) return false;
+  if (index === 0 || index === count - 1) return false;
+  return !isBoundPoint(id, index, count);
 }
 
 /**

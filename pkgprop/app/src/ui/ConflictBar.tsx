@@ -6,6 +6,7 @@ import type { SolveResult } from '@pkgprop/core';
  */
 export function ConflictBar({ result }: { result: SolveResult }) {
   if (result.conflicts.length === 0) return null;
+  // An overlay, not a row: pushing layout mid-drag shook the canvas.
   return (
     <div className="conflict-bar" data-testid="conflict-bar">
       {result.conflicts.map((k, i) => {

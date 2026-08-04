@@ -1,7 +1,14 @@
 import { solve, type SolveResult, type ControlId } from '@pkgprop/core';
 import { buildSolveInput, type PackageState } from '@pkgprop/data';
 import { useMemo, useReducer } from 'react';
-import { defaultLines, type DrawingState, type LineId, type NormPt } from './lines.js';
+import {
+  DEFAULT_RENDER,
+  defaultLines,
+  type DrawingState,
+  type LineId,
+  type NormPt,
+  type RenderState,
+} from './lines.js';
 
 /**
  * One store, one reducer, full undo. Package state and drawing state are the
@@ -14,6 +21,8 @@ export type PanelId = 'PACKAGE' | 'SIDE' | 'SECTIONS' | 'BODY' | 'BOUNCE' | 'LED
 export interface Snapshot {
   readonly pkg: PackageState;
   readonly drawing: DrawingState;
+  /** How the car is presented. Authored, saved, undoable — never solved. */
+  readonly render: RenderState;
 }
 
 export interface AppState {
@@ -25,7 +34,11 @@ export interface AppState {
   readonly future: readonly Snapshot[];
   readonly panel: PanelId;
   readonly ledgerOpen: boolean;
+  /** DRAFT shows the machinery; RENDER shows the car. Not part of the project. */
+  readonly mode: ViewMode;
 }
+
+export type ViewMode = 'DRAFT' | 'RENDER';
 
 export const INITIAL_PKG: PackageState = {
   architecture: 'fr',
@@ -34,12 +47,13 @@ export const INITIAL_PKG: PackageState = {
 
 export function initialState(): AppState {
   return {
-    now: { pkg: INITIAL_PKG, drawing: defaultLines() },
+    now: { pkg: INITIAL_PKG, drawing: defaultLines(), render: DEFAULT_RENDER },
     pendingBase: null,
     history: [],
     future: [],
     panel: 'SIDE',
     ledgerOpen: false,
+    mode: 'RENDER',
   };
 }
 
@@ -50,10 +64,13 @@ export type Action =
   | { type: 'set-control'; id: ControlId; fraction: number; commit: boolean }
   | { type: 'set-override'; id: string; value: number | null }
   | { type: 'set-line'; line: LineId; pts: readonly NormPt[]; commit: boolean }
+  | { type: 'set-tension'; line: LineId; tension: number; commit: boolean }
   | { type: 'reset-line'; line: LineId }
   | { type: 'reset-drawing' }
+  | { type: 'set-render'; patch: Partial<RenderState>; commit: boolean }
   | { type: 'load'; snapshot: Snapshot }
   | { type: 'panel'; id: PanelId }
+  | { type: 'mode'; mode: ViewMode }
   | { type: 'ledger'; open: boolean }
   | { type: 'undo' }
   | { type: 'redo' };
@@ -100,9 +117,22 @@ export function reducer(state: AppState, action: Action): AppState {
       return withPkg(state, { ...pkg, overrides });
     }
     case 'set-line': {
+      const prev = drawing.lines[action.line];
+      const entry = { pts: [...action.pts], ...(prev?.tension !== undefined ? { tension: prev.tension } : {}) };
       const next = {
         ...state.now,
-        drawing: { lines: { ...drawing.lines, [action.line]: [...action.pts] } },
+        drawing: { lines: { ...drawing.lines, [action.line]: entry } },
+      };
+      return push(state, next, action.commit);
+    }
+    case 'set-tension': {
+      const prev = drawing.lines[action.line];
+      const entry = { pts: prev?.pts ?? [], tension: action.tension };
+      // A line with no authored points keeps rendering its default set; the
+      // tension still applies, so only store points when they already exist.
+      const next = {
+        ...state.now,
+        drawing: { lines: { ...drawing.lines, [action.line]: entry } },
       };
       return push(state, next, action.commit);
     }
@@ -113,6 +143,10 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'reset-drawing':
       return push(state, { ...state.now, drawing: defaultLines() }, true);
+    case 'set-render':
+      return push(state, { ...state.now, render: { ...state.now.render, ...action.patch } }, action.commit);
+    case 'mode':
+      return { ...state, mode: action.mode };
     case 'load':
       return push(state, action.snapshot, true);
     case 'panel':

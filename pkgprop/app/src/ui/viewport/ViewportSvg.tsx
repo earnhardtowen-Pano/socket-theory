@@ -61,6 +61,7 @@ export function ViewportSvg({
   testid,
   minHeightPx,
   maxHeightPx,
+  hideChrome,
 }: {
   view: string;
   /** true when +y is up on screen (side view); false when +y is down-mirrored (plan handles its own sign). */
@@ -75,6 +76,8 @@ export function ViewportSvg({
   testid?: string;
   minHeightPx?: number;
   maxHeightPx?: number;
+  /** Render mode hides the grid and ruler so the car owns the frame. */
+  hideChrome?: boolean;
 }) {
   const { cam, setCam, fitSignal } = useCamera();
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -182,7 +185,11 @@ export function ViewportSvg({
   const rulerY = rulerEdge === 'top' ? 14 : heightPx - 6;
 
   return (
-    <div ref={hostRef} className="viewport-host" data-testid={testid}>
+    <div
+      ref={hostRef}
+      className={`viewport-host ${hideChrome ? 'staged' : ''}`}
+      data-testid={testid}
+    >
       <svg
         ref={svgRef}
         className="view-svg"
@@ -192,10 +199,10 @@ export function ViewportSvg({
         onWheel={onWheel}
         onPointerDown={onPointerDown}
       >
-        <g>{gridLines}</g>
+        {!hideChrome && <g>{gridLines}</g>}
         {children(m)}
         {/* station ruler — the shared spine */}
-        <g className="ruler" data-testid="station-ruler">
+        <g className="ruler" data-testid="station-ruler" style={hideChrome ? { display: 'none' } : undefined}>
           <line
             x1={0}
             x2={pxW}

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { AppState, Action } from '../state/store.js';
 import { IconButton } from './ds/Icon.js';
+import { setTickEnabled, tickEnabled } from './sound.js';
 
 /**
  * The history and file hardware — visible, not keyboard folklore.
@@ -18,6 +20,7 @@ export function Toolbar({
   onLoad: () => void;
   onFit: () => void;
 }) {
+  const [ticks, setTicks] = useState(tickEnabled());
   return (
     <div className="toolbar" data-testid="toolbar">
       <div className="toolbar-group">
@@ -57,6 +60,16 @@ export function Toolbar({
           label="ledger (L)"
           onClick={() => dispatch({ type: 'ledger', open: !state.ledgerOpen })}
         />
+        <button
+          className="chip tick-toggle"
+          title="the tick when a control meets a wall"
+          onClick={() => {
+            setTickEnabled(!ticks);
+            setTicks(!ticks);
+          }}
+        >
+          {ticks ? 'tick on' : 'tick off'}
+        </button>
       </div>
     </div>
   );

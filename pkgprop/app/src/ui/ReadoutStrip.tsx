@@ -2,11 +2,12 @@ import type { SolveResult } from '@pkgprop/core';
 
 const SHOW = [
   'overall_length',
+  'dash_to_axle',
   'tire_diameter',
+  'rim_diameter_in',
   'floor_z',
   'eye_z',
   'ground_sight_actual',
-  'rake_floor_deg',
   'rake_deg',
 ] as const;
 
@@ -18,7 +19,9 @@ export function ReadoutStrip({ result }: { result: SolveResult }) {
         const r = result.readouts.find((x) => x.id === id);
         if (!r) return null;
         const value =
-          r.unit === 'deg' ? (Math.round(r.value * 10) / 10).toFixed(1) : String(Math.round(r.value));
+          r.unit === 'deg' || r.unit === 'in'
+            ? (Math.round(r.value * 10) / 10).toFixed(1)
+            : String(Math.round(r.value));
         return (
           <div className="readout" key={id} title={`${r.derivation} — DERIVED`}>
             <div className="k">{r.label}</div>

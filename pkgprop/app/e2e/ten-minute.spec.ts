@@ -1,39 +1,39 @@
 import { expect, test } from '@playwright/test';
+import { draft, openFold } from './helpers.js';
 
 /**
- * The ten-minute test (brief §4), scripted as the Gate-1 acceptance run:
- * a first-time user goes from blank to a recognizable, package-true
- * authored side view. Every step here is something a person does with a
- * mouse and one keyboard key; the script just proves the path has no holes.
+ * The ten-minute test (brief §4): blank to a package-true authored side view
+ * you would show someone. Every step is something a person does with a mouse
+ * and one keyboard key; the script only proves the path has no holes.
  */
 
-test('blank → recognizable authored side view, package-true throughout', async ({ page }) => {
+test('blank → a rendered, package-true car worth showing', async ({ page }) => {
   const started = Date.now();
   await page.goto('/');
-  await expect(page.getByTestId('side-view')).toBeVisible();
+  await expect(page.getByTestId('marker-render')).toBeVisible();
 
-  // 1 — choose what the car is.
+  // 1 — say what the car is.
   await page.click('button:has-text("MR")');
   await page.getByRole('button', { name: '2', exact: true }).click();
   await expect(page.locator('.header')).toContainText('0 conflicts');
 
-  // 2 — set the package with the sliders.
-  const set = async (control: string, thousandths: string) => {
+  // 2 — set the package.
+  const set = async (fold: string, control: string, thousandths: string) => {
+    await openFold(page, fold);
     const slider = page.locator(`[data-testid="control-${control}"] input`);
     await slider.focus();
     await slider.fill(thousandths);
     await slider.press('ArrowRight');
   };
-  await set('h30', '150');
-  await set('roof_z', '100');
-  await set('cowl_z', '800');
-  await set('wheelbase', '400');
-  await set('overall_width', '550');
+  await set('cabin', 'h30', '150');
+  await set('cabin', 'roof_z', '100');
+  await set('front', 'cowl_z', '800');
+  await set('stance', 'wheelbase', '400');
 
-  // 3 — author: pull three characteristic points.
+  // 3 — author: pull the drawn lines around.
+  await draft(page);
   const drag = async (testid: string, dx: number, dy: number) => {
-    const pt = page.getByTestId(testid);
-    const box = (await pt.boundingBox())!;
+    const box = (await page.getByTestId(testid).boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy, { steps: 6 });
@@ -43,13 +43,21 @@ test('blank → recognizable authored side view, package-true throughout', async
   await drag('pt-belt-1', 0, -10);
   await drag('pt-hood-1', 0, 8);
 
-  // 4 — the drawn car is package-true: no conflicts were created by drawing,
-  // and the instrument still reports a closed solve.
+  // 4 — nothing the hand did broke the package.
   await expect(page.locator('.header')).toContainText('0 conflicts');
-  await expect(page.getByTestId('side-view')).toBeVisible();
-  await expect(page.getByTestId('plan-view')).toBeVisible();
 
-  // 5 — the ledger opens, the counts stand, and the project saves.
+  // 5 — paint it and light it.
+  await page.getByTestId('mode-RENDER').click();
+  await openFold(page, 'render');
+  await page.click('button:has-text("steel blue")');
+  const sun = (await page.getByTestId('sun-grab').boundingBox())!;
+  await page.mouse.move(sun.x + sun.width / 2, sun.y + sun.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sun.x + sun.width / 2 - 200, sun.y + sun.height / 2 + 60, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByTestId('marker-render')).toBeVisible();
+
+  // 6 — the ledger stands, and the project saves.
   await page.keyboard.press('l');
   await expect(page.getByTestId('ledger')).toBeVisible();
   await page.keyboard.press('Escape');

@@ -190,6 +190,23 @@ export function solve(input: SolveInput): SolveResult {
     () => frontOverhang.value + wheelbase.value + rearOverhang.value,
   );
 
+  // Dash-to-axle: the proportion designers argue about first.
+  out.derive(
+    'dash_to_axle',
+    'dash to axle',
+    'mm',
+    'front axle centerline back to the cowl station',
+    () => cowlX,
+  );
+
+  out.derive(
+    'rim_diameter_in',
+    'rim diameter',
+    'in',
+    'the rim size stated in the tire designation',
+    () => reg.value('tire_rim_in'),
+  );
+
   const geometry: SideGeometry = {
     bumperX,
     tailX,

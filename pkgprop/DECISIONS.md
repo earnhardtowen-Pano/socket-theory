@@ -63,3 +63,28 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
 12. **Playwright pins the environment's Chromium** via launchOptions when
     `/opt/pw-browsers/chromium` exists, since the registry-installed browser
     version differs from the runner image.
+
+13. **Render parameters are authored, not solved.** Paint, tint, and sun live
+    in the project snapshot beside the drawn lines — undoable, saved, and
+    outside the constraint layer entirely. Law 2 cuts between the solver and
+    everything the human decides, and light is a human decision.
+
+14. **The shake had a named cause.** The wall chip and the conflict bar
+    inserted into document flow the moment a control touched a wall. That
+    moved the canvas under the cursor, which changed the clamp, which removed
+    the chip, which moved the canvas back — an oscillation at pointer-move
+    frequency. Both are absolute overlays now, and an e2e test asserts the
+    canvas bounding box holds one value across a ten-frame drag.
+
+15. **The wheel openings are the human's arches.** The marker render builds
+    the body's lower edge from the authored front and rear arch curves, so the
+    openings are drawn, not generated. A circular well left a sliver of
+    daylight at the crown; the well is now shaped by the same curve.
+
+16. **DEFAULT MODE IS RENDER.** The instrument opens on the painted car, not
+    the wireframe. The machinery is one chip away in DRAFT. A tool that opens
+    on its own scaffolding teaches you to see scaffolding.
+
+17. **Line schema carries tension.** `DrawingState.lines` moved from a bare
+    point array to `{ pts, tension }`. Older project files load through
+    `migrateDrawing`, which accepts both shapes.

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   clampLinePoint,
+  DEFAULT_RENDER,
   denorm,
   frameOf,
   LINE_DEFS,
   linePoints,
+  migrateDrawing,
   norm,
   type LineId,
 } from './state/lines.js';
@@ -94,7 +96,11 @@ function Shell() {
     }
     dispatch({
       type: 'load',
-      snapshot: { pkg: parsed.pkg, drawing: parsed.drawing ?? { lines: {} } },
+      snapshot: {
+        pkg: parsed.pkg,
+        drawing: migrateDrawing(parsed.drawing),
+        render: { ...DEFAULT_RENDER, ...(parsed.render ?? {}) },
+      },
     });
   };
 
@@ -143,7 +149,14 @@ function Shell() {
         </div>
       </header>
       <div className="main">
-        <PackageRail pkg={state.now.pkg} result={result} dispatch={dispatch} />
+        <PackageRail
+          pkg={state.now.pkg}
+          drawing={state.now.drawing}
+          render={state.now.render}
+          mode={state.mode}
+          result={result}
+          dispatch={dispatch}
+        />
         <div className="stage">
           <div className="stage-top">
             <Toolbar
@@ -153,8 +166,8 @@ function Shell() {
               onLoad={() => fileRef.current?.click()}
               onFit={requestFit}
             />
-            <ConflictBar result={result} />
           </div>
+          <ConflictBar result={result} />
           <input
             ref={fileRef}
             type="file"
@@ -172,11 +185,15 @@ function Shell() {
                 <SideView
                   result={result}
                   drawing={state.now.drawing}
+                  render={state.now.render}
+                  mode={state.mode}
                   dispatch={dispatch}
                   selected={selected}
                   onSelect={setSelected}
                 />
-                <PlanView result={result} drawing={state.now.drawing} dispatch={dispatch} />
+                {state.mode === 'DRAFT' && (
+                  <PlanView result={result} drawing={state.now.drawing} dispatch={dispatch} />
+                )}
               </>
             )}
             {panel === 'SECTIONS' && (

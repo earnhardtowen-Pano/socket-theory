@@ -6,6 +6,11 @@ three ★ gates; everything else is decided here and recorded in DECISIONS.md.
 
 ## Status line
 
+**Post-Gate-1 · the instrument now opens on a painted car.** Marker render
+with a movable sun, point add/delete with per-line curve tension, folded
+rail, wall-flash feedback, contact tick, real car vocabulary. The drag-shake
+bug is fixed and regression-tested. 70 unit + 16 e2e green.
+
 **★ GATE 1 REACHED.** Phases A, B, C built and tested: 70 unit tests
 (including the license lint, verified to bite) + 10 Playwright e2e tests
 (including the scripted ten-minute run). Awaiting owner review before
