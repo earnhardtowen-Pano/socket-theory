@@ -12,6 +12,7 @@
   "dependencies": {
     "@pkgprop/core": "workspace:*",
     "@pkgprop/data": "workspace:*",
+    "@pkgprop/geometry": "workspace:*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "three": "^0.169.0"

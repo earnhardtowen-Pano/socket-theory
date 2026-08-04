@@ -26,6 +26,9 @@ importers:
       '@pkgprop/data':
         specifier: workspace:*
         version: link:../data
+      '@pkgprop/geometry':
+        specifier: workspace:*
+        version: link:../geometry
       react:
         specifier: ^18.3.0
         version: 18.3.1

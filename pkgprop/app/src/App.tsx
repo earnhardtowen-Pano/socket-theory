@@ -19,6 +19,7 @@ import { PackageRail } from './ui/PackageRail.js';
 import { PlanView } from './ui/PlanView.js';
 import { ReadoutStrip } from './ui/ReadoutStrip.js';
 import { SideView } from './ui/SideView.js';
+import { BodyView } from './ui/body/BodyView.js';
 import { Toolbar } from './ui/Toolbar.js';
 import { CameraProvider, useCamera } from './ui/viewport/ViewportSvg.js';
 
@@ -222,9 +223,11 @@ function Shell() {
               />
             )}
             {panel === 'BODY' && (
-              <RoadmapCard
-                title="BODY"
-                body="The lofted surface under a zebra shader, and the two verbs: shutline and inset. Gate 2. Class-A surfacing is out of scope for V1, and this panel will keep saying so."
+              <BodyView
+                result={result}
+                drawing={state.now.drawing}
+                features={state.now.features}
+                render={state.now.render}
               />
             )}
             {panel === 'BOUNCE' && (

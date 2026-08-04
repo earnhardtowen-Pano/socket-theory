@@ -22,11 +22,15 @@ export interface SectionShape {
   readonly shoulder: number;
   /** 0 slab sides, 1 strong tumblehome — the sill pulled in under the shoulder. */
   readonly tumblehome: number;
+  /** How far the greenhouse sits inboard of the body at the belt, 0..1. */
+  readonly glassInset: number;
 }
 
 export interface BodyInput {
   /** Ascending station positions, nose to tail. */
   readonly stations: readonly number[];
+  /** Beltline height at a station — where the body ends and the glass begins. */
+  readonly beltZ: (x: number) => number;
   /** Upper silhouette height at a station — the drawn hood/roof/deck chain. */
   readonly topZ: (x: number) => number;
   /** Plan half-width at a station. */
@@ -60,6 +64,7 @@ export function halfSection(
   zRocker: number,
   halfWidth: number,
   shape: SectionShape,
+  zBelt?: number,
 ): Curve {
   const crown = clamp01(shape.crown);
   const shoulder = clamp01(shape.shoulder);
@@ -70,15 +75,30 @@ export function halfSection(
   // The crown point sits inboard and just below the top: a small drop over a
   // short run reads as a tight, domed roof; a large one reads as a flat lid.
   const crownY = halfWidth * (0.18 + 0.42 * (1 - crown));
-  const crownZ = zTop - rise * (0.02 + 0.16 * crown);
+  const crownZ = zTop - rise * (0.02 + 0.12 * crown);
 
   // The sill is pulled inboard by tumblehome. Full tumblehome keeps a third
   // of the width, which is about as far as a road car ever leans.
   const sillY = halfWidth * (1 - 0.66 * tumble);
 
+  // The greenhouse break. A car is two volumes: the body, full width, and the
+  // cabin sitting inboard of it above the beltline. Without that step the loft
+  // produces one smooth blister from rocker to roof — which is why the first
+  // renders read as a lump rather than a car, no matter how fair the surface
+  // was. Only inserted where there is actually glass: over the hood and the
+  // deck the top is below the belt and the body is one volume.
+  const inset = clamp01(shape.glassInset);
+  const glass: V3[] = [];
+  if (zBelt !== undefined && zBelt > zRocker && zBelt < zTop - rise * 0.06) {
+    const beltY = halfWidth * (1 - 0.34 * inset);
+    glass.push(v3(0, beltY, zBelt + rise * 0.03));
+    glass.push(v3(0, halfWidth * (1 - 0.06 * inset), zBelt - rise * 0.02));
+  }
+
   const raw = interpolate([
     v3(0, 0, zTop),
     v3(0, crownY, crownZ),
+    ...glass,
     v3(0, halfWidth, zShoulder),
     v3(0, sillY, zRocker),
   ]);
@@ -122,6 +142,7 @@ function rib(x: number, input: BodyInput): V3[] {
     input.rockerZ(x),
     Math.max(1, input.halfWidth(x)),
     input.shape,
+    input.beltZ(x),
   );
   const right = curve.sample(n - 1).map((p) => v3(x, p.y, p.z));
   const left: V3[] = [];

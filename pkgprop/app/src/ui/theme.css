@@ -436,3 +436,16 @@ select {
   fill: var(--panel-raised); stroke: var(--accent); stroke-width: 2.2; cursor: grab;
 }
 .handle-hit { fill: transparent; cursor: grab; }
+
+/* ---- BODY: the lofted surface ---- */
+.body-host {
+  width: 100%;
+  border: 1px solid var(--hairline);
+  background: var(--ink);
+  cursor: grab;
+  touch-action: none;
+  overflow: hidden;
+  line-height: 0;
+}
+.body-host:active { cursor: grabbing; }
+.body-host canvas { display: block; width: 100%; height: auto; }

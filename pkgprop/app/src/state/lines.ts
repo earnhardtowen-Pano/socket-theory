@@ -288,13 +288,19 @@ export function defaultPoints(id: LineId, result: SolveResult): NormPt[] {
         n(g.tailX - 140, g.beltZ + 18),
       ];
     case 'plan_side': {
+      // The plan outline has to reach the bumper and the tail, not stop short
+      // of them at two thirds width. Ending early leaves the body with nothing
+      // to converge onto, so the loft caps it with a flat wall across the full
+      // section — a car that looks like it was cut off with a saw.
       const halfW = g.overallWidth / 2;
       return [
-        n(g.bumperX + 20, halfW * 0.62),
+        n(g.bumperX, halfW * 0.3),
+        n(g.bumperX + 170, halfW * 0.78),
         n(0, halfW),
-        n(g.wheelbase / 2, halfW * 0.94),
+        n(g.wheelbase / 2, halfW * 0.95),
         n(g.wheelbase, halfW),
-        n(g.tailX - 20, halfW * 0.7),
+        n(g.tailX - 150, halfW * 0.82),
+        n(g.tailX, halfW * 0.34),
       ];
     }
   }

@@ -17,12 +17,13 @@ export interface Pt {
   readonly z: number;
 }
 
-export type FeatureKind =
-  | 'wheel-opening'
-  | 'rocker'
-  | 'beltline'
-  | 'side-profile'
-  | 'greenhouse';
+/**
+ * A feature's type name. Deliberately open: a closed union meant no feature
+ * could be added without editing this file, which is the same disease as a
+ * hardcoded control list and fatal for anything meant to be extended. The
+ * registry in `features.ts` is the authority on what actually resolves.
+ */
+export type FeatureKind = string;
 
 /** A parameter a designer can actually reach, in the language of the trade. */
 export interface ParamSpec {
@@ -123,4 +124,15 @@ export function superellipseTop(
     });
   }
   return out;
+}
+
+/**
+ * Widen a typed definition for the registry.
+ *
+ * A generator is written against its own parameter type; the registry holds
+ * them all under one key type. This is the one place that conversion is
+ * allowed to happen, so it stays visible instead of scattering as casts.
+ */
+export function asDef<P extends FeatureParams>(d: FeatureDef<P>): FeatureDef {
+  return d as unknown as FeatureDef;
 }

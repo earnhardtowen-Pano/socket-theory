@@ -1,5 +1,6 @@
 import type { SolveResult } from '@pkgprop/core';
-import { makeCtx, type Feature, type FeatureDef, type FeatureGeometry } from './feature.js';
+import { asDef, makeCtx, type Feature, type FeatureDef, type FeatureGeometry } from './feature.js';
+import { BODY_SECTION } from './features/section.js';
 import { WHEEL_OPENING, type WheelOpeningParams } from './features/wheelOpening.js';
 
 /**
@@ -14,7 +15,8 @@ import { WHEEL_OPENING, type WheelOpeningParams } from './features/wheelOpening.
  */
 
 export const FEATURE_DEFS: Record<string, FeatureDef> = {
-  'wheel-opening': WHEEL_OPENING as unknown as FeatureDef,
+  'wheel-opening': asDef(WHEEL_OPENING),
+  'body-section': asDef(BODY_SECTION),
 };
 
 export function defOf(kind: string): FeatureDef {
@@ -39,6 +41,12 @@ export function defaultFeatures(): FeatureMap {
       kind: 'wheel-opening',
       slot: 'rear',
       params: { ...WHEEL_OPENING.defaults },
+    },
+    'section-body': {
+      id: 'section-body',
+      kind: 'body-section',
+      slot: 'body',
+      params: { ...BODY_SECTION.defaults },
     },
   };
 }

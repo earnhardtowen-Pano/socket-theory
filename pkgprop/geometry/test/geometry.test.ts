@@ -12,7 +12,7 @@ import {
   type BodyInput,
 } from '../src/index.js';
 
-const SHAPE = { crown: 0.5, shoulder: 0.55, tumblehome: 0.35 };
+const SHAPE = { crown: 0.5, shoulder: 0.55, tumblehome: 0.35, glassInset: 0.3 };
 
 /** A plausible car: 4.2 m long, 1.9 wide, roof at 1.3, rocker at 0.15. */
 function testBody(over: Partial<BodyInput> = {}): BodyInput {
@@ -23,6 +23,7 @@ function testBody(over: Partial<BodyInput> = {}): BodyInput {
     topZ: (x) => 1300 - 700 * Math.max(0, Math.min(1, Math.abs(x - 1400) / 2200)) ** 2,
     halfWidth: (x) => 950 * Math.sin(Math.PI * Math.max(0.03, Math.min(0.97, (x + 800) / 4200))) ** 0.4,
     rockerZ: () => 150,
+    beltZ: () => 780,
     shape: SHAPE,
     ribPoints: 14,
     ...over,
@@ -95,8 +96,8 @@ describe('sections', () => {
 
   it('never crosses the centreline — a section cannot fold through itself', () => {
     for (const shape of [
-      { crown: 0, shoulder: 0.2, tumblehome: 0 },
-      { crown: 1, shoulder: 0.9, tumblehome: 1 },
+      { crown: 0, shoulder: 0.2, tumblehome: 0, glassInset: 0 },
+      { crown: 1, shoulder: 0.9, tumblehome: 1, glassInset: 1 },
       SHAPE,
     ]) {
       for (const p of halfSection(1300, 150, 950, shape).sample(120)) {
