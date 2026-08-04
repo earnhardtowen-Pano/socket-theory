@@ -198,7 +198,20 @@ export function buildBody(input: BodyInput): Mesh {
     }
   }
 
-  // Caps. The centre of each end rib becomes a fan hub.
+  /**
+   * Caps, rounded rather than flat.
+   *
+   * Fanning the end rib straight to its own centre closes the surface but
+   * leaves a flat disc standing square across the car — a nose that reads as
+   * though the body were cut off with a saw. Inserting one shrunken ring just
+   * inboard of the end, then fanning from that, turns the corner over a short
+   * radius instead of a hard edge. It costs one ring and it is the difference
+   * between a nose and a cross-section.
+   *
+   * The ring stays at the end rib's own station, so the car never grows past
+   * the overall length the solver closed.
+   */
+  const CAP_SHRINK = 0.55;
   const capOf = (ribIndex: number, flip: boolean): void => {
     const r = ribs[ribIndex]!;
     let cx = 0;
@@ -209,13 +222,34 @@ export function buildBody(input: BodyInput): Mesh {
       cy += p.y;
       cz += p.z;
     }
-    const hub = pos.length / 3;
-    pos.push(cx / r.length, cy / r.length, cz / r.length);
+    const c = v3(cx / r.length, cy / r.length, cz / r.length);
+
+    const ring = pos.length / 3;
+    for (const p of r) {
+      pos.push(
+        p.x,
+        c.y + (p.y - c.y) * CAP_SHRINK,
+        c.z + (p.z - c.z) * CAP_SHRINK,
+      );
+    }
     const base = ribIndex * perRib;
     for (let i = 0; i < perRib; i += 1) {
       const j = (i + 1) % perRib;
-      if (flip) idx.push(hub, base + j, base + i);
-      else idx.push(hub, base + i, base + j);
+      if (flip) {
+        idx.push(base + i, ring + i, base + j);
+        idx.push(base + j, ring + i, ring + j);
+      } else {
+        idx.push(base + j, ring + i, base + i);
+        idx.push(ring + j, ring + i, base + j);
+      }
+    }
+
+    const hub = pos.length / 3;
+    pos.push(c.x, c.y, c.z);
+    for (let i = 0; i < perRib; i += 1) {
+      const j = (i + 1) % perRib;
+      if (flip) idx.push(hub, ring + j, ring + i);
+      else idx.push(hub, ring + i, ring + j);
     }
   };
   capOf(0, true);

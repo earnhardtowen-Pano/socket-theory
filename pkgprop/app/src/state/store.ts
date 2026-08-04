@@ -1,5 +1,5 @@
 import { solve, type SolveResult, type ControlId } from '@pkgprop/core';
-import { buildSolveInput, type PackageState } from '@pkgprop/data';
+import { buildSolveInput, getBodyStyle, type PackageState } from '@pkgprop/data';
 import { useMemo, useReducer } from 'react';
 import { defaultFeatures, type FeatureMap } from '../model/features.js';
 import {
@@ -89,6 +89,7 @@ export type Action =
   | { type: 'reset-drawing' }
   | { type: 'set-feature-param'; id: string; key: string; value: number; commit: boolean }
   | { type: 'reset-feature'; id: string }
+  | { type: 'body-style'; id: string }
   | { type: 'select'; selection: Selection }
   | { type: 'set-render'; patch: Partial<RenderState>; commit: boolean }
   | { type: 'load'; snapshot: Snapshot }
@@ -186,6 +187,35 @@ export function reducer(state: AppState, action: Action): AppState {
       return push(
         state,
         { ...state.now, features: { ...state.now.features, [action.id]: fresh } },
+        true,
+      );
+    }
+    case 'body-style': {
+      // A style is a whole car: the architecture, the pose, the section, and
+      // the ASSUMED values it disagrees with. The drawing is cleared so the
+      // live defaults regenerate against the new package — keeping the old
+      // points would drag the previous car's roofline onto the new one.
+      const style = getBodyStyle(action.id);
+      const section = state.now.features['section-body'];
+      return push(
+        state,
+        {
+          ...state.now,
+          pkg: {
+            architecture: style.architecture,
+            seating: style.seating,
+            tire: style.tire,
+            controls: { ...style.controls },
+            overrides: { ...style.overrides },
+          },
+          drawing: defaultLines(),
+          features: section
+            ? {
+                ...state.now.features,
+                'section-body': { ...section, params: { ...section.params, ...style.section } },
+              }
+            : state.now.features,
+        },
         true,
       );
     }

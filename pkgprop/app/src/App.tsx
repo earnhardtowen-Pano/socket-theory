@@ -20,6 +20,7 @@ import { PlanView } from './ui/PlanView.js';
 import { ReadoutStrip } from './ui/ReadoutStrip.js';
 import { SideView } from './ui/SideView.js';
 import { BodyView } from './ui/body/BodyView.js';
+import { SectionsView } from './ui/SectionsView.js';
 import { Toolbar } from './ui/Toolbar.js';
 import { CameraProvider, useCamera } from './ui/viewport/ViewportSvg.js';
 
@@ -120,7 +121,7 @@ function Shell() {
     selection?.kind === 'line'
       ? LINE_DEFS.find((d) => d.id === selection.id)?.label
       : selection?.kind === 'feature'
-        ? `${state.now.features[selection.id]?.slot ?? ''} wheel opening`
+        ? labelOfFeature(state.now.features[selection.id])
         : null;
 
   return (
@@ -217,9 +218,11 @@ function Shell() {
               </>
             )}
             {panel === 'SECTIONS' && (
-              <RoadmapCard
-                title="SECTIONS"
-                body="Half-sections at the ruler stations, mirrored and clipped live to the envelope, feeding the loft. Gate 2 — in build now."
+              <SectionsView
+                result={result}
+                drawing={state.now.drawing}
+                features={state.now.features}
+                dispatch={dispatch}
               />
             )}
             {panel === 'BODY' && (
@@ -250,6 +253,12 @@ function Shell() {
       </div>
     </div>
   );
+}
+
+/** What the status line calls the thing in your hand. */
+function labelOfFeature(f: { kind: string; slot: string } | undefined): string | null {
+  if (!f) return null;
+  return f.kind === 'wheel-opening' ? `${f.slot} wheel opening` : 'body section';
 }
 
 function RoadmapCard({ title, body }: { title: string; body: string }) {

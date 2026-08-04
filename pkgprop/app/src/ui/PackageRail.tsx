@@ -1,5 +1,5 @@
 import { type ControlId, type SolveResult } from '@pkgprop/core';
-import { ARCHITECTURES, SEATING_CONFIGS, TIRE_CHOICES, type PackageState } from '@pkgprop/data';
+import { ARCHITECTURES, BODY_STYLES, SEATING_CONFIGS, TIRE_CHOICES, type PackageState } from '@pkgprop/data';
 import { useState } from 'react';
 import {
   LINE_DEFS,
@@ -124,6 +124,21 @@ export function PackageRail({
               onClick={() => dispatch({ type: 'set-architecture', id: a.id })}
             >
               {a.label}
+            </button>
+          ))}
+        </div>
+        <div className="section-label">START FROM</div>
+        <div className="choice-row styles">
+          {BODY_STYLES.map((b) => (
+            <button
+              key={b.id}
+              className="chip style"
+              data-testid={`style-${b.id}`}
+              title={b.blurb}
+              onClick={() => dispatch({ type: 'body-style', id: b.id })}
+            >
+              {b.label}
+              <em>{b.blurb}</em>
             </button>
           ))}
         </div>

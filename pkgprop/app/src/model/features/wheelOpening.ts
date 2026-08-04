@@ -1,4 +1,4 @@
-import type { SolveResult } from '@pkgprop/core';
+import { clampToEnvelope, type ConstraintMeta, type SolveResult } from '@pkgprop/core';
 import {
   squarenessExponent,
   superellipseTop,
@@ -8,6 +8,9 @@ import {
   type Handle,
   type Pt,
 } from '../feature.js';
+
+/** Grazing distance that counts as contact, matching the drawing layer. */
+const TOUCH_TOL = 2;
 
 /**
  * The wheel opening — the feature that proves the model.
@@ -102,26 +105,39 @@ function generate(
   const g = result.geometry;
   const axleX = ctx.slot === 'rear' ? g.wheelbase : 0;
   const tireR = g.tireRadius;
-  const jounce = ctx.value('body_tire_jounce', 70);
 
-  // The wall: the opening must clear the tire crown plus its travel. Measured
-  // from the arch centre, which the rise has already moved.
   const cz = tireR + params.centerRise;
   const cx = axleX + params.centerShift;
-  const clearanceFloor = Math.hypot(params.centerShift, tireR + jounce - cz) + jounce * 0.15;
-  const minRadius = Math.max(tireR + jounce - params.centerRise, clearanceFloor);
-
-  const radius = Math.max(params.radius, minRadius);
-  const clamped = radius > params.radius + 0.5;
+  const radius = params.radius;
 
   const exponent = squarenessExponent(params.squareness);
   const full = superellipseTop(cx, cz, radius, radius, exponent);
 
-  // Trim the arch where it drops below its termination height, then close the
-  // ends down onto the body so the opening reads as an opening.
+  // Ask the kernel where the wall is; do not restate it.
+  //
+  // This used to recompute the tire clearance with its own arithmetic and two
+  // bare constants, then look up `tire_clearance` by hardcoded id and print
+  // that constraint's reason over the answer. Every number matched by luck: if
+  // the solver's rule had changed, the opening would have clamped at the old
+  // value while still citing the kernel's name for it. That is narrated
+  // attribution, which is the one thing Law 3 exists to prevent — and it was
+  // sitting in the feature built to prove the model.
+  //
+  // clampToEnvelope returns both the corrected height and the segment that
+  // corrected it, so the wall that pushes back names itself.
+  let pushed: { side: 'floor' | 'ceiling'; constraint: ConstraintMeta } | null = null;
   const curve: Pt[] = [];
   for (const p of full) {
-    if (p.z >= params.lowerZ) curve.push(p);
+    const c = clampToEnvelope(
+      result.envelope.floorOutboard,
+      result.envelope.ceiling,
+      p.x,
+      p.z,
+      TOUCH_TOL,
+    );
+    if (c.touching && c.z > p.z) pushed = c.touching;
+    const z = Math.max(p.z, c.z);
+    if (z >= params.lowerZ) curve.push({ x: p.x, z });
   }
   if (curve.length === 0) curve.push({ x: cx, z: cz + radius });
   const first = curve[0]!;
@@ -149,16 +165,9 @@ function generate(
     },
   ];
 
-  const tireWall = result.envelope.floorOutboard.segments.find(
-    (s) => s.constraint.id === 'tire_clearance',
-  );
-
   return {
     curve,
     handles,
-    binding:
-      clamped && tireWall
-        ? { param: 'radius', constraint: tireWall.constraint, side: 'floor' }
-        : null,
+    binding: pushed ? { param: 'radius', constraint: pushed.constraint, side: pushed.side } : null,
   };
 }
