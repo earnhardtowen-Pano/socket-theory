@@ -19,10 +19,14 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
 
 4. **License lint is a Vitest test using the TypeScript AST.** It walks every
    file in `core/src/constraints/` and fails on any numeric literal outside a
-   tiny structural allowlist (0, 1, -1, 2, 0.5 — array indices, halving,
+   tiny structural allowlist (0, 1, 2, 0.5 — array indices, halving,
    sign flips). Every real-world number must arrive via the parameter registry.
    Registered in CI as part of the standard test run, so the build is red the
    moment an unlicensed constant appears.
+   *(Corrected in Phase 0: this entry used to list `-1` in the allowlist. It
+   never was. `-1` parses as a unary minus applied to the literal `1`, so the
+   AST never sees a `-1` literal and it passes by accident rather than by
+   permission. See INVENTORY.md §4.7.)*
 
 5. **Bounds are computed as contribution sets.** Each solved quantity collects
    lower-bound and upper-bound contributions from named constraints; the bound
@@ -88,3 +92,42 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
 17. **Line schema carries tension.** `DrawingState.lines` moved from a bare
     point array to `{ pts, tension }`. Older project files load through
     `migrateDrawing`, which accepts both shapes.
+
+18. **Phase 0 arms the guards before it reports.** The kernel extraction's
+    gate was "the 12-car validation set stays green," and there is no such
+    set — `validation/` held a package.json and nothing else. Rather than
+    extract with no net, Phase 0 froze every architecture × seating × tire
+    case as `validation/test/golden.json`. It records the **winning constraint
+    id per wall**, not only the value: a refactor that preserves every number
+    but changes who authored a bound has broken the product. Proven both ways
+    before being trusted — a 1 mm parameter change fails 84 assertions, and
+    hoisting one `contribute()` call above another with identical numbers
+    fails 40.
+
+19. **A golden snapshot is not validation against reality.** It means
+    "unchanged," never "correct." Nothing in this repository has ever been
+    checked against a measured vehicle. The 12-car benchmark is still owed and
+    is tracked as its own task, not as a side effect of this one.
+
+20. **The license lint could pass while checking almost nothing.** It read one
+    hardcoded directory non-recursively, guarded by `files.length > 5` — a
+    number that happened to match the eleven files then present. A total move
+    would have been caught; a **partial** move (leave six of eleven) or a move
+    into subdirectories would not. Scan roots are now a list, the walk is
+    recursive, and a manifest is checked both ways, so adding a constraint file
+    means admitting it to the manifest.
+
+21. **The severance invariant is now tested, and it was already broken.**
+    `DECISIONS.md` #6 requires chain values to be read inside the trace.
+    `solve()` hands computed values between stages as plain numbers, so
+    attribution truncates at every stage boundary; `sight_over_hood` reads the
+    registry zero times and reports no resolvers at all when the hood
+    conflicts. Not fixed in Phase 0 — this phase reports and changes no
+    behavior — but pinned as a characterization list so it cannot spread, and
+    named in INVENTORY.md §4.1 as the finding that most needs a decision.
+
+22. **INVENTORY.md is a checked artifact, not prose.** Its ~92 `file:line`
+    claims and its verbatim quotes are verified in CI
+    (`validation/test/inventory.test.ts`). The moment Phase 1 moves a
+    constraint, the inventory's references go stale and the build says so. A
+    document that lies about where things are is worse than no document.
