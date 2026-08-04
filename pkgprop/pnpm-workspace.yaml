@@ -1,0 +1,6 @@
+packages:
+  - core
+  - data
+  - geometry
+  - app
+  - validation

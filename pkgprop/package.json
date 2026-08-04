@@ -1,0 +1,21 @@
+{
+  "name": "pkgprop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --build core data geometry validation && tsc -p app --noEmit",
+    "dev": "pnpm --filter @pkgprop/app dev",
+    "build": "pnpm --filter @pkgprop/app build",
+    "ci": "pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}
