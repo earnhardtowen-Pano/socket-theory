@@ -1,6 +1,7 @@
 import { batterySlab, rearOverhangBound, rearPowertrainBox, wheelbaseBound } from './constraints/chassis.js';
 import type { Ctx, Pt } from './constraints/ctx.js';
 import { buildEnvelope, type Envelope } from './constraints/envelope.js';
+import { buildPlanEnvelope, widthBound, type PlanEnvelope } from './constraints/plan.js';
 import { eyePoint, placeOccupants, roofBound, type OccupantRow } from './constraints/occupants.js';
 import {
   floorHeight,
@@ -49,6 +50,7 @@ const DEFAULT_CONTROLS: Record<ControlId, number> = {
   wheelbase: 0.35,
   rear_overhang: 0.35,
   deck_z: 0.25,
+  overall_width: 0.4,
 };
 
 export interface SideGeometry {
@@ -68,6 +70,8 @@ export interface SideGeometry {
   readonly frontBox: Box | null;
   readonly rearBox: Box | null;
   readonly battery: Box | null;
+  readonly overallWidth: number;
+  readonly track: number;
 }
 
 export interface SolveResult {
@@ -79,6 +83,7 @@ export interface SolveResult {
   readonly readouts: readonly Readout[];
   readonly geometry: SideGeometry;
   readonly envelope: Envelope;
+  readonly plan: PlanEnvelope;
 }
 
 export function solve(input: SolveInput): SolveResult {
@@ -155,6 +160,7 @@ export function solve(input: SolveInput): SolveResult {
   const deck = place('deck_z', deckBound(ctx, eye, tailX));
   const rearBox = rearPowertrainBox(ctx, wheelbase.value, rearOverhang.value);
   const battery = batterySlab(ctx, wheelbase.value);
+  const width = place('overall_width', widthBound(ctx, occupants));
 
   // 10 — the buildable space
   const bumperX = -frontOverhang.value;
@@ -170,6 +176,7 @@ export function solve(input: SolveInput): SolveResult {
     frontBox,
     rearBox,
   });
+  const plan = buildPlanEnvelope(ctx, bumperX, tailX, wheelbase.value, occupants);
 
   out.derive(
     'overall_length',
@@ -196,6 +203,8 @@ export function solve(input: SolveInput): SolveResult {
     frontBox,
     rearBox,
     battery,
+    overallWidth: width.value,
+    track: reg.value('chassis_track'),
   };
 
   return {
@@ -207,5 +216,6 @@ export function solve(input: SolveInput): SolveResult {
     readouts: out.all(),
     geometry,
     envelope,
+    plan,
   };
 }

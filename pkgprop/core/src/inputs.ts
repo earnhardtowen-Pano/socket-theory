@@ -41,6 +41,7 @@ export const CONTROL_IDS = [
   'wheelbase',
   'rear_overhang',
   'deck_z',
+  'overall_width',
 ] as const;
 
 export type ControlId = (typeof CONTROL_IDS)[number];

@@ -176,4 +176,22 @@ export const M = {
     reason: 'the engine and its crush length must fit inside the rear overhang',
     license: 'DERIVED',
   },
+  wheelsOnTrack: {
+    id: 'wheels_on_track',
+    label: 'wheels on the track',
+    reason: 'the body must cover the tires where the track puts them',
+    license: 'DERIVED',
+  },
+  shoulderRoom: {
+    id: 'shoulder_room',
+    label: 'shoulders in the cabin',
+    reason: 'the widest row of shoulders plus both door stacks must fit',
+    license: 'DERIVED',
+  },
+  styleWidth: {
+    id: 'style_width',
+    label: 'overall width target',
+    reason: 'the owner capped how wide the car may stand',
+    license: 'ASSUMED',
+  },
 } as const;

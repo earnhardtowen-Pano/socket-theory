@@ -283,6 +283,45 @@ export const GLOBAL_PARAMS: readonly ParamDef[] = [
     range: [250, 700],
   },
 
+  // ---- lateral (plan view) ------------------------------------------------
+  {
+    id: 'chassis_track',
+    label: 'track width, center to center',
+    unit: 'mm',
+    value: 1580,
+    license: 'ASSUMED',
+    note: 'tire centerline to tire centerline; the same front and rear in V1.',
+    range: [1250, 1800],
+  },
+  {
+    id: 'body_tire_lateral_clearance',
+    label: 'fender clearance beside the tire',
+    unit: 'mm',
+    value: 30,
+    license: 'ASSUMED',
+    note: 'steering sweep and liner clearance outboard of the tire face.',
+    range: [10, 90],
+  },
+  {
+    id: 'anthro_shoulder_width',
+    label: 'shoulder width per seat',
+    unit: 'mm',
+    value: 500,
+    license: 'ASSUMED',
+    note: 'elbow-to-elbow allowance per seated adult. Settle against SAE J1100 shoulder room.',
+    range: [420, 620],
+    pending: true,
+  },
+  {
+    id: 'door_side_stack',
+    label: 'door thickness each side',
+    unit: 'mm',
+    value: 150,
+    license: 'ASSUMED',
+    note: 'trim, beam, glass drop, and skin between the shoulder and the outside.',
+    range: [90, 250],
+  },
+
   // ---- style targets (the owner's own ceilings) ---------------------------
   {
     id: 'style_overall_height_max',
@@ -292,6 +331,15 @@ export const GLOBAL_PARAMS: readonly ParamDef[] = [
     license: 'ASSUMED',
     note: 'a stance target, not physics: the tallest car the owner will accept.',
     range: [1020, 2200],
+  },
+  {
+    id: 'style_overall_width_max',
+    label: 'overall width ceiling',
+    unit: 'mm',
+    value: 1950,
+    license: 'ASSUMED',
+    note: 'a stance target: the widest car the owner will accept.',
+    range: [1500, 2300],
   },
   {
     id: 'style_wheelbase_max',

@@ -36,3 +36,4 @@ export { degToRad, radToDeg } from './units.js';
 export type { OccupantRow } from './constraints/occupants.js';
 export type { Box } from './constraints/structure.js';
 export type { Envelope } from './constraints/envelope.js';
+export type { PlanEnvelope } from './constraints/plan.js';

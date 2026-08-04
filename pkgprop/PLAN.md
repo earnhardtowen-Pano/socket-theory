@@ -6,7 +6,7 @@ three ★ gates; everything else is decided here and recorded in DECISIONS.md.
 
 ## Status line
 
-**Current phase: A (foundations) — in progress.**
+**Phases A and B are built and tested (69 green). Now in phase C: the app.**
 Seed file `seed/pkgprop-v0.jsx` was absent from the repo at kickoff; its four
 contract behaviors are reconstructed from the brief (see OPEN_QUESTIONS.md #1).
 
@@ -15,31 +15,34 @@ contract behaviors are reconstructed from the brief (see OPEN_QUESTIONS.md #1).
 ## Phase A — Foundations
 
 - [x] PLAN.md / DECISIONS.md / OPEN_QUESTIONS.md
-- [ ] Monorepo scaffold: pnpm workspaces, TS strict, Vitest, all units mm
-- [ ] `/core` parameter registry: value + license tag (DERIVED/SOURCED/ASSUMED)
+- [x] Monorepo scaffold: pnpm workspaces, TS strict, Vitest, all units mm
+- [x] `/core` parameter registry: value + license tag (DERIVED/SOURCED/ASSUMED)
       + source + derivation string, typed, tested
-- [ ] License lint (CI rule): build fails if a numeric literal appears in
+- [x] License lint (CI rule): build fails if a numeric literal appears in
       constraint code without a registry entry — Vitest test using TS AST
-- [ ] `/core` constraint graph: named constraints with license + reason,
+      (verified to bite on an injected constant)
+- [x] `/core` constraint graph: named constraints with license + reason,
       dependency propagation, `solve(state)` → geometry, bounds (each with
       binding constraint), conflicts (naming both sides)
 
 ## Phase B — Solver generalized (§3.1)
 
-- [ ] Architecture presets as data: FR longitudinal, front-transverse, MR, RR,
+- [x] Architecture presets as data: FR longitudinal, front-transverse, MR, RR,
       EV skateboard — engine/motor box, structure boxes, tire spec, H-point band
-- [ ] Occupant array: rows at ASSUMED couple distances; seat counts
+- [x] Occupant array: rows at ASSUMED couple distances; seat counts
       1 / 2 / 2+2 / 4-5 / 2+3-row; roof envelope = max over all occupants;
       vision from row one
-- [ ] Occupant chain → roof minimum (per row), derived from anthro data
-- [ ] Vision ceilings: cowl and hood; ground-sight distance
-- [ ] Head-tangency rake floor + property test for monotonicity
-- [ ] Hood scan over obstacles (engine/motor box)
-- [ ] Rear-row headroom vs roof taper
-- [ ] MR rear deck over engine box
-- [ ] Belt/DLO lower bound from ASSUMED door-structure stack
-- [ ] Conflict detection: infeasible bound pairs name both constraints and the
+- [x] Occupant chain → roof minimum (per row), derived from anthro data
+- [x] Vision ceilings: cowl and hood; ground-sight distance
+- [x] Head-tangency rake floor + property test for monotonicity
+- [x] Hood scan over obstacles (generalized: floor/ceiling profile crossing scan)
+- [x] Rear-row headroom vs roof taper (occupant head arcs in the floor profile)
+- [x] MR rear deck over engine box
+- [x] Belt/DLO lower bound from ASSUMED door-structure stack
+- [x] Conflict detection: infeasible bound pairs name both constraints and the
       ASSUMED knobs that could resolve them
+- [ ] Plan-view lateral constraints: overall width control, track, shoulder
+      room, wheel zones (needed for §3.2 plan view)
 - [ ] Open-wheel flag (stretch — mark deferred if not reached)
 
 ## Phase C — Drawing layer, side view (§3.2)
