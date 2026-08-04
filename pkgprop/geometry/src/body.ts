@@ -1,18 +1,20 @@
 import { interpolate, type Curve } from './curve.js';
-import { add, cross, normalize, sub, v3, type V3 } from './vec.js';
+import { cross, normalize, sub, v3, type V3 } from './vec.js';
 
 /**
- * The body surface: half-sections at stations, lofted along the car.
+ * The body as two lofted volumes, the way a car actually decomposes.
  *
- * A car reads as real under light because its highlights bend with surface
- * curvature, and that needs actual normals, which needs an actual surface.
- * Painting bands on a silhouette can never get there — that is why the 2D
- * render always looked like a cartoon no matter how the gradients were tuned.
+ * One loft from rocker to roof produces a blister, whatever the section shape
+ * does at the beltline — the greenhouse break becomes a wiggle in one curve
+ * instead of a boundary between two things. A car is a lower body running the
+ * full length at full width, and a cabin sitting inboard of it between the
+ * cowl and the backlight. Lofting them separately is what makes the hood a
+ * hood, the DLO a DLO, and the shoulder a real ledge you could rest a hand on.
  *
- * The section is the shape a designer already thinks in: how full the crown
- * is, where the car is widest, and how far the side leans in underneath. Those
- * three numbers plus the silhouette and the plan half-width are enough to loft
- * a body that is recognisably the car that was drawn.
+ * Sculpting is a displacement field evaluated per section point. That is the
+ * professional ideation grammar — creases along curves, recessed regions with
+ * a rim, attachments placed on the surface — and none of it needs CSG, which
+ * is why this stays watertight by construction no matter what is authored.
  */
 
 export interface SectionShape {
@@ -26,20 +28,27 @@ export interface SectionShape {
   readonly glassInset: number;
 }
 
-export interface BodyInput {
+/** A sculpt displacement: given a station and a half-section point, move it. */
+export type Displace = (x: number, y: number, z: number) => { y: number; z: number };
+
+export interface CarInput {
   /** Ascending station positions, nose to tail. */
   readonly stations: readonly number[];
-  /** Beltline height at a station — where the body ends and the glass begins. */
-  readonly beltZ: (x: number) => number;
-  /** Upper silhouette height at a station — the drawn hood/roof/deck chain. */
+  /** Upper silhouette height at a station — hood, roof, deck chain. */
   readonly topZ: (x: number) => number;
+  /** Beltline height — where the body ends and the glass begins. */
+  readonly beltZ: (x: number) => number;
   /** Plan half-width at a station. */
   readonly halfWidth: (x: number) => number;
   /** Lower edge of the body side. */
   readonly rockerZ: (x: number) => number;
+  /** Greenhouse span, cowl to backlight base. Null for a car with no cabin. */
+  readonly cabin: { readonly x0: number; readonly x1: number } | null;
   readonly shape: SectionShape;
-  /** Points across one half-section. More is smoother and costs linearly. */
+  /** Points across one half-section. More is smoother, costs linearly. */
   readonly ribPoints: number;
+  /** Sculpt field applied to the body volume. Symmetric by construction. */
+  readonly displace?: Displace;
 }
 
 export interface Mesh {
@@ -50,65 +59,49 @@ export interface Mesh {
   readonly triangleCount: number;
 }
 
+export interface CarBuild {
+  readonly body: Mesh;
+  /** Null when the roof never rises above the belt — a speedster has none. */
+  readonly greenhouse: Mesh | null;
+}
+
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
+const smooth = (t: number): number => {
+  const s = clamp01(t);
+  return s * s * (3 - 2 * s);
+};
 
 /**
- * One half-section, centreline outward and down to the sill.
- *
- * Four points carry the whole shape and every one of them is a thing a
- * designer names out loud: the centreline top, how quickly the crown rolls
- * off, where the car is widest, and where the side meets the sill.
+ * One half-section, centreline outward and down to the sill. Four points, all
+ * of them things a designer names out loud: the top, how quickly the crown
+ * rolls off, where the car is widest, where the side meets the sill.
  */
 export function halfSection(
   zTop: number,
-  zRocker: number,
+  zBottom: number,
   halfWidth: number,
   shape: SectionShape,
-  zBelt?: number,
 ): Curve {
   const crown = clamp01(shape.crown);
   const shoulder = clamp01(shape.shoulder);
   const tumble = clamp01(shape.tumblehome);
-  const rise = Math.max(1, zTop - zRocker);
-  const zShoulder = zRocker + rise * shoulder;
+  const rise = Math.max(1, zTop - zBottom);
+  const zShoulder = zBottom + rise * shoulder;
 
-  // The crown point sits inboard and just below the top: a small drop over a
-  // short run reads as a tight, domed roof; a large one reads as a flat lid.
   const crownY = halfWidth * (0.18 + 0.42 * (1 - crown));
   const crownZ = zTop - rise * (0.02 + 0.12 * crown);
-
-  // The sill is pulled inboard by tumblehome. Full tumblehome keeps a third
-  // of the width, which is about as far as a road car ever leans.
   const sillY = halfWidth * (1 - 0.66 * tumble);
-
-  // The greenhouse break. A car is two volumes: the body, full width, and the
-  // cabin sitting inboard of it above the beltline. Without that step the loft
-  // produces one smooth blister from rocker to roof — which is why the first
-  // renders read as a lump rather than a car, no matter how fair the surface
-  // was. Only inserted where there is actually glass: over the hood and the
-  // deck the top is below the belt and the body is one volume.
-  const inset = clamp01(shape.glassInset);
-  const glass: V3[] = [];
-  if (zBelt !== undefined && zBelt > zRocker && zBelt < zTop - rise * 0.06) {
-    const beltY = halfWidth * (1 - 0.34 * inset);
-    glass.push(v3(0, beltY, zBelt + rise * 0.03));
-    glass.push(v3(0, halfWidth * (1 - 0.06 * inset), zBelt - rise * 0.02));
-  }
 
   const raw = interpolate([
     v3(0, 0, zTop),
     v3(0, crownY, crownZ),
-    ...glass,
     v3(0, halfWidth, zShoulder),
-    v3(0, sillY, zRocker),
+    v3(0, sillY, zBottom),
   ]);
 
-  // A cubic through four points overshoots past the widest one — measured at
-  // 999 mm on a 950 mm section. That is not cosmetic: the plan half-width is a
-  // solved wall (wheels on the track, the owner's width cap), and a surface
-  // that bulges through it is drawing a car that does not fit its own package.
-  // Scaling the whole section back to the target keeps the shape and honours
-  // the wall, where clamping would leave a flat spot along the widest point.
+  // A cubic through four points overshoots past the widest one, and the plan
+  // half-width is a solved wall. Scale back to the target rather than clamp,
+  // which would leave a flat spot along the widest point.
   let peak = 0;
   for (let i = 0; i <= 64; i += 1) peak = Math.max(peak, raw.at(i / 64).y);
   const k = peak > halfWidth ? halfWidth / peak : 1;
@@ -126,28 +119,33 @@ export function halfSection(
 /** How many points span the underfloor when closing a rib into a loop. */
 const FLOOR_POINTS = 3;
 
+interface LoftSpec {
+  readonly stations: readonly number[];
+  readonly top: (x: number) => number;
+  readonly bottom: (x: number) => number;
+  readonly half: (x: number) => number;
+  readonly shape: SectionShape;
+  readonly ribPoints: number;
+  readonly displace?: Displace;
+}
+
 /**
- * A full rib as a closed loop: up the left side, over the roof, down the right
- * side, and back across the underfloor.
+ * A full rib as a closed loop: up the left side, over the top, down the right,
+ * back across the underside. The loop must close or the loft is an open tube
+ * — visible straight up into the car, caps that never seal, no solid export.
  *
- * The loop has to close. An open arc lofts into a tube with an open bottom,
- * which leaves the surface non-manifold — you can see straight up into the car
- * from below, the caps do not seal, and nothing downstream could ever export a
- * solid. The underfloor is flat and uninteresting, so three points carry it.
+ * The sculpt field is applied to the half-section before mirroring, so any
+ * authored cut or crease lands identically on both sides of the car.
  */
-function rib(x: number, input: BodyInput): V3[] {
-  const n = Math.max(4, input.ribPoints);
-  const curve = halfSection(
-    input.topZ(x),
-    input.rockerZ(x),
-    Math.max(1, input.halfWidth(x)),
-    input.shape,
-    input.beltZ(x),
-  );
-  const right = curve.sample(n - 1).map((p) => v3(x, p.y, p.z));
+function rib(x: number, spec: LoftSpec): V3[] {
+  const n = Math.max(4, spec.ribPoints);
+  const curve = halfSection(spec.top(x), spec.bottom(x), Math.max(1, spec.half(x)), spec.shape);
+  const right = curve.sample(n - 1).map((p) => {
+    if (!spec.displace) return v3(x, p.y, p.z);
+    const d = spec.displace(x, p.y, p.z);
+    return v3(x, Math.max(0, d.y), d.z);
+  });
   const left: V3[] = [];
-  // Skip the centreline point when mirroring or the seam gets a doubled
-  // vertex, which shows up as a hard line straight down the roof.
   for (let i = right.length - 1; i >= 1; i -= 1) {
     const p = right[i]!;
     left.push(v3(p.x, -p.y, p.z));
@@ -162,56 +160,32 @@ function rib(x: number, input: BodyInput): V3[] {
   return loop;
 }
 
-/**
- * Loft the ribs into a surface.
- *
- * Adjacent ribs have the same point count by construction, so the connection
- * is a plain quad grid. Ends are closed with a fan to the rib's own centre so
- * the body is a solid rather than an open tube — which matters both for the
- * look under light and for anything that later wants a watertight export.
- */
-export function buildBody(input: BodyInput): Mesh {
-  const stations = [...input.stations].sort((a, b) => a - b);
-  if (stations.length < 2) throw new Error('A body needs at least two stations.');
+/** Fraction the cap ring shrinks by — the corner radius of a nose or tail. */
+const CAP_SHRINK = 0.55;
 
-  const ribs = stations.map((x) => rib(x, input));
+function loft(spec: LoftSpec): Mesh {
+  const stations = [...spec.stations].sort((a, b) => a - b);
+  if (stations.length < 2) throw new Error('A loft needs at least two stations.');
+
+  const ribs = stations.map((x) => rib(x, spec));
   const perRib = ribs[0]!.length;
-  for (const r of ribs) {
-    if (r.length !== perRib) throw new Error('Every rib must carry the same point count.');
-  }
 
   const pos: number[] = [];
   const idx: number[] = [];
   for (const r of ribs) for (const p of r) pos.push(p.x, p.y, p.z);
 
-  // Quad grid between neighbouring ribs, each quad split along its shorter
-  // diagonal so a strongly tapered nose does not develop a visible crease.
   for (let s = 0; s < ribs.length - 1; s += 1) {
     const a = s * perRib;
     const b = (s + 1) * perRib;
     for (let i = 0; i < perRib; i += 1) {
-      // The rib is a closed loop, so the last point joins the first. Stopping
-      // one short is what leaves a seam running the length of the underfloor.
       const j = (i + 1) % perRib;
       idx.push(a + i, b + i, a + j);
       idx.push(a + j, b + i, b + j);
     }
   }
 
-  /**
-   * Caps, rounded rather than flat.
-   *
-   * Fanning the end rib straight to its own centre closes the surface but
-   * leaves a flat disc standing square across the car — a nose that reads as
-   * though the body were cut off with a saw. Inserting one shrunken ring just
-   * inboard of the end, then fanning from that, turns the corner over a short
-   * radius instead of a hard edge. It costs one ring and it is the difference
-   * between a nose and a cross-section.
-   *
-   * The ring stays at the end rib's own station, so the car never grows past
-   * the overall length the solver closed.
-   */
-  const CAP_SHRINK = 0.55;
+  // Rounded caps: one shrunken ring inboard of each end turns the corner over
+  // a radius instead of fanning a flat disc square across the car.
   const capOf = (ribIndex: number, flip: boolean): void => {
     const r = ribs[ribIndex]!;
     let cx = 0;
@@ -223,14 +197,9 @@ export function buildBody(input: BodyInput): Mesh {
       cz += p.z;
     }
     const c = v3(cx / r.length, cy / r.length, cz / r.length);
-
     const ring = pos.length / 3;
     for (const p of r) {
-      pos.push(
-        p.x,
-        c.y + (p.y - c.y) * CAP_SHRINK,
-        c.z + (p.z - c.z) * CAP_SHRINK,
-      );
+      pos.push(p.x, c.y + (p.y - c.y) * CAP_SHRINK, c.z + (p.z - c.z) * CAP_SHRINK);
     }
     const base = ribIndex * perRib;
     for (let i = 0; i < perRib; i += 1) {
@@ -243,7 +212,6 @@ export function buildBody(input: BodyInput): Mesh {
         idx.push(ring + j, ring + i, base + j);
       }
     }
-
     const hub = pos.length / 3;
     pos.push(c.x, c.y, c.z);
     for (let i = 0; i < perRib; i += 1) {
@@ -266,13 +234,130 @@ export function buildBody(input: BodyInput): Mesh {
   };
 }
 
+/** How far the greenhouse tucks below the belt, hidden inside the body. */
+const GLASS_TUCK = 60;
+/** Plan rounding run at the A-pillar and the backlight corners. */
+const GLASS_END_RUN = 260;
+
+export function buildCar(input: CarInput): CarBuild {
+  const { cabin } = input;
+
+  // With a cabin, the body volume is belt-capped everywhere: the hood and
+  // deck sit below the belt on any real car, so the cap only ever bites where
+  // the silhouette is glass — and glass belongs to the greenhouse. Blending
+  // near the cabin edges instead lets the fender spike up the windshield
+  // base, which is exactly the blister this split exists to kill.
+  const bodyTop = (x: number): number => {
+    const top = input.topZ(x);
+    return cabin ? Math.min(top, input.beltZ(x)) : top;
+  };
+
+  const body = loft({
+    stations: input.stations,
+    top: (x) => Math.max(input.rockerZ(x) + 1, bodyTop(x)),
+    bottom: (x) => input.rockerZ(x),
+    half: (x) => Math.max(20, input.halfWidth(x)),
+    shape: input.shape,
+    ribPoints: input.ribPoints,
+    ...(input.displace ? { displace: input.displace } : {}),
+  });
+
+  let greenhouse: Mesh | null = null;
+  if (cabin && cabin.x1 - cabin.x0 > 200) {
+    const inset = clamp01(input.shape.glassInset);
+    const span = cabin.x1 - cabin.x0;
+    // A real greenhouse is nearly as wide as the body — the DLO sits just
+    // inboard of the shoulder, and the A- and C-pillars round it off over a
+    // short run. Pinching it to two thirds turned the cabin into a fin
+    // standing on the deck instead of a cabin let into the body.
+    const taper = (x: number): number => {
+      const a = smooth((x - cabin.x0) / GLASS_END_RUN);
+      const b = smooth((cabin.x1 - x) / GLASS_END_RUN);
+      return 0.82 + 0.18 * Math.min(a, b);
+    };
+    const gBase = (x: number): number => input.beltZ(x) - GLASS_TUCK;
+    const gTop = (x: number): number => input.topZ(x);
+    const stations: number[] = [];
+    for (const d of [10, 40, 90, 160]) {
+      stations.push(cabin.x0 + d, cabin.x1 - d);
+    }
+    for (const x of input.stations) {
+      if (x > cabin.x0 + 160 && x < cabin.x1 - 160) stations.push(x);
+    }
+    const live = [...new Set(stations)]
+      .sort((a, b) => a - b)
+      .filter((x) => gTop(x) > gBase(x) + 40 && span > 0);
+    if (live.length >= 2) {
+      greenhouse = loft({
+        stations: live,
+        top: gTop,
+        bottom: gBase,
+        half: (x) => Math.max(16, input.halfWidth(x) * (1 - 0.24 * inset) * taper(x)),
+        // The greenhouse is its own volume with its own lean: strongly domed,
+        // carried high, leaned hard — the DLO wrapping over the driver.
+        shape: { crown: 0.4, shoulder: 0.34, tumblehome: 0.34, glassInset: 0 },
+        ribPoints: Math.max(8, Math.round(input.ribPoints * 0.75)),
+      });
+    }
+  }
+
+  return { body, greenhouse };
+}
+
 /**
- * Area-weighted vertex normals.
- *
- * The cross product of two triangle edges is already proportional to twice the
- * triangle's area, so accumulating it unnormalised weights large triangles
- * more than slivers — which is what keeps a highlight from kinking where the
- * tessellation happens to get dense.
+ * The composed half-section at one station — body, and glass where there is
+ * glass. This is what SECTIONS draws, and it is computed from the same tables
+ * as the loft so the drawing and the surface can never disagree.
+ */
+export function sectionAt(
+  input: CarInput,
+  x: number,
+  samples = 40,
+): { body: V3[]; greenhouse: V3[] | null } {
+  const bodyTop = input.cabin
+    ? Math.min(input.topZ(x), input.beltZ(x))
+    : input.topZ(x);
+  const bodyCurve = halfSection(
+    Math.max(input.rockerZ(x) + 1, bodyTop),
+    input.rockerZ(x),
+    Math.max(20, input.halfWidth(x)),
+    input.shape,
+  );
+  const body = bodyCurve.sample(samples).map((p) => {
+    if (!input.displace) return v3(x, p.y, p.z);
+    const d = input.displace(x, p.y, p.z);
+    return v3(x, Math.max(0, d.y), d.z);
+  });
+  let greenhouse: V3[] | null = null;
+  const { cabin } = input;
+  if (cabin && x > cabin.x0 && x < cabin.x1) {
+    const inset = clamp01(input.shape.glassInset);
+    const a = smooth((x - cabin.x0) / GLASS_END_RUN);
+    const b = smooth((cabin.x1 - x) / GLASS_END_RUN);
+    const taper = 0.82 + 0.18 * Math.min(a, b);
+    const base = input.beltZ(x) - GLASS_TUCK;
+    const top = input.topZ(x);
+    if (top > base + 40) {
+      const half = Math.max(16, input.halfWidth(x) * (1 - 0.24 * inset) * taper);
+      greenhouse = halfSection(top, base, half, {
+        crown: 0.4,
+        shoulder: 0.34,
+        tumblehome: 0.34,
+        glassInset: 0,
+      })
+        .sample(samples)
+        .map((p) => v3(x, p.y, p.z));
+    }
+  }
+  return { body, greenhouse };
+}
+
+
+/**
+ * Area-weighted vertex normals. The cross product of two edges is already
+ * proportional to twice the triangle's area, so accumulating it unnormalised
+ * weights big triangles over slivers — which keeps a highlight from kinking
+ * where the tessellation happens to get dense.
  */
 export function vertexNormals(positions: Float32Array, indices: Uint32Array): Float32Array {
   const out = new Float32Array(positions.length);
@@ -320,5 +405,3 @@ export function bounds(mesh: Mesh): { min: V3; max: V3 } {
   }
   return { min: v3(mnx, mny, mnz), max: v3(mxx, mxy, mxz) };
 }
-
-export { add, sub, normalize };

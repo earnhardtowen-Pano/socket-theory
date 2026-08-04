@@ -61,6 +61,9 @@ export type FeatureParams = Readonly<Record<string, number>>;
 
 export interface FeatureDef<P extends FeatureParams = FeatureParams> {
   readonly kind: FeatureKind;
+  /** Which canvas this feature's geometry belongs on. A cross-section drawn
+   *  onto the side view is a blob wearing a car part's name. */
+  readonly view: 'side' | 'sections' | 'body';
   readonly label: string;
   /** Plain words for the inspector header. */
   readonly blurb: string;

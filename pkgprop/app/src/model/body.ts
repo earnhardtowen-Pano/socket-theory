@@ -1,42 +1,33 @@
 import type { SolveResult } from '@pkgprop/core';
-import { buildBody, interpolate, v3, type BodyInput, type Mesh, type SectionShape } from '@pkgprop/geometry';
+import { buildCar, interpolate, v3, type CarBuild, type CarInput, type Displace } from '@pkgprop/geometry';
 import {
   clampLinePoint,
   denorm,
   LINE_DEFS,
   lineFrameOf,
   linePoints,
+  paramValue,
   type DrawingState,
   type LineId,
 } from '../state/lines.js';
-import type { FeatureMap } from './features.js';
+import type { Feature, FeatureMap } from './features.js';
 
 /**
- * The drawn car, lofted.
+ * The drawn car, lofted — and sculpted.
  *
- * The side lines say how tall the body is at every station, the plan line says
- * how wide, and the section feature says what shape connects them. Put the
- * three together and there is a surface — which is the only way a render stops
- * looking like a cartoon, because a highlight bends with curvature and
- * curvature needs a real normal.
- *
- * Nothing here invents geometry. Every number traces back to a line the human
- * drew or a wall the solver closed.
+ * The side lines say how tall, the plan line says how wide, the section says
+ * what shape connects them, and the sculpt features — creases and cuts — are
+ * composed into one displacement field evaluated at every surface point.
+ * Nothing here invents geometry: every number traces to a line the human drew,
+ * a wall the solver closed, or a parameter a feature declares.
  */
 
-/** The side lines that make up the upper silhouette, nose to tail. */
 const SILHOUETTE: readonly LineId[] = ['hood', 'glass', 'roof', 'backlight', 'deck'];
 
 /**
- * A sampled (x, value) table turned into a smooth lookup.
- *
- * Piecewise-linear is the obvious choice and it is wrong here: every drawn
- * point becomes a slope discontinuity, and a slope discontinuity in the rail
- * is a crease running the width of the car once it is lofted and lit. The
- * curvature has to be continuous before the highlight can be.
- *
- * Duplicate stations are dropped — two lines meeting at a weld would otherwise
- * put two values at one x and send the interpolation vertical.
+ * A sampled (x, value) table turned into a smooth lookup. Piecewise-linear
+ * would put a slope discontinuity at every drawn point, and a slope
+ * discontinuity in a rail is a crease across the car once it is lit.
  */
 function tableOf(pairs: readonly { x: number; v: number }[]): (x: number) => number {
   const sorted = [...pairs].sort((a, b) => a.x - b.x);
@@ -58,8 +49,6 @@ function tableOf(pairs: readonly { x: number; v: number }[]): (x: number) => num
     };
   }
   const curve = interpolate(pts.map((p) => v3(p.x, p.v, 0)));
-  // The curve is parameterised by chord length, not by x, so it is resampled
-  // onto an even x grid once and read from there.
   const GRID = 240;
   const grid: number[] = [];
   const samples = curve.sample(GRID * 2);
@@ -78,7 +67,6 @@ function tableOf(pairs: readonly { x: number; v: number }[]): (x: number) => num
   };
 }
 
-/** Every drawn point of a line, clamped, in millimetres. */
 function pointsOf(id: LineId, drawing: DrawingState, result: SolveResult): { x: number; z: number }[] {
   const def = LINE_DEFS.find((d) => d.id === id);
   if (!def) return [];
@@ -90,21 +78,70 @@ function pointsOf(id: LineId, drawing: DrawingState, result: SolveResult): { x: 
   });
 }
 
+const smooth = (t: number): number => {
+  const s = Math.min(1, Math.max(0, t));
+  return s * s * (3 - 2 * s);
+};
+
+/**
+ * The sculpt field: every crease and cut, composed in author order.
+ *
+ * A crease is a ridge (or valley) following the flank at an authored height.
+ * A cut is a recessed patch with a rim — the professional stand-in for a
+ * boolean, which ideation tools avoid because it wrecks the surface. Both act
+ * on the half-section before mirroring, so symmetry is structural.
+ */
+function sculptOf(
+  features: FeatureMap,
+  halfWidth: (x: number) => number,
+  rockerZ: (x: number) => number,
+  span: { x0: number; x1: number },
+): Displace | undefined {
+  const creases = Object.values(features).filter((f) => f.kind === 'character-line');
+  const cuts = Object.values(features).filter((f) => f.kind === 'body-cut');
+  if (creases.length === 0 && cuts.length === 0) return undefined;
+
+  return (x, y, z) => {
+    let oy = y;
+    const oz = z;
+    const half = halfWidth(x);
+    // Sculpting acts on the outboard face, not the crown or the underfloor.
+    const onFlank = y > half * 0.45;
+
+    if (onFlank) {
+      for (const f of creases) {
+        const lineZ = rockerZ(x) + (f.params.height ?? 300);
+        const w = Math.max(20, f.params.width ?? 70);
+        const d = f.params.depth ?? 6;
+        const fade =
+          smooth((x - span.x0 - 120) / 420) * smooth((span.x1 - 120 - x) / 420);
+        const t = (z - lineZ) / w;
+        oy += d * Math.exp(-t * t) * fade;
+      }
+      for (const f of cuts) {
+        const cx = f.params.station ?? 0;
+        const cz = f.params.height ?? 500;
+        const hw = Math.max(40, f.params.width ?? 420) / 2;
+        const hh = Math.max(30, f.params.tall ?? 180) / 2;
+        const rim = Math.max(6, f.params.rim ?? 24);
+        const depth = Math.max(0, f.params.depth ?? 30);
+        const mx = smooth((hw - Math.abs(x - cx)) / rim);
+        const mz = smooth((hh - Math.abs(z - cz)) / rim);
+        oy -= depth * mx * mz;
+      }
+    }
+    return { y: Math.max(0, oy), z: oz };
+  };
+}
+
 export interface BodyBuild {
-  readonly mesh: Mesh;
-  readonly input: BodyInput;
-  /** Where the wheels sit, so the view can stand the car on them. */
-  readonly wheels: readonly { x: number; y: number; radius: number; width: number }[];
+  readonly car: CarBuild;
+  readonly input: CarInput;
+  readonly wheels: readonly { x: number; y: number; radius: number; section: number }[];
   readonly groundZ: number;
 }
 
-/**
- * Station spacing for the loft.
- *
- * Close enough that the shoulder line reads as a continuous highlight rather
- * than a row of facets, coarse enough that a package change re-lofts inside a
- * frame. 60 mm on a 4-metre car is about seventy ribs.
- */
+/** Station spacing: dense enough for a continuous highlight, cheap to re-loft. */
 const STATION_STEP = 60;
 
 export function buildCarBody(
@@ -114,36 +151,35 @@ export function buildCarBody(
 ): BodyBuild {
   const g = result.geometry;
 
-  // Upper silhouette: every point of every top line, welded into one table.
   const topPairs: { x: number; v: number }[] = [];
   for (const id of SILHOUETTE) {
     for (const p of pointsOf(id, drawing, result)) topPairs.push({ x: p.x, v: p.z });
   }
   const topZ = tableOf(topPairs);
 
-  // Plan half-width. The plan line is authored as one half; the other is its
-  // mirror, which is why nothing here doubles it.
   const planPairs = pointsOf('plan_side', drawing, result).map((p) => ({ x: p.x, v: Math.abs(p.z) }));
   const halfWidth = tableOf(planPairs);
 
   const rockerPairs = pointsOf('rocker', drawing, result).map((p) => ({ x: p.x, v: p.z }));
   const rockerZ = tableOf(rockerPairs);
 
-  // The drawn beltline is where the body ends and the glass begins, so it is
-  // where the section steps inboard.
   const beltPairs = pointsOf('belt', drawing, result).map((p) => ({ x: p.x, v: p.z }));
   const beltZ = tableOf(beltPairs);
 
   const section = features['section-body'];
-  const shape: SectionShape = {
+  const shape = {
     crown: section?.params.crown ?? 0.42,
     shoulder: section?.params.shoulder ?? 0.64,
     tumblehome: section?.params.tumblehome ?? 0.3,
     glassInset: section?.params.glassInset ?? 0.5,
   };
 
-  // Even spacing through the body, tightened at the ends where curvature is
-  // highest and where a coarse rib leaves the cap visibly faceted.
+  // The greenhouse runs cowl to backlight base — the glass span the drawn
+  // silhouette already carries.
+  const backlightPts = pointsOf('backlight', drawing, result);
+  const cabinEnd = backlightPts[backlightPts.length - 1]?.x ?? g.wheelbase;
+  const cabin = { x0: g.cowl.x, x1: Math.max(g.cowl.x + 300, cabinEnd) };
+
   const stations: number[] = [];
   for (let x = g.bumperX; x < g.tailX; x += STATION_STEP) stations.push(x);
   stations.push(g.tailX);
@@ -152,34 +188,43 @@ export function buildCarBody(
     for (const d of [12, 30, 60, 110, 180]) stations.push(end + dir * d);
   }
 
-  const input: BodyInput = {
+  const halfW = (x: number): number => Math.max(28, halfWidth(x));
+  const rocker = (x: number): number => rockerZ(x);
+  const displace = sculptOf(features, halfW, rocker, { x0: g.bumperX, x1: g.tailX });
+
+  const input: CarInput = {
     stations,
-    // The nose and tail have to close, or the caps fan across a full-width
-    // opening and the car ends in a flat wall. Tapering the last station's
-    // width to a fraction gives the body somewhere to converge.
     topZ: (x) => Math.max(rockerZ(x) + 1, topZ(x)),
-    // The plan line already carries the taper — it is drawn narrow at the
-    // bumper, full through the body, narrow again at the tail. Applying a
-    // second taper on top of it squeezed the whole car inward and left the
-    // nose chopped off at a little over half width. The floor here only stops
-    // a station from collapsing to nothing, which would degenerate the cap.
-    halfWidth: (x) => Math.max(28, halfWidth(x)),
-    rockerZ: (x) => rockerZ(x),
     beltZ: (x) => beltZ(x),
+    halfWidth: halfW,
+    rockerZ: rocker,
+    cabin,
     shape,
     ribPoints: 16,
+    ...(displace ? { displace } : {}),
   };
 
-  const track = g.track;
-  const tireHalf = 0;
+  const sectionW = paramValue(result, 'tire_section_width', 245);
   const wheels = [0, g.wheelbase].flatMap((x) =>
     [1, -1].map((side) => ({
       x,
-      y: (side * track) / 2,
+      y: (side * g.track) / 2,
       radius: g.tireRadius,
-      width: tireHalf,
+      section: sectionW,
     })),
   );
 
-  return { mesh: buildBody(input), input, wheels, groundZ: 0 };
+  return { car: buildCar(input), input, wheels, groundZ: 0 };
+}
+
+/** The sculpt and appendage parts on the car right now, for the 3D view. */
+export function partsOf(features: FeatureMap): {
+  wings: Feature[];
+  splitters: Feature[];
+} {
+  const all = Object.values(features);
+  return {
+    wings: all.filter((f) => f.kind === 'wing'),
+    splitters: all.filter((f) => f.kind === 'splitter'),
+  };
 }

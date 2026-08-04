@@ -473,3 +473,11 @@ select {
 /* ---- SECTIONS: the third drawing ---- */
 .section-lead { fill: none; stroke: var(--ink); stroke-width: var(--stroke-silhouette); stroke-linejoin: round; }
 .section-ghost { fill: none; stroke: var(--ink-faint); stroke-width: var(--stroke-ghost); stroke-linejoin: round; }
+
+.section-glass { fill: none; stroke: var(--sourced); stroke-width: var(--stroke-feature); stroke-linejoin: round; }
+.body-foot {
+  display: flex; align-items: center; gap: var(--s4);
+  padding: var(--s2) 0 0;
+  font-size: var(--fs-label); color: var(--ink-soft);
+}
+.body-foot > :last-child { margin-left: auto; }

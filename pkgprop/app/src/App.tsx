@@ -231,6 +231,7 @@ function Shell() {
                 drawing={state.now.drawing}
                 features={state.now.features}
                 render={state.now.render}
+                dispatch={dispatch}
               />
             )}
             {panel === 'BOUNCE' && (

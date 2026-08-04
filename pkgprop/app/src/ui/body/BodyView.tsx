@@ -1,140 +1,61 @@
 import type { SolveResult } from '@pkgprop/core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { buildCarBody } from '../../model/body.js';
+import { buildCarBody, partsOf } from '../../model/body.js';
 import type { FeatureMap } from '../../model/features.js';
 import type { DrawingState, RenderState } from '../../state/lines.js';
+import type { Action } from '../../state/store.js';
+import { studioEnvironment } from './studio.js';
+import { checkMaterial, clayMaterial, glassMaterial, paintMaterial, zebraMaterial } from './materials.js';
+import { buildWheel } from './wheel.js';
 
 /**
- * BODY — the drawn car as a surface, under light.
+ * BODY — the car as surface, in a studio.
  *
- * The 2D render paints bands on a silhouette, and no amount of tuning makes
- * that read as a car, because what tells you a surface is metal is the way a
- * highlight bends as curvature changes. That needs normals, which needs the
- * loft. This is where the two meet.
- *
- * The environment is doing most of the work. A car body is almost entirely
- * reflection: the studio here is a gradient sky over a floor with a horizon
- * between them, and the horizon sweeping across the flank as you orbit is the
- * single strongest cue that the shape is three-dimensional and smooth.
+ * Four ways to look at it, because a designer never judges a form one way.
+ * CLAY is the default for the same reason a studio reviews in clay: colour and
+ * reflection flatter, matte grey does not, and surface flow is what you are
+ * actually looking at. PAINT is the beauty shot. ZEBRA and CHECK are the
+ * clap-back to Class-A — stripes read continuity, curvature colour reads where
+ * the surface accelerates.
  */
 
 /** Millimetres are the project's unit; three.js is happier near unity. */
 const MM = 0.001;
+
+export type Look = 'CLAY' | 'PAINT' | 'ZEBRA' | 'CHECK';
+
+const LOOKS: readonly { id: Look; hint: string }[] = [
+  { id: 'CLAY', hint: 'matte grey, the way a studio reviews a model' },
+  { id: 'PAINT', hint: 'paint over clearcoat, glass in the greenhouse' },
+  { id: 'ZEBRA', hint: 'stripes that kink mark a curvature break' },
+  { id: 'CHECK', hint: 'blue is calm, red is where the surface accelerates' },
+];
 
 interface Studio {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   body: THREE.Mesh;
+  glass: THREE.Mesh;
   wheels: THREE.Group;
+  parts: THREE.Group;
   env: THREE.Texture;
+  key: THREE.DirectionalLight;
   dispose: () => void;
 }
 
-/**
- * A studio in a texture: sky, horizon, floor, and one soft overhead bank.
- *
- * Built rather than loaded — an HDRI would be megabytes and a network fetch,
- * and a car needs a horizon far more than it needs a real room.
- */
-function studioEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
-  const size = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-
-  const sky = ctx.createLinearGradient(0, 0, 0, size * 0.52);
-  sky.addColorStop(0, '#f6f7f9');
-  sky.addColorStop(0.72, '#c9cfd8');
-  sky.addColorStop(1, '#8d949e');
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, size, size * 0.52);
-
-  // The horizon is a hard edge on purpose. A soft one reads as fog and takes
-  // the snap out of every reflection running along the body side.
-  const floor = ctx.createLinearGradient(0, size * 0.52, 0, size);
-  floor.addColorStop(0, '#3a3d42');
-  floor.addColorStop(1, '#15171a');
-  ctx.fillStyle = floor;
-  ctx.fillRect(0, size * 0.52, size, size * 0.48);
-
-  // One overhead softbox, the light that draws the length of the roof.
-  const box = ctx.createRadialGradient(size * 0.5, size * 0.1, 0, size * 0.5, size * 0.1, size * 0.42);
-  box.addColorStop(0, 'rgba(255,255,255,0.95)');
-  box.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = box;
-  ctx.fillRect(0, 0, size, size * 0.52);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.mapping = THREE.EquirectangularReflectionMapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const target = pmrem.fromEquirectangular(tex);
-  pmrem.dispose();
-  tex.dispose();
-  return target.texture;
-}
-
-/**
- * Zebra: evenly spaced stripes reflected off the surface.
- *
- * The oldest surface-inspection trick there is. Stripes that run smoothly are
- * a fair surface; stripes that kink or bunch mark a curvature break you cannot
- * see in a paint render. Honesty about the surface, not decoration.
- */
-function zebraMaterial(): THREE.ShaderMaterial {
-  return new THREE.ShaderMaterial({
-    // Band count is a real choice: too many and the stripes read as moire
-    // instead of a diagnostic, too few and a local kink hides between them.
-    // Nine across the reflected hemisphere is about what a physical stripe
-    // wall gives you.
-    uniforms: { uBands: { value: 9 } },
-    vertexShader: `
-      varying vec3 vNormalW;
-      varying vec3 vViewW;
-      void main() {
-        vec4 world = modelMatrix * vec4(position, 1.0);
-        vNormalW = normalize(mat3(modelMatrix) * normal);
-        vViewW = normalize(cameraPosition - world.xyz);
-        gl_Position = projectionMatrix * viewMatrix * world;
-      }`,
-    fragmentShader: `
-      uniform float uBands;
-      varying vec3 vNormalW;
-      varying vec3 vViewW;
-      void main() {
-        vec3 r = reflect(-vViewW, normalize(vNormalW));
-        float s = sin(asin(clamp(r.y, -1.0, 1.0)) * uBands);
-        // Antialias the band edge by its own screen-space rate of change, or
-        // the stripes alias into moire the moment the car gets small.
-        float w = fwidth(s) * 1.2;
-        float band = smoothstep(-w, w, s);
-        vec3 c = mix(vec3(0.07), vec3(0.94), band);
-        gl_FragColor = vec4(c, 1.0);
-      }`,
-  });
-}
-
-function paintMaterial(render: RenderState, env: THREE.Texture): THREE.MeshPhysicalMaterial {
-  // The 2D render mixes its own marker palette; here the same hue and
-  // saturation drive a physical paint, held darker than the marker so the
-  // environment has somewhere to reflect into. A light body under a light sky
-  // is where metallic paint stops reading as metal.
-  const color = new THREE.Color().setHSL(render.hue / 360, Math.min(1, render.sat * 1.6), 0.42);
-  return new THREE.MeshPhysicalMaterial({
-    color,
-    metalness: 0.62,
-    roughness: 0.28,
-    // Clearcoat is what separates automotive paint from painted metal: a
-    // second, sharper reflection sitting on top of the flake.
-    clearcoat: 1,
-    clearcoatRoughness: 0.06,
-    envMap: env,
-    envMapIntensity: 1.15,
-    side: THREE.DoubleSide,
-  });
+function materialFor(look: Look, render: RenderState, env: THREE.Texture): THREE.Material {
+  switch (look) {
+    case 'CLAY':
+      return clayMaterial(env);
+    case 'ZEBRA':
+      return zebraMaterial();
+    case 'CHECK':
+      return checkMaterial();
+    case 'PAINT':
+      return paintMaterial(render, env);
+  }
 }
 
 export function BodyView({
@@ -142,21 +63,28 @@ export function BodyView({
   drawing,
   features,
   render,
+  dispatch,
 }: {
   result: SolveResult;
   drawing: DrawingState;
   features: FeatureMap;
   render: RenderState;
+  dispatch: React.Dispatch<Action>;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const studioRef = useRef<Studio | null>(null);
-  const [zebra, setZebra] = useState(false);
+  const [look, setLook] = useState<Look>('CLAY');
   const [failed, setFailed] = useState<string | null>(null);
-  const orbit = useRef({ az: -0.85, el: 0.22, dist: 9.5, dragging: false, lx: 0, ly: 0 });
-  const keyRef = useRef<THREE.DirectionalLight | null>(null);
+  const orbit = useRef({ az: -0.9, el: 0.16, dist: 9.2, dragging: false, lx: 0, ly: 0 });
 
-  // One-time scene setup. The geometry is replaced on every solve; the studio,
-  // the lights and the floor are built once and kept.
+  const build = useMemo(() => {
+    try {
+      return { ok: buildCarBody(result, drawing, features), err: null as string | null };
+    } catch (e) {
+      return { ok: null, err: e instanceof Error ? e.message : 'The body would not loft.' };
+    }
+  }, [result, drawing, features]);
+
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -169,7 +97,7 @@ export function BodyView({
     }
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.35;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -179,26 +107,23 @@ export function BodyView({
     const env = studioEnvironment(renderer);
     scene.environment = env;
 
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 400);
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 400);
 
-    // A key light for the contact shadow. The environment already carries the
-    // ambient, so this one is here to put the car on the ground.
-    const key = new THREE.DirectionalLight(0xffffff, 1.5);
+    const key = new THREE.DirectionalLight(0xffffff, 1.8);
     key.position.set(4, 7, 5);
-    keyRef.current = key;
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
     key.shadow.camera.left = -6;
     key.shadow.camera.right = 6;
     key.shadow.camera.top = 6;
     key.shadow.camera.bottom = -6;
-    key.shadow.bias = -0.0008;
+    key.shadow.bias = -0.0009;
     scene.add(key);
-    scene.add(new THREE.HemisphereLight(0xdfe6ef, 0x2a2c30, 0.5));
+    scene.add(new THREE.HemisphereLight(0xe6ecf4, 0x2c2f34, 0.75));
 
     const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(26, 96).rotateX(-Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.55, metalness: 0.1 }),
+      new THREE.CircleGeometry(30, 96).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0x2e3136, roughness: 0.62, metalness: 0.05 }),
     );
     ground.receiveShadow = true;
     scene.add(ground);
@@ -206,21 +131,19 @@ export function BodyView({
     const body = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
     body.castShadow = true;
     scene.add(body);
-
+    const glass = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
+    glass.castShadow = true;
+    scene.add(glass);
     const wheels = new THREE.Group();
-    scene.add(wheels);
+    const parts = new THREE.Group();
+    scene.add(wheels, parts);
 
     studioRef.current = {
-      scene,
-      camera,
-      renderer,
-      body,
-      wheels,
-      env,
+      scene, camera, renderer, body, glass, wheels, parts, env, key,
       dispose: () => {
         renderer.dispose();
         env.dispose();
-        host.removeChild(renderer.domElement);
+        if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement);
       },
     };
 
@@ -229,7 +152,7 @@ export function BodyView({
       const s = studioRef.current;
       if (s) {
         const w = host.clientWidth;
-        const h = Math.max(320, Math.round(w * 0.52));
+        const h = Math.max(340, Math.round(w * 0.5));
         if (s.renderer.domElement.width !== w || s.renderer.domElement.height !== h) {
           s.renderer.setSize(w, h, false);
           s.camera.aspect = w / Math.max(1, h);
@@ -238,16 +161,15 @@ export function BodyView({
         const o = orbit.current;
         s.camera.position.set(
           Math.cos(o.az) * Math.cos(o.el) * o.dist,
-          Math.sin(o.el) * o.dist + 0.55,
+          Math.sin(o.el) * o.dist + 0.45,
           Math.sin(o.az) * Math.cos(o.el) * o.dist,
         );
-        s.camera.lookAt(0, 0.6, 0);
+        s.camera.lookAt(0, 0.52, 0);
         s.renderer.render(s.scene, s.camera);
       }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-
     return () => {
       cancelAnimationFrame(raf);
       studioRef.current?.dispose();
@@ -255,65 +177,104 @@ export function BodyView({
     };
   }, []);
 
-  // Re-loft whenever the package or the drawing moves.
+  // Re-loft on any change to the package, the drawing, or the parts.
   useEffect(() => {
     const s = studioRef.current;
     if (!s) return;
-    let build;
-    try {
-      build = buildCarBody(result, drawing, features);
-    } catch (e) {
-      setFailed(e instanceof Error ? e.message : 'The body would not loft.');
+    if (!build.ok) {
+      setFailed(build.err);
       return;
     }
     setFailed(null);
+    const g = result.geometry;
+    const shift = -(g.wheelbase / 2) * MM;
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(build.mesh.positions, 3));
-    geo.setAttribute('normal', new THREE.BufferAttribute(build.mesh.normals, 3));
-    geo.setIndex(new THREE.BufferAttribute(build.mesh.indices, 1));
-    // Millimetres to metres, and the car centred on its own wheelbase so it
-    // orbits about itself rather than swinging around the front axle.
-    geo.scale(MM, MM, MM);
-    geo.translate(-(result.geometry.wheelbase / 2) * MM, 0, 0);
-    // Project axes are x aft, y outboard, z up; three.js wants y up.
-    geo.rotateX(-Math.PI / 2);
+    const toGeo = (m: { positions: Float32Array; normals: Float32Array; indices: Uint32Array }) => {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(m.positions.slice(), 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(m.normals.slice(), 3));
+      geo.setIndex(new THREE.BufferAttribute(m.indices.slice(), 1));
+      geo.scale(MM, MM, MM);
+      geo.translate(shift, 0, 0);
+      // Project axes are x aft, y outboard, z up; three.js wants y up.
+      geo.rotateX(-Math.PI / 2);
+      return geo;
+    };
 
     s.body.geometry.dispose();
-    s.body.geometry = geo;
+    s.body.geometry = toGeo(build.ok.car.body);
+    s.glass.geometry.dispose();
+    s.glass.visible = build.ok.car.greenhouse !== null;
+    s.glass.geometry = build.ok.car.greenhouse
+      ? toGeo(build.ok.car.greenhouse)
+      : new THREE.BufferGeometry();
 
+    // Wheels. The cylinder's own axis is Y, and the car's lateral axis is Z
+    // after the body rotation above — so the tire rotates about X. Rotating
+    // about Z instead pointed every wheel down the length of the car, which
+    // is exactly as wrong as it looked.
     s.wheels.clear();
-    const tireGeo = new THREE.CylinderGeometry(1, 1, 1, 40);
-    for (const w of build.wheels) {
-      const tire = new THREE.Mesh(
-        tireGeo,
-        new THREE.MeshStandardMaterial({ color: 0x141416, roughness: 0.85, metalness: 0 }),
-      );
-      const r = w.radius * MM;
-      tire.scale.set(r, result.geometry.tireRadius * 0.62 * MM, r);
-      tire.rotation.z = Math.PI / 2;
-      tire.position.set((w.x - result.geometry.wheelbase / 2) * MM, r, -w.y * MM);
-      tire.castShadow = true;
-      s.wheels.add(tire);
+    for (const w of build.ok.wheels) {
+      const wheel = buildWheel(w.radius * MM, w.section * MM);
+      wheel.rotation.x = Math.PI / 2;
+      wheel.position.set(w.x * MM + shift, w.radius * MM, -w.y * MM);
+      s.wheels.add(wheel);
     }
-  }, [result, drawing, features]);
 
-  // Paint and zebra swap the material without touching the geometry.
+    // Appendages: wings and splitters as real slabs on the car.
+    s.parts.clear();
+    const { wings, splitters } = partsOf(features);
+    const partMat = new THREE.MeshPhysicalMaterial({
+      color: 0x14151a, roughness: 0.35, metalness: 0.2, clearcoat: 0.6, envMap: s.env,
+    });
+    for (const f of wings) {
+      const chord = (f.params.chord ?? 260) * MM;
+      const span = (f.params.span ?? 1500) * MM;
+      const th = (f.params.thickness ?? 26) * MM;
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(chord, th, span), partMat);
+      blade.castShadow = true;
+      blade.rotation.z = ((f.params.angle ?? -8) * Math.PI) / 180;
+      blade.position.set((f.params.station ?? 3900) * MM + shift, (f.params.height ?? 1150) * MM, 0);
+      s.parts.add(blade);
+      // Endplates, because a wing floating on nothing reads as a mistake.
+      for (const side of [1, -1]) {
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(chord * 1.1, chord * 0.5, th * 0.6), partMat);
+        plate.castShadow = true;
+        plate.position.set(
+          (f.params.station ?? 3900) * MM + shift,
+          (f.params.height ?? 1150) * MM,
+          (side * span) / 2,
+        );
+        s.parts.add(plate);
+      }
+    }
+    for (const f of splitters) {
+      const reach = (f.params.reach ?? 190) * MM;
+      const span = (f.params.span ?? 1700) * MM;
+      const th = (f.params.thickness ?? 16) * MM;
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(reach * 1.6, th, span), partMat);
+      blade.castShadow = true;
+      blade.position.set((f.params.station ?? -700) * MM + shift, (f.params.height ?? 105) * MM, 0);
+      s.parts.add(blade);
+    }
+  }, [build, features, result]);
+
+  // Look and light.
   useEffect(() => {
     const s = studioRef.current;
     if (!s) return;
-    const old = s.body.material as THREE.Material;
-    s.body.material = zebra ? zebraMaterial() : paintMaterial(render, s.env);
-    old.dispose();
-    // The sun is one light across both views. Dragging it in RENDER swings the
-    // shadow here, so the two are describing the same afternoon.
-    const key = keyRef.current;
-    if (key) {
-      const el = 0.15 + render.sunEl * 1.25;
-      const az = render.sunAz * 1.4;
-      key.position.set(Math.sin(az) * 8 * Math.cos(el), Math.sin(el) * 9 + 1, Math.cos(az) * 8 * Math.cos(el));
-    }
-  }, [zebra, render]);
+    (s.body.material as THREE.Material).dispose();
+    s.body.material = materialFor(look, render, s.env);
+    (s.glass.material as THREE.Material).dispose();
+    // Glass is only glass in PAINT; every analysis look wants the greenhouse
+    // in the same material as the body or the stripes stop where the cabin
+    // starts and tell you nothing about the join.
+    s.glass.material = look === 'PAINT' ? glassMaterial(render, s.env) : materialFor(look, render, s.env);
+
+    const el = 0.16 + render.sunEl * 1.2;
+    const az = render.sunAz * 1.4;
+    s.key.position.set(Math.sin(az) * 8 * Math.cos(el), Math.sin(el) * 9 + 1.2, Math.cos(az) * 8 * Math.cos(el));
+  }, [look, render]);
 
   const onPointerDown = (e: React.PointerEvent): void => {
     orbit.current.dragging = true;
@@ -325,44 +286,46 @@ export function BodyView({
     const o = orbit.current;
     if (!o.dragging) return;
     o.az -= (e.clientX - o.lx) * 0.006;
-    o.el = Math.max(-0.18, Math.min(1.25, o.el + (e.clientY - o.ly) * 0.005));
+    o.el = Math.max(-0.15, Math.min(1.25, o.el + (e.clientY - o.ly) * 0.005));
     o.lx = e.clientX;
     o.ly = e.clientY;
   };
   const endDrag = (): void => {
     orbit.current.dragging = false;
   };
-
+  const onWheel = (e: React.WheelEvent): void => {
+    orbit.current.dist = Math.max(3.4, Math.min(24, orbit.current.dist * Math.exp(e.deltaY * 0.0011)));
+  };
   const view = (az: number, el: number) => () => {
     orbit.current.az = az;
     orbit.current.el = el;
   };
+
+  const hint = LOOKS.find((l) => l.id === look)?.hint ?? '';
 
   return (
     <div className="view-block" data-testid="body-view">
       <div className="view-title">
         <span>BODY</span>
         <span className="mode-chips">
-          <button className="chip" data-testid="view-front34" onClick={view(-0.85, 0.22)}>
-            FRONT ¾
-          </button>
-          <button className="chip" data-testid="view-rear34" onClick={view(2.3, 0.24)}>
-            REAR ¾
-          </button>
-          <button className="chip" data-testid="view-side" onClick={view(Math.PI / 2, 0.05)}>
-            SIDE
-          </button>
-          <button
-            className={`chip ${zebra ? 'active' : ''}`}
-            data-testid="zebra-toggle"
-            onClick={() => setZebra((z) => !z)}
-          >
-            ZEBRA
-          </button>
+          {LOOKS.map((l) => (
+            <button
+              key={l.id}
+              className={`chip ${look === l.id ? 'active' : ''}`}
+              data-testid={`look-${l.id}`}
+              onClick={() => setLook(l.id)}
+            >
+              {l.id}
+            </button>
+          ))}
         </span>
-        <span className="view-note">
-          {zebra ? 'stripes that kink mark a curvature break' : 'drag to orbit · the horizon shows the surface'}
+        <span className="mode-chips">
+          <button className="chip" data-testid="view-front34" onClick={view(-0.9, 0.16)}>F¾</button>
+          <button className="chip" data-testid="view-rear34" onClick={view(2.25, 0.2)}>R¾</button>
+          <button className="chip" data-testid="view-side" onClick={view(Math.PI / 2, 0.03)}>SIDE</button>
+          <button className="chip" data-testid="view-top" onClick={view(Math.PI / 2, 1.2)}>TOP</button>
         </span>
+        <span className="view-note">{hint}</span>
       </div>
       {failed ? (
         <div className="roadmap-card">
@@ -377,8 +340,20 @@ export function BodyView({
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
+          onWheel={onWheel}
         />
       )}
+      <div className="body-foot">
+        <span>drag to orbit · wheel zooms</span>
+        <span>
+          {build.ok
+            ? `${(build.ok.car.body.triangleCount + (build.ok.car.greenhouse?.triangleCount ?? 0)).toLocaleString()} triangles`
+            : ''}
+        </span>
+        <button className="chip" onClick={() => dispatch({ type: 'panel', id: 'SIDE' })}>
+          back to drawing
+        </button>
+      </div>
     </div>
   );
 }

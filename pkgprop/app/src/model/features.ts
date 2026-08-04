@@ -1,5 +1,6 @@
 import type { SolveResult } from '@pkgprop/core';
 import { asDef, makeCtx, type Feature, type FeatureDef, type FeatureGeometry } from './feature.js';
+import { BODY_CUT, CHARACTER_LINE, SPLITTER, WING } from './features/sculpt.js';
 import { BODY_SECTION } from './features/section.js';
 import { WHEEL_OPENING, type WheelOpeningParams } from './features/wheelOpening.js';
 
@@ -17,7 +18,27 @@ import { WHEEL_OPENING, type WheelOpeningParams } from './features/wheelOpening.
 export const FEATURE_DEFS: Record<string, FeatureDef> = {
   'wheel-opening': asDef(WHEEL_OPENING),
   'body-section': asDef(BODY_SECTION),
+  'character-line': CHARACTER_LINE,
+  'body-cut': BODY_CUT,
+  wing: WING,
+  splitter: SPLITTER,
 };
+
+/** The verbs you can add to a car, in the order the rail offers them. */
+export const ADDABLE: readonly { kind: string; label: string; blurb: string }[] = [
+  { kind: 'character-line', label: 'character line', blurb: 'a crease running the flank' },
+  { kind: 'body-cut', label: 'body cut', blurb: 'an intake, a vent, a light pocket' },
+  { kind: 'wing', label: 'wing', blurb: 'an aerofoil over the tail' },
+  { kind: 'splitter', label: 'splitter', blurb: 'a blade under the nose' },
+];
+
+/** A fresh instance of a verb, with an id nothing else holds. */
+export function newFeature(kind: string, existing: FeatureMap): Feature {
+  const def = defOf(kind);
+  let n = 1;
+  while (existing[`${kind}-${n}`]) n += 1;
+  return { id: `${kind}-${n}`, kind, slot: 'body', params: { ...def.defaults } };
+}
 
 export function defOf(kind: string): FeatureDef {
   const d = FEATURE_DEFS[kind];
@@ -56,4 +77,5 @@ export function generateFeature(f: Feature, result: SolveResult): FeatureGeometr
   return defOf(f.kind).generate(f.params, result, makeCtx(result, f.slot));
 }
 
+export type { Feature };
 export type { WheelOpeningParams };

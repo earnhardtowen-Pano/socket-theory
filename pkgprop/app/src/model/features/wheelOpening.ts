@@ -38,6 +38,7 @@ export interface WheelOpeningParams {
 
 export const WHEEL_OPENING: FeatureDef<WheelOpeningParams> = {
   kind: 'wheel-opening',
+  view: 'side',
   label: 'wheel opening',
   blurb: 'the arch cut around the wheel',
   params: [

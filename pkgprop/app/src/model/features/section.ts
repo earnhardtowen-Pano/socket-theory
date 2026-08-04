@@ -25,6 +25,7 @@ export interface SectionParams {
 
 export const BODY_SECTION: FeatureDef<SectionParams> = {
   kind: 'body-section',
+  view: 'sections',
   label: 'body section',
   blurb: 'how the car is shaped across its width',
   params: [
@@ -75,18 +76,12 @@ export const BODY_SECTION: FeatureDef<SectionParams> = {
   generate(params: SectionParams, result: SolveResult, _ctx: FeatureCtx): FeatureGeometry {
     const g = result.geometry;
     const halfWidth = g.overallWidth / 2;
-    const curve = halfSection(
-      g.roofZ,
-      g.rockerZ,
-      halfWidth,
-      {
-        crown: params.crown,
-        shoulder: params.shoulder,
-        tumblehome: params.tumblehome,
-        glassInset: params.glassInset,
-      },
-      g.beltZ,
-    );
+    const curve = halfSection(g.beltZ, g.rockerZ, halfWidth, {
+      crown: params.crown,
+      shoulder: params.shoulder,
+      tumblehome: params.tumblehome,
+      glassInset: params.glassInset,
+    });
     // The section lives in (y, z); the 2D viewport draws (x, z), so the
     // half-width reads along the horizontal axis the same way the plan does.
     const pts: Pt[] = curve.sample(48).map((p) => ({ x: p.y, z: p.z }));

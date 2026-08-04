@@ -1,6 +1,6 @@
 import type { ConstraintMeta, SolveResult } from '@pkgprop/core';
 import { useState } from 'react';
-import { generateFeature, type FeatureMap } from '../model/features.js';
+import { defOf, generateFeature, type FeatureMap } from '../model/features.js';
 import { stationsOf } from '../model/stations.js';
 import {
   clampLinePoint,
@@ -78,14 +78,21 @@ export function SideView({
   });
 
   // Parametric features generate their own curves from their parameters.
-  const featureGeo = Object.values(features).map((f) => ({
-    feature: f,
-    geo: generateFeature(f, result),
-  }));
+  // Only the ones that live on this canvas: the body section belongs to
+  // SECTIONS, and drawing it here painted a cross-section onto the car.
+  const featureGeo = Object.values(features)
+    .filter((f) => defOf(f.kind).view === 'side')
+    .map((f) => ({ feature: f, geo: generateFeature(f, result) }));
 
   const ptsById: Record<string, readonly { x: number; z: number }[]> = {};
   for (const r of rendered) ptsById[r.def.id] = r.pts;
   for (const { feature, geo } of featureGeo) {
+    // Only a wheel opening feeds the marker render's arches. This used to
+    // route ANY feature whose slot was not 'front' into `arch_rear`, so the
+    // body-section feature's cross-section curve was being painted as the
+    // car's rear wheel arch — a cross-section wearing an arch's name, quietly
+    // wrecking every RENDER-mode car since sections landed.
+    if (feature.kind !== 'wheel-opening') continue;
     ptsById[feature.slot === 'front' ? 'arch_front' : 'arch_rear'] = geo.curve;
   }
 

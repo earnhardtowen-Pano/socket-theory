@@ -1,5 +1,5 @@
 import type { SolveResult } from '@pkgprop/core';
-import { halfSection } from '@pkgprop/geometry';
+import { sectionAt } from '@pkgprop/geometry';
 import { buildCarBody } from '../model/body.js';
 import type { FeatureMap } from '../model/features.js';
 import type { DrawingState } from '../state/lines.js';
@@ -10,13 +10,12 @@ import { ViewportSvg, type Mapper } from './viewport/ViewportSvg.js';
  * SECTIONS — the car cut across, at the stations that decide its character.
  *
  * Side and plan together still do not say what a car looks like: two cars with
- * identical silhouettes and identical outlines can read as a taut coupe or a
- * slab-sided van, and all of the difference is here. This is the third drawing,
- * and it is the one that drives the loft.
+ * identical silhouettes and identical outlines read as a taut coupe or a
+ * slab-sided van, and all of the difference is here.
  *
- * Each cut is taken where a designer would take one — over the axles, at the
- * driver, and at the widest point — so the shape can be judged where it
- * matters rather than at an arbitrary interval.
+ * These are the same sections the loft uses, evaluated by the same function
+ * against the same tables, so what you judge here is what gets built — not a
+ * separate drawing that can drift out of agreement with the surface.
  */
 
 interface Cut {
@@ -47,17 +46,24 @@ export function SectionsView({
   features: FeatureMap;
   dispatch: React.Dispatch<Action>;
 }) {
-  let build;
+  let build: ReturnType<typeof buildCarBody> | null = null;
   try {
     build = buildCarBody(result, drawing, features);
   } catch {
     build = null;
   }
   const cuts = build ? cutsOf(result) : [];
-  const maxHalf = build
-    ? Math.max(...cuts.map((c) => build!.input.halfWidth(c.x)), 1)
-    : 1;
-  const maxTop = build ? Math.max(...cuts.map((c) => build!.input.topZ(c.x)), 1) : 1;
+  const drawn = build
+    ? cuts.map((c) => ({ cut: c, geo: sectionAt(build!.input, c.x, 44) }))
+    : [];
+  const maxHalf = Math.max(
+    1,
+    ...drawn.flatMap((d) => [...d.geo.body, ...(d.geo.greenhouse ?? [])].map((p) => p.y)),
+  );
+  const maxTop = Math.max(
+    1,
+    ...drawn.flatMap((d) => [...d.geo.body, ...(d.geo.greenhouse ?? [])].map((p) => p.z)),
+  );
 
   const selectSection = (): void =>
     dispatch({ type: 'select', selection: { kind: 'feature', id: 'section-body' } });
@@ -66,7 +72,9 @@ export function SectionsView({
     <div className="view-block" data-testid="sections-view">
       <div className="view-title">
         <span>SECTIONS</span>
-        <span className="view-note">click a cut to shape the section · one shape, four stations</span>
+        <span className="view-note">
+          the same cuts the surface is lofted from · click one to shape it
+        </span>
       </div>
       {!build ? (
         <div className="roadmap-card">
@@ -77,70 +85,64 @@ export function SectionsView({
         <ViewportSvg
           view="sections"
           yUp
-          fitBox={{ x0: -maxHalf * 1.15, x1: maxHalf * 1.15, y0: -40, y1: maxTop * 1.1 }}
+          fitBox={{ x0: -maxHalf * 1.18, x1: maxHalf * 1.18, y0: -60, y1: maxTop * 1.12 }}
           rulerEdge="bottom"
           stations={[]}
           testid="sections-viewport"
-          minHeightPx={300}
-          maxHeightPx={520}
+          minHeightPx={320}
+          maxHeightPx={540}
         >
-          {(m: Mapper) => (
-            <>
-              <line x1={0} y1={m.sy(0)} x2={m.pxW} y2={m.sy(0)} className="ground-line" />
-              <line
-                x1={m.sx(0)}
-                y1={0}
-                x2={m.sx(0)}
-                y2={m.pxH}
-                className="grid-line"
-                strokeDasharray="3 4"
-              />
-              {cuts.map((c, i) => {
-                const shape = build!.input.shape;
-                const half = build!.input.halfWidth(c.x);
-                const curve = halfSection(
-                  build!.input.topZ(c.x),
-                  build!.input.rockerZ(c.x),
-                  half,
-                  shape,
-                  build!.input.beltZ(c.x),
-                );
-                const pts = curve.sample(56);
-                // Both halves, because a section is read as a whole shape —
-                // judging symmetry off one side is how you miss a heavy flank.
-                const right = pts.map((p) => `${m.sx(p.y)} ${m.sy(p.z)}`).join(' L ');
-                const left = [...pts].reverse().map((p) => `${m.sx(-p.y)} ${m.sy(p.z)}`).join(' L ');
-                const d = `M ${left} L ${right}`;
-                const lead = i === cuts.length - 1;
-                return (
-                  <g key={c.id} onClick={selectSection} style={{ cursor: 'pointer' }}>
-                    {/* The drawn outline carries no fill, so a press inside it
-                        would fall through to the canvas. Every other part of
-                        this tool is grabbed by a generous invisible stroke;
-                        sections work the same way. */}
-                    <path
-                      d={d}
-                      className="feature-hit"
-                      data-testid={`section-${c.id}`}
-                      onPointerDownCapture={selectSection}
-                    >
-                      <title>{`${c.label} — half width ${Math.round(half)}mm`}</title>
-                    </path>
-                    <path
-                      d={d}
-                      className={lead ? 'section-lead' : 'section-ghost'}
-                      style={{ pointerEvents: 'none' }}
-                    />
-                    {lead && (
-                      <text x={m.sx(half) + 8} y={m.sy(build!.input.beltZ(c.x))} className="feature-label">
-                        {c.label}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </>
-          )}
+          {(m: Mapper) => {
+            const path = (pts: readonly { y: number; z: number }[]): string => {
+              const right = pts.map((p) => `${m.sx(p.y)} ${m.sy(p.z)}`).join(' L ');
+              const left = [...pts].reverse().map((p) => `${m.sx(-p.y)} ${m.sy(p.z)}`).join(' L ');
+              return `M ${left} L ${right}`;
+            };
+            return (
+              <>
+                <line x1={0} y1={m.sy(0)} x2={m.pxW} y2={m.sy(0)} className="ground-line" />
+                <line x1={m.sx(0)} y1={0} x2={m.sx(0)} y2={m.pxH} className="grid-line" strokeDasharray="3 4" />
+                {drawn.map(({ cut, geo }, i) => {
+                  const lead = i === drawn.length - 1;
+                  const d = path(geo.body);
+                  const gd = geo.greenhouse ? path(geo.greenhouse) : null;
+                  return (
+                    <g key={cut.id}>
+                      <path
+                        d={d}
+                        className="feature-hit"
+                        data-testid={`section-${cut.id}`}
+                        onPointerDownCapture={selectSection}
+                      >
+                        <title>{`${cut.label} at ${Math.round(cut.x)}mm`}</title>
+                      </path>
+                      <path
+                        d={d}
+                        className={lead ? 'section-lead' : 'section-ghost'}
+                        style={{ pointerEvents: 'none' }}
+                      />
+                      {gd && (
+                        <path
+                          d={gd}
+                          className={lead ? 'section-glass' : 'section-ghost'}
+                          style={{ pointerEvents: 'none' }}
+                        />
+                      )}
+                      {lead && (
+                        <text
+                          x={m.sx(Math.max(...geo.body.map((p) => p.y))) + 8}
+                          y={m.sy(geo.body[Math.floor(geo.body.length / 2)]?.z ?? 0)}
+                          className="feature-label"
+                        >
+                          {cut.label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+              </>
+            );
+          }}
         </ViewportSvg>
       )}
     </div>

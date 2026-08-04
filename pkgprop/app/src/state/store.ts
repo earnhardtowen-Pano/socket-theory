@@ -1,7 +1,7 @@
 import { solve, type SolveResult, type ControlId } from '@pkgprop/core';
 import { buildSolveInput, getBodyStyle, type PackageState } from '@pkgprop/data';
 import { useMemo, useReducer } from 'react';
-import { defaultFeatures, type FeatureMap } from '../model/features.js';
+import { defaultFeatures, newFeature, type FeatureMap } from '../model/features.js';
 import {
   DEFAULT_RENDER,
   defaultLines,
@@ -89,6 +89,8 @@ export type Action =
   | { type: 'reset-drawing' }
   | { type: 'set-feature-param'; id: string; key: string; value: number; commit: boolean }
   | { type: 'reset-feature'; id: string }
+  | { type: 'add-feature'; kind: string }
+  | { type: 'remove-feature'; id: string }
   | { type: 'body-style'; id: string }
   | { type: 'select'; selection: Selection }
   | { type: 'set-render'; patch: Partial<RenderState>; commit: boolean }
@@ -189,6 +191,24 @@ export function reducer(state: AppState, action: Action): AppState {
         { ...state.now, features: { ...state.now.features, [action.id]: fresh } },
         true,
       );
+    }
+    case 'add-feature': {
+      // A new part lands selected, because the thing you just made is the
+      // thing you want to shape.
+      const f = newFeature(action.kind, state.now.features);
+      const next = push(
+        state,
+        { ...state.now, features: { ...state.now.features, [f.id]: f } },
+        true,
+      );
+      return { ...next, selection: { kind: 'feature', id: f.id } };
+    }
+    case 'remove-feature': {
+      const rest = { ...state.now.features };
+      if (!rest[action.id]) return state;
+      delete rest[action.id];
+      const next = push(state, { ...state.now, features: rest }, true);
+      return { ...next, selection: null };
     }
     case 'body-style': {
       // A style is a whole car: the architecture, the pose, the section, and
