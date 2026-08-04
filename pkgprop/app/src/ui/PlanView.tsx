@@ -1,5 +1,5 @@
 import type { SolveResult } from '@pkgprop/core';
-import { useCallback, useRef } from 'react';
+import { stationsOf } from '../model/stations.js';
 import {
   clampLinePoint,
   denorm,
@@ -7,15 +7,17 @@ import {
   LINE_DEFS,
   linePoints,
   norm,
+  paramValue,
   smoothPath,
+  type DrawingState,
 } from '../state/lines.js';
-import type { DrawingState } from '../state/lines.js';
 import type { Action } from '../state/store.js';
-import { segmentPath, makeView, type ViewMap } from './viewutil.js';
+import { ViewportSvg, type Mapper } from './viewport/ViewportSvg.js';
 
 /**
- * PLAN — same contract as SIDE; symmetry is enforced by construction:
- * the right half is authored, the left half is its mirror.
+ * PLAN — the same car from above, on the same station axis as SIDE.
+ * The right half is authored; the left half is its mirror. Wheels, cabin,
+ * occupants, and hard masses render at their licensed widths.
  */
 export function PlanView({
   result,
@@ -29,33 +31,12 @@ export function PlanView({
   const g = result.geometry;
   const frame = frameOf(result);
   const halfMax = (result.bounds.overall_width.upper?.value ?? g.overallWidth) / 2;
-  const margin = 200;
-
-  // Symmetric canvas: y ∈ [-halfMax-margin, +halfMax+margin], y up on top half.
-  const x0 = frame.xMin - margin;
-  const w = frame.xMax - frame.xMin + margin * 2;
-  const h = (halfMax + margin) * 2;
-  const sx = (x: number) => x - x0;
-  const sy = (y: number) => halfMax + margin - y;
-  // The profile helpers expect a ViewMap; give them the top half.
-  const vTop: ViewMap = { x0, z1: halfMax + margin, w, h, sx, sy };
-
-  const svgRef = useRef<SVGSVGElement | null>(null);
   const def = LINE_DEFS.find((d) => d.id === 'plan_side')!;
   const planFrame = { ...frame, zMax: halfMax };
 
-  const toMm = useCallback(
-    (e: { clientX: number; clientY: number }): { x: number; y: number } | null => {
-      const el = svgRef.current;
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return {
-        x: x0 + ((e.clientX - r.left) / r.width) * w,
-        y: halfMax + margin - ((e.clientY - r.top) / r.height) * h,
-      };
-    },
-    [x0, w, h, halfMax],
-  );
+  const tireHalfSection = paramValue(result, 'tire_section_width', 245) / 2;
+  const shoulder = paramValue(result, 'anthro_shoulder_width', 500);
+  const ptHalfWidth = paramValue(result, 'arch_powertrain_width', 600) / 2;
 
   const rawPts = linePoints('plan_side', drawing, result);
   const pts = rawPts.map((p) => {
@@ -63,13 +44,13 @@ export function PlanView({
     return clampLinePoint(def, result, x, z);
   });
 
-  const beginDrag = (index: number) => (down: React.PointerEvent) => {
+  const beginDrag = (m: Mapper, index: number) => (down: React.PointerEvent) => {
     down.preventDefault();
+    down.stopPropagation();
     const basePts = [...rawPts];
     const apply = (e: PointerEvent, commit: boolean) => {
-      const mm = toMm(e);
-      if (!mm) return;
-      const c = clampLinePoint(def, result, mm.x, Math.abs(mm.y));
+      const w = m.toWorld(e.clientX, e.clientY);
+      const c = clampLinePoint(def, result, w.x, Math.abs(w.y));
       const next = [...basePts];
       next[index] = norm(planFrame, c.x, c.z);
       dispatch({ type: 'set-line', line: 'plan_side', pts: next, commit });
@@ -84,79 +65,130 @@ export function PlanView({
     window.addEventListener('pointerup', up);
   };
 
-  const wheelHalfSection = 120;
-
-  const thresholds = (mirror: boolean) => {
-    const flip = (d: string) => d;
-    const transform = mirror ? `translate(0 ${2 * sy(0)}) scale(1 -1)` : undefined;
-    return (
-      <g transform={transform}>
-        {result.plan.floor.segments.map((s, i) => (
-          <path key={`f${i}`} d={flip(segmentPath(vTop, s))} fill="none" stroke="var(--ink)" strokeWidth={1.4} strokeDasharray="7 5">
-            {!mirror && <title>{`must stay outside — ${s.constraint.label}`}</title>}
-          </path>
-        ))}
-        {result.plan.ceiling.segments.map((s, i) => (
-          <path key={`c${i}`} d={flip(segmentPath(vTop, s))} fill="none" stroke="var(--ink-soft)" strokeWidth={1.2} strokeDasharray="2 5">
-            {!mirror && <title>{`must stay inside — ${s.constraint.label}`}</title>}
-          </path>
-        ))}
-      </g>
-    );
-  };
+  const boxes = [g.frontBox, g.rearBox, g.battery].filter(Boolean) as {
+    x0: number;
+    x1: number;
+  }[];
 
   return (
     <div className="view-block" data-testid="plan-view">
-      <div className="view-title">PLAN — right half is authored; the left is its mirror</div>
-      <svg ref={svgRef} className="view-svg" viewBox={`0 0 ${w} ${h}`} style={{ aspectRatio: `${w} / ${h}` }}>
-        <line x1={0} y1={sy(0)} x2={w} y2={sy(0)} stroke="var(--ghost)" strokeWidth={1} strokeDasharray="14 4 3 4" />
-        {[0, g.wheelbase].map((ax) =>
-          [1, -1].map((side) => (
-            <rect
-              key={`${ax}:${side}`}
-              x={sx(ax - g.tireRadius)}
-              y={sy((g.track / 2) * side + wheelHalfSection)}
-              width={g.tireRadius * 2}
-              height={wheelHalfSection * 2}
-              fill="rgba(0,0,0,0.06)"
-              stroke="var(--ghost)"
+      <div className="view-title">
+        <span>PLAN</span>
+        <span className="view-note">right half is authored; the left is its mirror</span>
+      </div>
+      <ViewportSvg
+        view="plan"
+        yUp
+        fitBox={{ x0: frame.xMin - 140, x1: frame.xMax + 140, y0: -halfMax - 130, y1: halfMax + 130 }}
+        rulerEdge="bottom"
+        stations={stationsOf(result)}
+        minHeightPx={260}
+        maxHeightPx={520}
+      >
+        {(m) => (
+          <>
+            {/* centerline */}
+            <line x1={0} y1={m.sy(0)} x2={m.pxW} y2={m.sy(0)} className="centerline" />
+
+            {/* wheels at the real track and section width */}
+            {[0, g.wheelbase].map((ax) =>
+              [1, -1].map((side) => (
+                <rect
+                  key={`${ax}:${side}`}
+                  x={m.sx(ax - g.tireRadius)}
+                  y={m.sy((g.track / 2) * side + tireHalfSection)}
+                  width={(g.tireRadius * 2) / m.mmPerPx}
+                  height={(tireHalfSection * 2) / m.mmPerPx}
+                  className="hard-mass wheel-plan"
+                >
+                  <title>tire on the track line</title>
+                </rect>
+              )),
+            )}
+
+            {/* hard masses at their stated widths */}
+            {boxes.map((b, i) => (
+              <rect
+                key={i}
+                x={m.sx(b.x0)}
+                y={m.sy(ptHalfWidth)}
+                width={(b.x1 - b.x0) / m.mmPerPx}
+                height={(ptHalfWidth * 2) / m.mmPerPx}
+                className="hard-mass"
+              >
+                <title>hard mass</title>
+              </rect>
+            ))}
+
+            {/* occupants: one seat ellipse per position, at the hip station */}
+            {g.occupants.map((o) =>
+              Array.from({ length: o.seats }, (_, i) => {
+                const yC = (i - (o.seats - 1) / 2) * shoulder;
+                return (
+                  <ellipse
+                    key={`${o.row}:${i}`}
+                    cx={m.sx(o.hpoint.x)}
+                    cy={m.sy(yC)}
+                    rx={230 / m.mmPerPx}
+                    ry={shoulder / 2.3 / m.mmPerPx}
+                    className="occupant-plan"
+                  >
+                    <title>{`row ${o.row}, seat ${i + 1}`}</title>
+                  </ellipse>
+                );
+              }),
+            )}
+
+            {/* thresholds, both halves */}
+            {([1, -1] as const).map((side) => (
+              <g key={side}>
+                {result.plan.floor.segments.map((s, i) => (
+                  <path key={`f${i}`} d={mirrorSeg(m, s, side)} className="threshold-floor">
+                    {side > 0 && <title>{`must stay outside — ${s.constraint.label}`}</title>}
+                  </path>
+                ))}
+                {result.plan.ceiling.segments.map((s, i) => (
+                  <path key={`c${i}`} d={mirrorSeg(m, s, side)} className="threshold-ceiling">
+                    {side > 0 && <title>{`must stay inside — ${s.constraint.label}`}</title>}
+                  </path>
+                ))}
+              </g>
+            ))}
+
+            {/* the authored body side and its mirror */}
+            <path
+              d={smoothPath(pts.map((p) => ({ x: m.sx(p.x), y: m.sy(p.z) })))}
+              className="line-silhouette"
             />
-          )),
+            <path
+              d={smoothPath(pts.map((p) => ({ x: m.sx(p.x), y: m.sy(-p.z) })))}
+              className="line-silhouette mirror"
+            />
+            {pts.map((p, i) => (
+              <circle
+                key={i}
+                data-testid={`pt-plan_side-${i}`}
+                cx={m.sx(p.x)}
+                cy={m.sy(p.z)}
+                r={4.5}
+                className={`ctl-pt ${p.touching ? 'touching' : ''}`}
+                onPointerDown={beginDrag(m, i)}
+              >
+                <title>
+                  {p.touching ? `body side — on ${p.touching.constraint.label}` : 'body side'}
+                </title>
+              </circle>
+            ))}
+          </>
         )}
-        {thresholds(false)}
-        {thresholds(true)}
-        <path
-          d={smoothPath(pts.map((p) => ({ x: sx(p.x), y: sy(p.z) })))}
-          fill="none"
-          stroke="var(--ink)"
-          strokeWidth={3}
-          strokeLinecap="round"
-        />
-        <path
-          d={smoothPath(pts.map((p) => ({ x: sx(p.x), y: sy(-p.z) })))}
-          fill="none"
-          stroke="var(--ink)"
-          strokeWidth={3}
-          strokeLinecap="round"
-          opacity={0.55}
-        />
-        {pts.map((p, i) => (
-          <circle
-            key={i}
-            data-testid={`pt-plan_side-${i}`}
-            cx={sx(p.x)}
-            cy={sy(p.z)}
-            r={7}
-            fill={p.touching ? 'var(--accent)' : 'var(--panel)'}
-            stroke="var(--ink)"
-            strokeWidth={2}
-            style={{ cursor: 'grab' }}
-            onPointerDown={beginDrag(i)}
-          >
-            <title>{p.touching ? `body side — on ${p.touching.constraint.label}` : 'body side'}</title>
-          </circle>
-        ))}
-      </svg>
+      </ViewportSvg>
     </div>
   );
+}
+
+function mirrorSeg(m: Mapper, s: import('@pkgprop/core').Segment, side: 1 | -1): string {
+  if (s.kind === 'line') {
+    return `M ${m.sx(s.x0)} ${m.sy(s.z0 * side)} L ${m.sx(s.x1)} ${m.sy(s.z1 * side)}`;
+  }
+  return '';
 }

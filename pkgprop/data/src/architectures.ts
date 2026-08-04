@@ -30,9 +30,19 @@ function archParams(a: {
   h30Min: number;
   h30Max: number;
   footwell: number;
+  ptWidth: number;
   extra?: ParamDef[];
 }): ParamDef[] {
   return [
+    {
+      id: 'arch_powertrain_width',
+      label: 'powertrain box width',
+      unit: 'mm',
+      value: a.ptWidth,
+      license: 'ASSUMED',
+      note: 'lateral envelope of the hard mass; becomes DERIVED once an engine is configured.',
+      range: [300, 1400],
+    },
     {
       id: 'arch_footwell_aft_of_axle',
       label: 'footwell limit aft of the front axle',
@@ -111,6 +121,7 @@ export const ARCHITECTURES: readonly ArchitecturePreset[] = [
     tire: '245/40R19',
     params: archParams({
       crushFront: 600,
+      ptWidth: 640,
       footwell: 0,
       crushRear: 500,
       ptLength: 780,
@@ -127,6 +138,7 @@ export const ARCHITECTURES: readonly ArchitecturePreset[] = [
     tire: '225/45R17',
     params: archParams({
       crushFront: 580,
+      ptWidth: 1050,
       footwell: 0,
       crushRear: 480,
       ptLength: 560,
@@ -143,6 +155,7 @@ export const ARCHITECTURES: readonly ArchitecturePreset[] = [
     tire: '265/35R20',
     params: archParams({
       crushFront: 480,
+      ptWidth: 620,
       footwell: -50,
       crushRear: 450,
       ptLength: 620,
@@ -170,6 +183,7 @@ export const ARCHITECTURES: readonly ArchitecturePreset[] = [
     tire: '245/45R18',
     params: archParams({
       crushFront: 450,
+      ptWidth: 600,
       footwell: 0,
       crushRear: 520,
       ptLength: 580,
@@ -186,6 +200,7 @@ export const ARCHITECTURES: readonly ArchitecturePreset[] = [
     tire: '255/45R20',
     params: archParams({
       crushFront: 520,
+      ptWidth: 520,
       footwell: 120,
       crushRear: 480,
       ptLength: 360,

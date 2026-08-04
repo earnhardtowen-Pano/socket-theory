@@ -41,17 +41,19 @@ export interface LineDef {
   readonly view: 'side' | 'plan';
   /** Which walls clamp this line's points. */
   readonly clamp: 'envelope' | 'belt' | 'rocker' | 'plan';
+  /** Side-view lane: fender lines run outboard of the centerline masses. */
+  readonly lane?: 'center' | 'outboard';
 }
 
 export const LINE_DEFS: readonly LineDef[] = [
   { id: 'rocker', label: 'rocker', view: 'side', clamp: 'rocker' },
-  { id: 'arch_front', label: 'front arch', view: 'side', clamp: 'envelope' },
-  { id: 'arch_rear', label: 'rear arch', view: 'side', clamp: 'envelope' },
-  { id: 'hood', label: 'hood', view: 'side', clamp: 'envelope' },
-  { id: 'glass', label: 'glass', view: 'side', clamp: 'envelope' },
-  { id: 'roof', label: 'roof', view: 'side', clamp: 'envelope' },
-  { id: 'backlight', label: 'backlight', view: 'side', clamp: 'envelope' },
-  { id: 'deck', label: 'deck', view: 'side', clamp: 'envelope' },
+  { id: 'arch_front', label: 'front arch', view: 'side', clamp: 'envelope', lane: 'outboard' },
+  { id: 'arch_rear', label: 'rear arch', view: 'side', clamp: 'envelope', lane: 'outboard' },
+  { id: 'hood', label: 'hood', view: 'side', clamp: 'envelope', lane: 'center' },
+  { id: 'glass', label: 'glass', view: 'side', clamp: 'envelope', lane: 'center' },
+  { id: 'roof', label: 'roof', view: 'side', clamp: 'envelope', lane: 'center' },
+  { id: 'backlight', label: 'backlight', view: 'side', clamp: 'envelope', lane: 'center' },
+  { id: 'deck', label: 'deck', view: 'side', clamp: 'envelope', lane: 'center' },
   { id: 'belt', label: 'belt', view: 'side', clamp: 'belt' },
   { id: 'plan_side', label: 'body side (plan)', view: 'plan', clamp: 'plan' },
 ];
@@ -69,6 +71,20 @@ export function frameOf(result: SolveResult): Frame {
     xMax: result.geometry.tailX,
     zMax: result.bounds.roof_z.upper?.value ?? result.geometry.roofZ,
   };
+}
+
+/** The plan view's frame: same station axis, half-width vertical scale. */
+export function planFrameOf(result: SolveResult): Frame {
+  const f = frameOf(result);
+  return {
+    ...f,
+    zMax: (result.bounds.overall_width.upper?.value ?? result.geometry.overallWidth) / 2,
+  };
+}
+
+/** The frame a given line's points normalize against. */
+export function lineFrameOf(id: LineId, result: SolveResult): Frame {
+  return id === 'plan_side' ? planFrameOf(result) : frameOf(result);
 }
 
 export function denorm(frame: Frame, p: NormPt): { x: number; z: number } {
@@ -103,7 +119,9 @@ export function clampLinePoint(
 ): ClampedPt {
   switch (def.clamp) {
     case 'envelope': {
-      const c = clampToEnvelope(result.envelope.floor, result.envelope.ceiling, x, z, TOUCH_TOL);
+      const floor =
+        def.lane === 'outboard' ? result.envelope.floorOutboard : result.envelope.floorCenter;
+      const c = clampToEnvelope(floor, result.envelope.ceiling, x, z, TOUCH_TOL);
       return { x, z: c.z, touching: c.touching };
     }
     case 'plan': {
@@ -167,7 +185,7 @@ function backlightX(result: SolveResult): number {
  */
 export function defaultPoints(id: LineId, result: SolveResult): NormPt[] {
   const g = result.geometry;
-  const f = frameOf(result);
+  const f = lineFrameOf(id, result);
   const n = (x: number, z: number) => norm(f, x, z);
   const r = g.tireRadius;
   const jounce = paramValue(result, 'body_tire_jounce', 70);
@@ -181,8 +199,11 @@ export function defaultPoints(id: LineId, result: SolveResult): NormPt[] {
     case 'arch_rear':
       return [n(g.wheelbase - arch, g.rockerZ + 10), n(g.wheelbase, crown), n(g.wheelbase + arch, g.rockerZ + 10)];
     case 'hood': {
-      const noseZ = Math.max(g.hoodZ - 90, g.rockerZ + 60);
-      return [n(g.bumperX + 30, noseZ), n(-arch * 0.9, g.hoodZ - 12), n(g.cowl.x, g.cowl.z)];
+      const noseZ = Math.max(g.hoodZ - 150, g.rockerZ + 60);
+      const midX = -arch * 0.9;
+      const ceil = result.envelope.ceiling.at(midX)?.z ?? g.hoodZ;
+      const midZ = Math.min(g.hoodZ - 30, ceil - 18);
+      return [n(g.bumperX + 30, noseZ), n(midX, midZ), n(g.cowl.x, g.cowl.z)];
     }
     case 'glass':
       return [
@@ -192,14 +213,14 @@ export function defaultPoints(id: LineId, result: SolveResult): NormPt[] {
       ];
     case 'roof': {
       const bl = backlightX(result);
-      const roofEnd = Math.min(bl - 150, g.wheelbase);
+      const roofEnd = Math.max(g.header.x + 220, Math.min(bl - 420, g.wheelbase - 180));
       const mid = (g.header.x + roofEnd) / 2;
-      return [n(g.header.x, g.roofZ), n(mid, g.roofZ + 6), n(roofEnd, g.roofZ - 60)];
+      return [n(g.header.x, g.roofZ), n(mid, g.roofZ + 6), n(roofEnd, g.roofZ - 70)];
     }
     case 'backlight': {
       const bl = backlightX(result);
-      const roofEnd = Math.min(bl - 150, g.wheelbase);
-      return [n(roofEnd, g.roofZ - 60), n(bl, g.deckZ + 25)];
+      const roofEnd = Math.max(g.header.x + 220, Math.min(bl - 420, g.wheelbase - 180));
+      return [n(roofEnd, g.roofZ - 70), n(bl, g.deckZ + 20)];
     }
     case 'deck': {
       const bl = backlightX(result);
@@ -246,4 +267,15 @@ export function smoothPath(pts: readonly { x: number; y: number }[]): string {
     d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
   }
   return d;
+}
+
+/**
+ * Points welded to solver hard points: the cowl ends of hood and glass sit
+ * where the sight ceiling meets the glass-tangency floor — zero freedom.
+ * They render as hard-point markers, not controls.
+ */
+export function isBoundPoint(id: LineId, index: number, count: number): boolean {
+  if (id === 'hood') return index === count - 1;
+  if (id === 'glass') return index === 0;
+  return false;
 }

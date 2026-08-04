@@ -1,23 +1,26 @@
 import type { ConstraintMeta, SolveResult } from '@pkgprop/core';
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
+import { stationsOf } from '../model/stations.js';
 import {
   clampLinePoint,
   denorm,
   frameOf,
+  isBoundPoint,
   LINE_DEFS,
   linePoints,
   norm,
+  paramValue,
   smoothPath,
   type DrawingState,
   type LineId,
 } from '../state/lines.js';
 import type { Action } from '../state/store.js';
-import { profilePaths, makeView } from './viewutil.js';
+import { ViewportSvg, type Mapper } from './viewport/ViewportSvg.js';
 
 /**
- * SIDE — the envelope ghosts behind at all times (dashed, labeled as the
- * buildable space); the authored car is solid on top. Drag a control point
- * into a wall and the wall names itself. Law 2, rendered literally.
+ * SIDE — the envelope ghosts dashed behind; the authored car reads as one
+ * silhouette on top. Drag a control point into a wall and the wall names
+ * itself. Law 2, rendered literally.
  */
 
 interface Touch {
@@ -26,6 +29,9 @@ interface Touch {
   side: 'floor' | 'ceiling';
   constraint: ConstraintMeta;
 }
+
+/** The silhouette chain, welded at render into one heavy path. */
+const SILHOUETTE: LineId[] = ['hood', 'glass', 'roof', 'backlight', 'deck'];
 
 export function SideView({
   result,
@@ -42,51 +48,10 @@ export function SideView({
 }) {
   const g = result.geometry;
   const frame = frameOf(result);
-  const v = makeView(frame.xMin, frame.xMax, frame.zMax, 260);
-  const svgRef = useRef<SVGSVGElement | null>(null);
   const [liveTouch, setLiveTouch] = useState<Touch | null>(null);
-
-  const toMm = useCallback(
-    (e: { clientX: number; clientY: number }): { x: number; z: number } | null => {
-      const el = svgRef.current;
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      const x = v.x0 + ((e.clientX - r.left) / r.width) * v.w;
-      const z = v.z1 - ((e.clientY - r.top) / r.height) * v.h;
-      return { x, z };
-    },
-    [v],
-  );
-
-  const beginDrag = (line: LineId, index: number) => (down: React.PointerEvent) => {
-    down.preventDefault();
-    onSelect({ line, index });
-    const def = LINE_DEFS.find((d) => d.id === line)!;
-    // Materialize the full point set so one moved point never orphans the rest.
-    const basePts = [...linePoints(line, drawing, result)];
-    const apply = (e: PointerEvent, commit: boolean) => {
-      const mm = toMm(e);
-      if (!mm) return;
-      const c = clampLinePoint(def, result, mm.x, mm.z);
-      if (!commit) setLiveTouch(c.touching ? { line, index, ...c.touching } : null);
-      const pts = [...basePts];
-      pts[index] = norm(frame, c.x, c.z);
-      dispatch({ type: 'set-line', line, pts, commit });
-    };
-    const move = (e: PointerEvent) => apply(e, false);
-    const up = (e: PointerEvent) => {
-      apply(e, true);
-      setLiveTouch(null);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  };
+  const headR = paramValue(result, 'anthro_head_radius', 110);
 
   const sideLines = LINE_DEFS.filter((d) => d.view === 'side');
-
-  // Clamp every rendered point live: package changes re-apply the walls.
   const rendered = sideLines.map((def) => {
     const pts = linePoints(def.id, drawing, result).map((p) => {
       const { x, z } = denorm(frame, p);
@@ -105,130 +70,216 @@ export function SideView({
         })()
       : null);
 
+  const beginDrag =
+    (m: Mapper, line: LineId, index: number) => (down: React.PointerEvent) => {
+      down.preventDefault();
+      down.stopPropagation();
+      onSelect({ line, index });
+      const def = LINE_DEFS.find((d) => d.id === line)!;
+      const basePts = [...linePoints(line, drawing, result)];
+      const apply = (e: PointerEvent, commit: boolean) => {
+        const w = m.toWorld(e.clientX, e.clientY);
+        const c = clampLinePoint(def, result, w.x, w.y);
+        if (!commit) setLiveTouch(c.touching ? { line, index, ...c.touching } : null);
+        const pts = [...basePts];
+        pts[index] = norm(frame, c.x, c.z);
+        dispatch({ type: 'set-line', line, pts, commit });
+      };
+      const move = (e: PointerEvent) => apply(e, false);
+      const up = (e: PointerEvent) => {
+        apply(e, true);
+        setLiveTouch(null);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    };
+
+  // One heavy stroke, but smoothed per line so hard corners (roof→backlight)
+  // stay corners instead of spline overshoot.
+  const silhouettePath = (m: Mapper) =>
+    SILHOUETTE.map((id) => {
+      const line = rendered.find((l) => l.def.id === id);
+      if (!line) return '';
+      return smoothPath(line.pts.map((p) => ({ x: m.sx(p.x), y: m.sy(p.z) })));
+    }).join(' ');
+
   return (
     <div className="view-block" data-testid="side-view">
       <div className="view-title">
-        SIDE — dashed is the buildable space (thresholds, not a car); solid is yours
+        <span>SIDE</span>
+        <span className="view-note">dashed is the buildable space — thresholds, not a car</span>
       </div>
       {touchToShow && (
-        <div className="wall-chip" data-testid="drawing-wall-chip">
+        <div className="wall-chip floating" data-testid="drawing-wall-chip">
           <span className="who">{touchToShow.constraint.label}</span>
           <span className={`tag ${touchToShow.constraint.license}`}>
             {touchToShow.constraint.license}
           </span>
-          <span style={{ marginLeft: 6, color: 'var(--ink-soft)' }}>
+          <span className="dir">
             {touchToShow.side === 'floor' ? 'holding the line up' : 'holding the line down'}
           </span>
           <div className="why">{touchToShow.constraint.reason}</div>
         </div>
       )}
-      <svg
-        ref={svgRef}
-        className="view-svg"
-        viewBox={`0 0 ${v.w} ${v.h}`}
-        style={{ aspectRatio: `${v.w} / ${v.h}` }}
-        onPointerDown={() => onSelect(null)}
+      <ViewportSvg
+        view="side"
+        yUp
+        fitBox={{ x0: frame.xMin - 140, x1: frame.xMax + 140, y0: -90, y1: frame.zMax + 110 }}
+        rulerEdge="top"
+        stations={stationsOf(result)}
+        onBackgroundDown={() => onSelect(null)}
+        minHeightPx={320}
+        maxHeightPx={600}
       >
-        {/* ground */}
-        <line x1={0} y1={v.sy(0)} x2={v.w} y2={v.sy(0)} stroke="var(--ink)" strokeWidth={2} />
+        {(m) => (
+          <>
+            {/* ground */}
+            <line x1={0} y1={m.sy(0)} x2={m.pxW} y2={m.sy(0)} className="ground-line" />
 
-        {/* hard points: wheels, boxes, occupants */}
-        {[0, g.wheelbase].map((ax) => (
-          <g key={ax}>
-            <circle cx={v.sx(ax)} cy={v.sy(g.tireRadius)} r={g.tireRadius} fill="rgba(0,0,0,0.05)" stroke="var(--ghost)" strokeWidth={1.5} />
-            <circle cx={v.sx(ax)} cy={v.sy(g.tireRadius)} r={g.tireRadius * 0.55} fill="none" stroke="var(--ghost)" />
-            <circle cx={v.sx(ax)} cy={v.sy(g.tireRadius)} r={4} fill="var(--ink)" />
-          </g>
-        ))}
-        {[g.frontBox, g.rearBox, g.battery].map(
-          (b, i) =>
-            b && (
-              <rect
-                key={i}
-                x={v.sx(b.x0)}
-                y={v.sy(b.z1)}
-                width={b.x1 - b.x0}
-                height={b.z1 - b.z0}
-                fill="rgba(0,0,0,0.07)"
-                stroke="var(--ghost)"
-                strokeDasharray="3 3"
-              >
-                <title>hard mass</title>
-              </rect>
-            ),
-        )}
-        {g.occupants.map((o) => (
-          <g key={o.row} stroke="var(--ghost)" fill="none" strokeWidth={1.5}>
-            <circle
-              cx={v.sx(o.headCenter.x)}
-              cy={v.sy(o.headCenter.z)}
-              r={o.headTopZ - o.headCenter.z}
-            />
-            <path
-              d={`M ${v.sx(o.heel.x)} ${v.sy(o.heel.z)} L ${v.sx(o.hpoint.x)} ${v.sy(o.hpoint.z)} L ${v.sx(o.headCenter.x)} ${v.sy(o.headCenter.z)}`}
-            />
-            <circle cx={v.sx(o.hpoint.x)} cy={v.sy(o.hpoint.z)} r={5} fill="var(--ink)" stroke="none">
-              <title>{`H-point row ${o.row}`}</title>
-            </circle>
-          </g>
-        ))}
-        {/* eye + sight cross */}
-        <g stroke="var(--ink)" strokeWidth={1}>
-          <line x1={v.sx(g.eye.x) - 7} y1={v.sy(g.eye.z)} x2={v.sx(g.eye.x) + 7} y2={v.sy(g.eye.z)} />
-          <line x1={v.sx(g.eye.x)} y1={v.sy(g.eye.z) - 7} x2={v.sx(g.eye.x)} y2={v.sy(g.eye.z) + 7} />
-        </g>
-
-        {/* the buildable space: dashed thresholds with names on hover */}
-        {profilePaths(v, result.envelope.floor).map((p, i) => (
-          <path key={`f${i}`} d={p.d} fill="none" stroke="var(--ink)" strokeWidth={1.4} strokeDasharray="7 5">
-            <title>{`must stay above — ${p.label}`}</title>
-          </path>
-        ))}
-        {profilePaths(v, result.envelope.ceiling).map((p, i) => (
-          <path key={`c${i}`} d={p.d} fill="none" stroke="var(--ink-soft)" strokeWidth={1.2} strokeDasharray="2 5">
-            <title>{`must stay below — ${p.label}`}</title>
-          </path>
-        ))}
-
-        {/* the authored car */}
-        {rendered.map(({ def, pts }) => (
-          <g key={def.id}>
-            <path
-              d={smoothPath(pts.map((p) => ({ x: v.sx(p.x), y: v.sy(p.z) })))}
-              fill="none"
-              stroke="var(--ink)"
-              strokeWidth={3}
-              strokeLinecap="round"
-            />
-            {pts.map((p, i) => {
-              const isSel = selected?.line === def.id && selected.index === i;
-              return (
+            {/* hard points: wheels, masses, occupants */}
+            {[0, g.wheelbase].map((ax) => (
+              <g key={ax} className="wheel">
+                <circle cx={m.sx(ax)} cy={m.sy(g.tireRadius)} r={g.tireRadius / m.mmPerPx} className="wheel-tire" />
                 <circle
-                  key={i}
-                  data-testid={`pt-${def.id}-${i}`}
-                  cx={v.sx(p.x)}
-                  cy={v.sy(p.z)}
-                  r={isSel ? 10 : 7}
-                  fill={p.touching ? 'var(--accent)' : 'var(--panel)'}
-                  stroke={isSel ? 'var(--accent)' : 'var(--ink)'}
-                  strokeWidth={2}
-                  style={{ cursor: 'grab' }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    beginDrag(def.id, i)(e);
-                  }}
-                >
-                  <title>
-                    {p.touching
-                      ? `${def.label} — on ${p.touching.constraint.label}`
-                      : def.label}
-                  </title>
+                  cx={m.sx(ax)}
+                  cy={m.sy(g.tireRadius)}
+                  r={(g.tireRadius * 0.62) / m.mmPerPx}
+                  className="wheel-rim"
+                />
+                {Array.from({ length: 5 }, (_, i) => {
+                  const a = (i / 5) * Math.PI * 2 + Math.PI / 10;
+                  const r1 = (g.tireRadius * 0.16) / m.mmPerPx;
+                  const r2 = (g.tireRadius * 0.56) / m.mmPerPx;
+                  return (
+                    <line
+                      key={i}
+                      x1={m.sx(ax) + r1 * Math.cos(a)}
+                      y1={m.sy(g.tireRadius) + r1 * Math.sin(a)}
+                      x2={m.sx(ax) + r2 * Math.cos(a)}
+                      y2={m.sy(g.tireRadius) + r2 * Math.sin(a)}
+                      className="wheel-spoke"
+                    />
+                  );
+                })}
+                <circle cx={m.sx(ax)} cy={m.sy(g.tireRadius)} r={2.4} className="wheel-hub" />
+              </g>
+            ))}
+            {[g.frontBox, g.rearBox, g.battery].map(
+              (b, i) =>
+                b && (
+                  <rect
+                    key={i}
+                    x={m.sx(b.x0)}
+                    y={m.sy(b.z1)}
+                    width={(b.x1 - b.x0) / m.mmPerPx}
+                    height={(b.z1 - b.z0) / m.mmPerPx}
+                    className="hard-mass"
+                  >
+                    <title>hard mass</title>
+                  </rect>
+                ),
+            )}
+            {g.occupants.map((o) => (
+              <g key={o.row} className="occupant">
+                <circle
+                  cx={m.sx(o.headCenter.x)}
+                  cy={m.sy(o.headCenter.z)}
+                  r={headR / m.mmPerPx}
+                />
+                <path
+                  d={`M ${m.sx(o.heel.x)} ${m.sy(o.heel.z)} L ${m.sx(o.hpoint.x)} ${m.sy(o.hpoint.z)} L ${m.sx(o.headCenter.x)} ${m.sy(o.headCenter.z)}`}
+                />
+                <circle cx={m.sx(o.hpoint.x)} cy={m.sy(o.hpoint.z)} r={3.4} className="hpoint">
+                  <title>{`H-point row ${o.row}`}</title>
                 </circle>
-              );
-            })}
-          </g>
-        ))}
-      </svg>
+              </g>
+            ))}
+            <g className="eye-cross">
+              <line x1={m.sx(g.eye.x) - 6} y1={m.sy(g.eye.z)} x2={m.sx(g.eye.x) + 6} y2={m.sy(g.eye.z)} />
+              <line x1={m.sx(g.eye.x)} y1={m.sy(g.eye.z) - 6} x2={m.sx(g.eye.x)} y2={m.sy(g.eye.z) + 6} />
+            </g>
+
+            {/* thresholds */}
+            {result.envelope.floor.segments.map((s, i) => (
+              <path key={`f${i}`} d={segPath(m, s)} className="threshold-floor">
+                <title>{`must stay above — ${s.constraint.label}`}</title>
+              </path>
+            ))}
+            {result.envelope.ceiling.segments.map((s, i) => (
+              <path key={`c${i}`} d={segPath(m, s)} className="threshold-ceiling">
+                <title>{`must stay below — ${s.constraint.label}`}</title>
+              </path>
+            ))}
+
+            {/* the authored car: one welded silhouette + feature lines */}
+            <path d={silhouettePath(m)} className="line-silhouette" />
+            {rendered
+              .filter((l) => !SILHOUETTE.includes(l.def.id))
+              .map(({ def, pts }) => (
+                <path
+                  key={def.id}
+                  d={smoothPath(pts.map((p) => ({ x: m.sx(p.x), y: m.sy(p.z) })))}
+                  className="line-feature"
+                />
+              ))}
+
+            {/* control points */}
+            {rendered.map(({ def, pts }) =>
+              pts.map((p, i) => {
+                if (isBoundPoint(def.id, i, pts.length)) {
+                  return (
+                    <rect
+                      key={`${def.id}${i}`}
+                      x={m.sx(p.x) - 2.5}
+                      y={m.sy(p.z) - 2.5}
+                      width={5}
+                      height={5}
+                      className="hard-pt"
+                    >
+                      <title>{`${def.label} — welded to the cowl hard point`}</title>
+                    </rect>
+                  );
+                }
+                const isSel = selected?.line === def.id && selected.index === i;
+                return (
+                  <circle
+                    key={`${def.id}${i}`}
+                    data-testid={`pt-${def.id}-${i}`}
+                    cx={m.sx(p.x)}
+                    cy={m.sy(p.z)}
+                    r={isSel ? 7 : 4.5}
+                    className={`ctl-pt ${p.touching ? 'touching' : ''} ${isSel ? 'selected' : ''}`}
+                    onPointerDown={beginDrag(m, def.id, i)}
+                  >
+                    <title>
+                      {p.touching ? `${def.label} — on ${p.touching.constraint.label}` : def.label}
+                    </title>
+                  </circle>
+                );
+              }),
+            )}
+          </>
+        )}
+      </ViewportSvg>
     </div>
   );
+}
+
+function segPath(m: Mapper, s: import('@pkgprop/core').Segment): string {
+  if (s.kind === 'line') {
+    return `M ${m.sx(s.x0)} ${m.sy(s.z0)} L ${m.sx(s.x1)} ${m.sy(s.z1)}`;
+  }
+  const steps = 32;
+  const parts: string[] = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const x = s.x0 + ((s.x1 - s.x0) * i) / steps;
+    const dx = x - s.cx;
+    const under = s.r * s.r - dx * dx;
+    if (under < 0) continue;
+    const z = s.cz + Math.sqrt(under);
+    parts.push(`${parts.length === 0 ? 'M' : 'L'} ${m.sx(x).toFixed(1)} ${m.sy(z).toFixed(1)}`);
+  }
+  return parts.join(' ');
 }

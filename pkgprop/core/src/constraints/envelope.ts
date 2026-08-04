@@ -33,6 +33,11 @@ export interface EnvelopeInputs {
 export interface Envelope {
   readonly floor: FloorProfile;
   readonly ceiling: CeilingProfile;
+  /** Floor for centerline surfaces: hard masses, heads, glass tangent, cargo. */
+  readonly floorCenter: FloorProfile;
+  /** Floor for outboard surfaces (fenders, rocker): the wheels are the only
+   *  hard mass out there — the engine sits inboard of a fender line. */
+  readonly floorOutboard: FloorProfile;
   /** Stations where the floor rises above the ceiling: nothing is buildable. */
   readonly conflicts: readonly Conflict[];
 }
@@ -40,18 +45,19 @@ export interface Envelope {
 export function buildEnvelope(ctx: Ctx, e: EnvelopeInputs): Envelope {
   const r = ctx.reg;
   const floorSegs: Segment[] = [];
+  const outboardSegs: Segment[] = [];
   const ceilSegs: Segment[] = [];
 
   const tireR = tireRadiusOf(r);
   const jounce = r.value('body_tire_jounce');
   const arcR = tireR + jounce;
 
-  // Floor: the body must cover the wheels and their travel...
-  floorSegs.push({
+  // Wheels and their travel bind every lane — fenders most of all.
+  outboardSegs.push({
     kind: 'arc', cx: 0, cz: tireR, r: arcR,
     x0: -arcR, x1: arcR, constraint: M.tireClearance,
   });
-  floorSegs.push({
+  outboardSegs.push({
     kind: 'arc', cx: e.wheelbase, cz: tireR, r: arcR,
     x0: e.wheelbase - arcR, x1: e.wheelbase + arcR, constraint: M.tireClearance,
   });
@@ -143,9 +149,15 @@ export function buildEnvelope(ctx: Ctx, e: EnvelopeInputs): Envelope {
     }
   }
 
-  const floor = new FloorProfile(floorSegs);
+  const floor = new FloorProfile([...floorSegs, ...outboardSegs]);
   const ceiling = new CeilingProfile(ceilSegs);
-  return { floor, ceiling, conflicts: scanConflicts(floor, ceiling) };
+  return {
+    floor,
+    ceiling,
+    floorCenter: new FloorProfile([...floorSegs, ...outboardSegs]),
+    floorOutboard: new FloorProfile(outboardSegs),
+    conflicts: scanConflicts(floor, ceiling),
+  };
 }
 
 function ctxCargo(ctx: Ctx, e: EnvelopeInputs, floorSegs: Segment[]): void {

@@ -15,11 +15,22 @@ import { PackageRail } from './ui/PackageRail.js';
 import { PlanView } from './ui/PlanView.js';
 import { ReadoutStrip } from './ui/ReadoutStrip.js';
 import { SideView } from './ui/SideView.js';
+import { Toolbar } from './ui/Toolbar.js';
+import { CameraProvider, useCamera } from './ui/viewport/ViewportSvg.js';
 
 const PANELS: PanelId[] = ['PACKAGE', 'SIDE', 'SECTIONS', 'BODY', 'BOUNCE', 'LEDGER'];
 
 export default function App() {
+  return (
+    <CameraProvider>
+      <Shell />
+    </CameraProvider>
+  );
+}
+
+function Shell() {
   const { state, dispatch, result } = useApp();
+  const { cam, requestFit } = useCamera();
   const [selected, setSelected] = useState<{ line: LineId; index: number } | null>(null);
 
   useEffect(() => {
@@ -27,13 +38,13 @@ export default function App() {
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       const isRange = el instanceof HTMLInputElement && el.type === 'range';
-      // Text fields own their keys; range sliders share the global ones.
       if ((tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') && !isRange) {
         if (e.key === 'Escape') el?.blur();
         return;
       }
       if (isRange && e.key.startsWith('Arrow')) return;
       if (e.key === 'l' || e.key === 'L') dispatch({ type: 'ledger', open: !state.ledgerOpen });
+      else if (e.key === 'f' || e.key === 'F') requestFit();
       else if (e.key === 'Escape') dispatch({ type: 'ledger', open: false });
       else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -61,7 +72,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, state.ledgerOpen, state.now.drawing, selected, result]);
+  }, [dispatch, state.ledgerOpen, state.now.drawing, selected, result, requestFit]);
 
   const fileRef = useRef<HTMLInputElement | null>(null);
   const saveProject = () => {
@@ -81,11 +92,17 @@ export default function App() {
       alert('That file is not a pkgprop project.');
       return;
     }
-    dispatch({ type: 'load', snapshot: { pkg: parsed.pkg, drawing: parsed.drawing ?? { lines: {} } } });
+    dispatch({
+      type: 'load',
+      snapshot: { pkg: parsed.pkg, drawing: parsed.drawing ?? { lines: {} } },
+    });
   };
 
   const c = result.counts;
   const panel = state.panel;
+  const selectedLineLabel = selected
+    ? LINE_DEFS.find((d) => d.id === selected.line)?.label
+    : null;
 
   return (
     <div className="app">
@@ -105,23 +122,6 @@ export default function App() {
           ))}
         </nav>
         <div className="header-right">
-          <button className="chip" onClick={saveProject} data-testid="save-project">
-            save
-          </button>
-          <button className="chip" onClick={() => fileRef.current?.click()}>
-            load
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const f = e.currentTarget.files?.[0];
-              if (f) void loadProject(f);
-              e.currentTarget.value = '';
-            }}
-          />
           <span className="counts" data-testid="license-counts">
             <span>
               <b>{c.ASSUMED}</b> assumed
@@ -145,7 +145,27 @@ export default function App() {
       <div className="main">
         <PackageRail pkg={state.now.pkg} result={result} dispatch={dispatch} />
         <div className="stage">
-          <ConflictBar result={result} />
+          <div className="stage-top">
+            <Toolbar
+              state={state}
+              dispatch={dispatch}
+              onSave={saveProject}
+              onLoad={() => fileRef.current?.click()}
+              onFit={requestFit}
+            />
+            <ConflictBar result={result} />
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.currentTarget.files?.[0];
+              if (f) void loadProject(f);
+              e.currentTarget.value = '';
+            }}
+          />
           <div className="views">
             {(panel === 'SIDE' || panel === 'PACKAGE' || panel === 'LEDGER') && (
               <>
@@ -160,41 +180,45 @@ export default function App() {
               </>
             )}
             {panel === 'SECTIONS' && (
-              <div className="placeholder">
-                <h2>SECTIONS</h2>
-                <p>
-                  Half-sections at stations, clipped live to the envelope, feeding the loft.
-                  Arrives at gate 2 — not built yet, and it will say so until it is.
-                </p>
-              </div>
+              <RoadmapCard
+                title="SECTIONS"
+                body="Half-sections at the ruler stations, mirrored and clipped live to the envelope, feeding the loft. Gate 2 — in build now."
+              />
             )}
             {panel === 'BODY' && (
-              <div className="placeholder">
-                <h2>BODY</h2>
-                <p>
-                  The lofted surface under a zebra shader, with the two verbs — shutline and
-                  inset. Arrives at gate 2. Class-A surfacing is out of scope for V1.
-                </p>
-              </div>
+              <RoadmapCard
+                title="BODY"
+                body="The lofted surface under a zebra shader, and the two verbs: shutline and inset. Gate 2. Class-A surfacing is out of scope for V1, and this panel will keep saying so."
+              />
             )}
             {panel === 'BOUNCE' && (
-              <div className="placeholder">
-                <h2>BOUNCE</h2>
-                <p>
-                  Watertight check, scale presets, print report, 3MF / STL / glTF export.
-                  Arrives at gate 3.
-                </p>
-              </div>
+              <RoadmapCard
+                title="BOUNCE"
+                body="Watertight check through manifold, scale presets 1:24 / 1:10 / 1:5, a print-readiness report in plain words, and one-click 3MF / STL / glTF. Gate 3."
+              />
             )}
           </div>
           <ReadoutStrip result={result} />
           <div className="hint-bar">
-            drag points · sliders are fractions of live bounds · L ledger · ctrl+Z undo ·
-            walls name themselves on contact
+            <span>
+              scale 1px = {cam.mmPerPx.toFixed(1)}mm · wheel zooms · drag pans · F fits
+            </span>
+            <span>{selectedLineLabel ? `selected: ${selectedLineLabel} — arrows nudge` : 'drag points · walls name themselves on contact'}</span>
+            <span>L ledger · ctrl+Z undo</span>
           </div>
           {state.ledgerOpen && <Ledger result={result} pkg={state.now.pkg} dispatch={dispatch} />}
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoadmapCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="roadmap-card">
+      <h2>{title}</h2>
+      <p>{body}</p>
+      <div className="roadmap-dormant">dormant instrument — arrives on schedule</div>
     </div>
   );
 }

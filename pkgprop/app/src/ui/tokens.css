@@ -1,0 +1,61 @@
+/* PKG→PROP design tokens — the only file allowed to state a color or size.
+   The token lint (app/test/token-lint.test.ts) enforces that. */
+
+:root {
+  /* ---- surface ---- */
+  --paper: #e7e5df;
+  --panel: #f4f2ec;
+  --panel-raised: #faf9f5;
+  --ink: #141310;
+  --ink-soft: #716e63;
+  --ink-faint: #a3a094;
+  --hairline: #141310;
+  --hairline-soft: #c9c6bb;
+
+  /* ---- the one accent, and the states ---- */
+  --accent: #ff4d00;
+  --conflict: #d6001c;
+  --ok: #1e7d3c;
+
+  /* ---- license colors ---- */
+  --derived: #141310;
+  --sourced: #0a4fa8;
+  --assumed: #a06b00;
+
+  /* ---- type scale ---- */
+  --font: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --fs-micro: 9px;
+  --fs-label: 10px;
+  --fs-body: 12px;
+  --fs-value: 13px;
+  --fs-title: 15px;
+  --fs-hero: 18px;
+  --track-label: 0.14em;
+  --track-tight: 0.04em;
+
+  /* ---- spacing (4px rhythm) ---- */
+  --s1: 2px;
+  --s2: 4px;
+  --s3: 8px;
+  --s4: 12px;
+  --s5: 16px;
+  --s6: 24px;
+  --s7: 40px;
+
+  /* ---- stroke hierarchy (the drawing reads by weight) ---- */
+  --stroke-silhouette: 2.75px;
+  --stroke-feature: 1.75px;
+  --stroke-ghost: 1.1px;
+  --stroke-grid: 0.5px;
+
+  /* ---- motion ---- */
+  --t-fast: 120ms;
+  --t-med: 200ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ---- chrome sizes ---- */
+  --header-h: 44px;
+  --rail-w: 304px;
+  --ledger-w: 460px;
+  --hit: 28px;
+}
