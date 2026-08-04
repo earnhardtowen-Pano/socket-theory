@@ -131,3 +131,51 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
     (`validation/test/inventory.test.ts`). The moment Phase 1 moves a
     constraint, the inventory's references go stale and the build says so. A
     document that lies about where things are is worse than no document.
+
+23. **Attribution carries across stage boundaries.** `Registry.publish` /
+    `Registry.inherit`: a placed control or derived readout publishes the
+    params behind it, and a constraint consuming one inherits that chain
+    inside its own trace. This is what DECISIONS #6 asked for and never had.
+    `inherit` throws on an unsolved quantity, so a stage-order mistake fails
+    loudly rather than quietly producing a short chain.
+
+24. **Ties break on specificity, not on call order.** Two constraints can be
+    numerically identical for a given car; preferring the earlier call site
+    made the reported author an artefact of source layout. The longer
+    read-chain is the more specific claim and wins; the id breaks a dead heat
+    so the answer stays stable.
+
+25. **The kernel holds no opinion about what a car looks like.** The opening
+    pose is spine data (`data/src/pose.ts`). A control the project does not
+    name sits at the middle of its band — the one fraction that asserts
+    nothing about vehicles.
+
+26. **`geometry/` owns its curves.** Cubic B-splines with a clamped knot
+    vector, de Boor evaluation, and an interpolation that passes through its
+    points. NURBS libraries carry rational weights, trimming and surface
+    intersection; none of it is used here and all of it would be ours to
+    debug. Degree is fixed at three — lower is visibly faceted on a body,
+    higher buys nothing you can see.
+
+27. **A section is four numbers a designer already says out loud.** Crown,
+    shoulder height, tumblehome, and glass inset. The last of those is the
+    greenhouse break, and it is the difference between a car and a blister:
+    without it the loft runs one smooth volume from rocker to roof.
+
+28. **The surface honours the plan wall by scaling, not clamping.** A cubic
+    through the section's four points overshoots past the widest — 999mm on a
+    950mm section — and the plan half-width is a solved wall. Scaling the
+    section back keeps the shape; clamping would leave a flat spot along the
+    widest point.
+
+29. **A body style is a whole car, not an architecture flag.** Architecture,
+    pose, section, and the ASSUMED values the style disagrees with. The GT's
+    first attempt inverted its own heel band and the conflict machinery named
+    both walls and the knobs; raising the owner's wheelbase target is the
+    honest resolution and the preset states it as a visible override.
+
+30. **Features ask the kernel for their walls.** The wheel opening used to
+    recompute the tire clearance and then borrow `tire_clearance`'s meta to
+    narrate the result. It calls `clampToEnvelope` now, which returns both the
+    corrected height and the segment that corrected it, so the wall names
+    itself. All nine Phase 0 defects are closed.
