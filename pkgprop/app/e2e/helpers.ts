@@ -66,3 +66,58 @@ export async function machinery(page: Page, ...folds: string[]): Promise<void> {
   await draft(page);
   for (const f of folds) await openFold(page, f);
 }
+
+/**
+ * The row you scrub to move a value.
+ *
+ * There is no `input[type=range]` in the tool any more — a slider's resolution
+ * is whatever the panel is wide, and you cannot nudge one without hunting for
+ * a handle. The scrubber's row carries the ARIA slider role and the live band,
+ * so a test reads its walls from the same place a screen reader would.
+ */
+export function scrub(page: Page, id: string) {
+  return page.locator(`[data-testid="scrub-${id}"] .scrub-row`);
+}
+
+/** Push a control onto one of its walls, the way Home and End do by hand. */
+export async function pushToWall(page: Page, id: string, wall: 'lower' | 'upper'): Promise<void> {
+  const row = scrub(page, id);
+  await row.focus();
+  await row.press(wall === 'lower' ? 'Home' : 'End');
+}
+
+/**
+ * Put a control at a stated fraction of its live band.
+ *
+ * The scrubber works in millimetres because nobody thinks in fractions, so the
+ * fraction is converted against the band the row is advertising right now —
+ * which is the point of storing a pose as a fraction in the first place.
+ */
+export async function setControl(page: Page, id: string, fraction: number): Promise<void> {
+  const row = scrub(page, id);
+  const min = Number(await row.getAttribute('aria-valuemin'));
+  const max = Number(await row.getAttribute('aria-valuemax'));
+  await typeInto(page, `scrub-${id}`, String(Math.round(min + (max - min) * fraction)));
+}
+
+/**
+ * Click a scrubber without moving and type an exact number into it.
+ *
+ * A press that never moves is a click, and a click means "let me type it" —
+ * so this is the same gesture a person makes, not a test back door.
+ */
+export async function typeInto(page: Page, testid: string, value: string): Promise<void> {
+  const row = page.locator(`[data-testid="${testid}"] .scrub-row`);
+  // The rail scrolls, and a bounding box is reported in page coordinates
+  // whether or not the row is on screen — so clicking one without scrolling to
+  // it first sends the press to whatever happens to be at those coordinates.
+  await row.scrollIntoViewIfNeeded();
+  const box = (await row.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.up();
+  const field = page.locator(`[data-testid="${testid}"] .scrub-input`);
+  await field.waitFor();
+  await field.fill(value);
+  await field.press('Enter');
+}

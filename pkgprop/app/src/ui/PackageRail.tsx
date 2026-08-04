@@ -11,6 +11,8 @@ import {
 } from '../state/lines.js';
 import type { Action, ViewMode } from '../state/store.js';
 import { ControlSlider, CONTROL_LABELS } from './ControlSlider.js';
+import { Scrub } from './ds/Scrub.js';
+import { ADDABLE, labelOf, type FeatureMap } from '../model/features.js';
 
 /**
  * The rail, folded. Everything is still one keystroke away, but a first look
@@ -87,6 +89,8 @@ export function PackageRail({
   render,
   mode,
   result,
+  features,
+  selectedId,
   dispatch,
 }: {
   pkg: PackageState;
@@ -94,15 +98,23 @@ export function PackageRail({
   render: RenderState;
   mode: ViewMode;
   result: SolveResult;
+  features: FeatureMap;
+  selectedId: string | null;
   dispatch: React.Dispatch<Action>;
 }) {
   const [open, toggle] = useFolds();
   const tire = pkg.tire ?? ARCHITECTURES.find((a) => a.id === pkg.architecture)?.tire;
   const mm = (id: ControlId) => Math.round(result.controls[id]?.value ?? 0);
   const arch = ARCHITECTURES.find((a) => a.id === pkg.architecture);
+  // Everything the human added, in the order they added it. The wheel
+  // openings and the section are always there; these are the authored parts.
+  const sculpted = Object.values(features).filter((f) =>
+    ADDABLE.some((a) => a.kind === f.kind),
+  );
 
   const summaries: Record<string, string> = {
     setup: `${arch?.label ?? ''} · ${pkg.seating} seats · ${tire}`,
+    parts: sculpted.length ? `${sculpted.length} added` : 'nothing added yet',
     stance: `wb ${mm('wheelbase')} · front ${mm('front_overhang')} · rear ${mm('rear_overhang')}`,
     cabin: `H30 ${mm('h30')} · roof ${mm('roof_z')} · belt ${mm('belt_z')}`,
     front: `cowl ${mm('cowl_z')} · hood ${mm('hood_z')}`,
@@ -168,6 +180,58 @@ export function PackageRail({
               </option>
             ))}
           </select>
+        </div>
+      </Fold>
+
+      <Fold id="parts" label="PARTS" summary={summaries.parts!} open={open.parts ?? false} onToggle={toggle}>
+        <div className="part-list">
+          {sculpted.length === 0 ? (
+            <span className="scrub-hint" style={{ padding: '0 0 4px' }}>
+              Nothing added yet. A car is the package plus what you cut into it.
+            </span>
+          ) : (
+            sculpted.map((f) => (
+              <button
+                key={f.id}
+                className={`part-item ${selectedId === f.id ? 'selected' : ''}`}
+                data-testid={`part-${f.id}`}
+                onClick={() => dispatch({ type: 'select', selection: { kind: 'feature', id: f.id } })}
+              >
+                {labelOf(f)}
+                {/* Two creases both called "character line" is a list you have
+                    to click through to read. Number them only once there is
+                    something to tell apart. */}
+                {sculpted.filter((o) => o.kind === f.kind).length > 1 && (
+                  <span className="part-ord">{f.id.slice(f.kind.length + 1)}</span>
+                )}
+                <span
+                  className="kill"
+                  role="button"
+                  aria-label={`remove ${f.id}`}
+                  data-testid={`kill-${f.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    dispatch({ type: 'remove-feature', id: f.id });
+                  }}
+                >
+                  ×
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+        <div className="parts-row">
+          {ADDABLE.map((a) => (
+            <button
+              key={a.kind}
+              className="part-add"
+              data-testid={`add-${a.kind}`}
+              onClick={() => dispatch({ type: 'add-feature', kind: a.kind })}
+            >
+              <b>+ {a.label}</b>
+              <em>{a.blurb}</em>
+            </button>
+          ))}
         </div>
       </Fold>
 
@@ -279,20 +343,14 @@ function PlainSlider({
 }) {
   return (
     <div className={`control plain ${compact ? 'compact' : ''}`}>
-      <div className="control-head">
-        <span className="control-name">{label}</span>
-        <span className="control-value">{format(value)}</span>
-      </div>
-      <input
-        type="range"
-        className="plain-range"
+      <Scrub
+        label={label}
+        value={value}
         min={0}
-        max={1000}
-        value={Math.round(value * 1000)}
-        aria-label={label}
-        onChange={(e) => onChange(Number(e.currentTarget.value) / 1000, false)}
-        onPointerUp={(e) => onChange(Number(e.currentTarget.value) / 1000, true)}
-        onKeyUp={(e) => onChange(Number(e.currentTarget.value) / 1000, true)}
+        max={1}
+        decimals={2}
+        display={format(value)}
+        onChange={onChange}
       />
     </div>
   );

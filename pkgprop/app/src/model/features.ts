@@ -46,6 +46,21 @@ export function defOf(kind: string): FeatureDef {
   return d;
 }
 
+/**
+ * What to call one placed feature.
+ *
+ * The slot only earns its place in the name when it distinguishes two parts of
+ * the same kind — a car has a front and a rear wheel opening and you need to
+ * know which one you grabbed. Every authored part carries slot `'body'`, and
+ * "body character line" is noise. Naming this once means the header, the
+ * status line, and the part list cannot drift apart.
+ */
+export function labelOf(f: Feature | undefined): string | null {
+  if (!f) return null;
+  const label = defOf(f.kind).label;
+  return f.slot === 'body' ? label : `${f.slot} ${label}`;
+}
+
 export type FeatureMap = Readonly<Record<string, Feature>>;
 
 /** The parametric features every car starts with. */

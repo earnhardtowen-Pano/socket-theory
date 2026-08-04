@@ -292,15 +292,22 @@ export function defaultPoints(id: LineId, result: SolveResult): NormPt[] {
       // of them at two thirds width. Ending early leaves the body with nothing
       // to converge onto, so the loft caps it with a flat wall across the full
       // section — a car that looks like it was cut off with a saw.
+      //
+      // The corner radii matter as much as the reach. Starting at 30% of full
+      // width made the nose a wedge and the fenders a pair of flares hung off
+      // it; a real bumper is most of the car's width and turns the corner over
+      // a few hundred millimetres. Measured across the three body styles the
+      // tool ships, the bumper sits around 60-65% of overall width and the
+      // tail around 65%.
       const halfW = g.overallWidth / 2;
       return [
-        n(g.bumperX, halfW * 0.3),
-        n(g.bumperX + 170, halfW * 0.78),
+        n(g.bumperX, halfW * 0.62),
+        n(g.bumperX + 190, halfW * 0.9),
         n(0, halfW),
-        n(g.wheelbase / 2, halfW * 0.95),
+        n(g.wheelbase / 2, halfW * 0.96),
         n(g.wheelbase, halfW),
-        n(g.tailX - 150, halfW * 0.82),
-        n(g.tailX, halfW * 0.34),
+        n(g.tailX - 190, halfW * 0.92),
+        n(g.tailX, halfW * 0.66),
       ];
     }
   }

@@ -106,6 +106,12 @@ export function BodyView({
     const scene = new THREE.Scene();
     const env = studioEnvironment(renderer);
     scene.environment = env;
+    // A studio has walls. Without a background the car floated on a black void
+    // above a grey disc, with the disc's rim reading as a hard horizon line —
+    // the single cue that says "this is a 3D viewport" rather than "this is a
+    // photograph of a model", which is the whole point of the panel.
+    scene.background = new THREE.Color(0x24272c);
+    scene.fog = new THREE.Fog(0x24272c, 16, 46);
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 400);
 

@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
-import { draft, grabLine, machinery, openFold, pointOnPath, putDown } from './helpers.js';
+import {
+  draft,
+  grabLine,
+  machinery,
+  openFold,
+  pointOnPath,
+  pushToWall,
+  putDown,
+  typeInto,
+} from './helpers.js';
 
 /**
  * The interaction contract (brief §4), scripted against the built instrument.
@@ -37,9 +46,7 @@ test('pick MR, 2 seats — the envelope re-solves', async ({ page }) => {
 test('drag the cowl into its wall — the wall names itself with license and reason', async ({ page }) => {
   await page.goto('/');
   await machinery(page, 'front');
-  const slider = page.locator('[data-testid="control-cowl_z"] input');
-  await slider.focus();
-  await slider.press('End');
+  await pushToWall(page, 'cowl_z', 'upper');
   const chip = page.locator('[data-testid="control-cowl_z"] .wall-chip');
   await expect(chip).toContainText('driver sight line over the cowl');
   await expect(chip.locator('.tag')).toHaveText('DERIVED');
@@ -49,9 +56,7 @@ test('drag the cowl into its wall — the wall names itself with license and rea
 test('roof slammed down touches the occupant roof minimum', async ({ page }) => {
   await page.goto('/');
   await machinery(page, 'cabin');
-  const slider = page.locator('[data-testid="control-roof_z"] input');
-  await slider.focus();
-  await slider.press('Home');
+  await pushToWall(page, 'roof_z', 'lower');
   const chip = page.locator('[data-testid="control-roof_z"] .wall-chip');
   await expect(chip).toContainText('occupant roof minimum');
   await expect(chip).toContainText('head room');
@@ -117,9 +122,7 @@ test('curve tension straightens a line', async ({ page }) => {
   await machinery(page, 'lines');
   const row = page.getByTestId('line-row-roof');
   await expect(row).toContainText('roof');
-  const slider = row.locator('input');
-  await slider.fill('0');
-  await slider.dispatchEvent('pointerup');
+  await typeInto(page, 'line-row-roof', '0');
   await expect(row).toContainText('straight');
 });
 
@@ -182,14 +185,12 @@ test('the ledger is one keystroke away; ASSUMED edits propagate live', async ({ 
 test('undo restores the previous package state', async ({ page }) => {
   await page.goto('/');
   await machinery(page, 'stance');
-  const value = () => page.locator('[data-testid="control-wheelbase"] .control-value').innerText();
+  const value = () => page.locator('[data-testid="scrub-wheelbase"] .scrub-value').innerText();
   const before = await value();
-  const slider = page.locator('[data-testid="control-wheelbase"] input');
-  await slider.focus();
-  await slider.press('End');
+  await pushToWall(page, 'wheelbase', 'upper');
   expect(await value()).not.toEqual(before);
   await page.getByTestId('toolbar-undo').click();
-  await expect(page.locator('[data-testid="control-wheelbase"] .control-value')).toHaveText(before);
+  await expect(page.locator('[data-testid="scrub-wheelbase"] .scrub-value')).toHaveText(before);
 });
 
 test('conflicts name both sides and the knobs — EV three-row under a short cap', async ({ page }) => {

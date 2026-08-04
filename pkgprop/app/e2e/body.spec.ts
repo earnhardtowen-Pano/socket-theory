@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openFold } from './helpers.js';
 
 /**
  * The three surfaces added in the remaster: body styles, sections, and the
@@ -79,6 +80,11 @@ test.describe('sections', () => {
 
 test.describe('the lofted body', () => {
   test('stands up, re-lofts on a package change, and throws nothing', async ({ page }) => {
+    // ZEBRA and CHECK are custom shaders and this runs on SwiftShader, so
+    // every look costs a software shader compile. The default budget is not
+    // enough for four of them plus four cameras; that is the harness being
+    // slow, not the instrument.
+    test.setTimeout(90_000);
     const errs = await noErrors(page);
     await page.goto('/');
     await page.getByRole('button', { name: 'BODY', exact: true }).click();
@@ -90,11 +96,41 @@ test.describe('the lofted body', () => {
     await page.waitForTimeout(600);
     await expect(page.locator('.body-host canvas')).toBeVisible();
 
-    await page.getByTestId('zebra-toggle').click();
-    await page.waitForTimeout(300);
-    await page.getByTestId('view-rear34').click();
-    await page.waitForTimeout(300);
+    // All four looks and all four cameras, because a designer never judges a
+    // form one way and every one of them is a separate material and shader.
+    for (const look of ['PAINT', 'ZEBRA', 'CHECK', 'CLAY']) {
+      await page.getByTestId(`look-${look}`).click();
+      await page.waitForTimeout(200);
+      await expect(page.locator('.body-host canvas')).toBeVisible();
+    }
+    for (const view of ['view-rear34', 'view-side', 'view-top', 'view-front34']) {
+      await page.getByTestId(view).click();
+      await page.waitForTimeout(150);
+    }
     await expect(page.locator('.body-host canvas')).toBeVisible();
+    expect(errs).toEqual([]);
+  });
+
+  test('a sculpted part reaches the surface', async ({ page }) => {
+    // The whole claim of the sculpt verbs is that they are not a 2D overlay.
+    // Adding one has to change the mesh, so the triangle count is the witness.
+    const errs = await noErrors(page);
+    await page.goto('/');
+    await page.getByRole('button', { name: 'BODY', exact: true }).click();
+    await expect(page.locator('.body-host canvas')).toBeVisible();
+    const count = async () =>
+      Number((await page.locator('.body-foot').innerText()).replace(/[^\d]/g, ''));
+    const before = await count();
+    expect(before).toBeGreaterThan(0);
+
+    await page.getByRole('button', { name: 'PACKAGE', exact: true }).click();
+    await openFold(page, 'parts');
+    await page.getByTestId('add-body-cut').click();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'BODY', exact: true }).click();
+    await page.waitForTimeout(700);
+    // A cut refines the stations around its own rim, so the mesh grows.
+    expect(await count()).toBeGreaterThan(before);
     expect(errs).toEqual([]);
   });
 });

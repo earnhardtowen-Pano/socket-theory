@@ -40,13 +40,41 @@ export interface CarInput {
   readonly beltZ: (x: number) => number;
   /** Plan half-width at a station. */
   readonly halfWidth: (x: number) => number;
-  /** Lower edge of the body side. */
-  readonly rockerZ: (x: number) => number;
+  /**
+   * Lower edge of the *body side* at a station — where the visible flank
+   * stops. The rocker, riding up over a wheel arch where one is cut.
+   *
+   * This is how an opening gets cut without CSG: the bodyside simply is not
+   * there below the arch. It is deliberately separate from `floorZ`, because
+   * raising the whole section over a wheel puts a shelf clean across the car
+   * and the body stops reading as one object.
+   */
+  readonly sillZ: (x: number) => number;
+  /**
+   * The underfloor at a station. Stays down at the rocker under an arch — the
+   * space between the two is the wheel well.
+   */
+  readonly floorZ: (x: number) => number;
+  /**
+   * How far inboard the wheel well's inner wall stands, as a half-width in
+   * millimetres. Omitted, the well wall sits halfway out, which is a guess;
+   * supply it from the track and the tire section and it is not.
+   */
+  readonly wellY?: (x: number) => number;
   /** Greenhouse span, cowl to backlight base. Null for a car with no cabin. */
   readonly cabin: { readonly x0: number; readonly x1: number } | null;
   readonly shape: SectionShape;
   /** Points across one half-section. More is smoother, costs linearly. */
   readonly ribPoints: number;
+  /**
+   * How far past the first and last station the nose and tail round off.
+   *
+   * The caller owns the car's legal length, so the caller reserves this: stop
+   * the stations short by `capDepth` and the body ends exactly where it should,
+   * with a rounded nose instead of a flat face. Omitted, the caps are flat and
+   * the body ends on its end stations.
+   */
+  readonly capDepth?: number;
   /** Sculpt field applied to the body volume. Symmetric by construction. */
   readonly displace?: Displace;
 }
@@ -70,6 +98,25 @@ const smooth = (t: number): number => {
   const s = clamp01(t);
   return s * s * (3 - 2 * s);
 };
+
+/**
+ * `Math.max` with the corner taken off, blending over `k` millimetres.
+ *
+ * A hard max between two smooth rails is smooth everywhere except the one
+ * station where they cross — and at that station the slope jumps. A slope jump
+ * is invisible in the numbers and glaring in the render: it draws a hard line
+ * across the panel wherever it lands, because shading reads the first
+ * derivative. Every place two rails compete for the same boundary goes through
+ * here instead.
+ */
+function softMax(a: number, b: number, k: number): number {
+  const hi = Math.max(a, b);
+  if (k <= 0) return hi;
+  const d = Math.abs(a - b);
+  if (d >= k) return hi;
+  const t = 1 - d / k;
+  return hi + k * 0.25 * t * t;
+}
 
 /**
  * One half-section, centreline outward and down to the sill. Four points, all
@@ -119,43 +166,114 @@ export function halfSection(
 /** How many points span the underfloor when closing a rib into a loop. */
 const FLOOR_POINTS = 3;
 
+/**
+ * Where the wheel well's inner wall stands when nobody says, as a fraction of
+ * the sill half-width. A caller who knows the track and the tire section
+ * should say instead — this is the fallback, not the answer.
+ */
+const WELL_Y_FRACTION = 0.52;
+
+/** Points down one wall of the wheel well, from the arch lip to the floor. */
+const WALL_POINTS = 6;
+
+/**
+ * Two stations closer together than this are the same station.
+ *
+ * Station lists get assembled from several sources — a regular grid, the
+ * end-crowding near the caps, refinement around whatever is being sculpted —
+ * and those sources collide. A duplicated station lofts a band of zero-area
+ * triangles between two identical ribs: they contribute nothing to the vertex
+ * normals and nothing to the picture, but they are real triangles that ship in
+ * the mesh and would ship in an export.
+ */
+const MIN_STATION_GAP = 4;
+
+function dedupe(stations: readonly number[]): number[] {
+  const sorted = [...stations].sort((a, b) => a - b);
+  return sorted.filter((x, i) => i === 0 || x - sorted[i - 1]! > MIN_STATION_GAP);
+}
+
 interface LoftSpec {
   readonly stations: readonly number[];
   readonly top: (x: number) => number;
-  readonly bottom: (x: number) => number;
+  /** Lower edge of the visible flank. Rises over a wheel arch. */
+  readonly sill: (x: number) => number;
+  /** Underfloor. Stays down under an arch, so the well has a roof and a wall. */
+  readonly floor: (x: number) => number;
   readonly half: (x: number) => number;
+  readonly wellY?: (x: number) => number;
   readonly shape: SectionShape;
   readonly ribPoints: number;
+  /** How far past the end ribs the nose and tail round off. */
+  readonly capDepth?: number;
   readonly displace?: Displace;
 }
 
 /**
  * A full rib as a closed loop: up the left side, over the top, down the right,
- * back across the underside. The loop must close or the loft is an open tube
- * — visible straight up into the car, caps that never seal, no solid export.
+ * then back across the underside. The loop must close or the loft is an open
+ * tube — visible straight up into the car, caps that never seal, no solid
+ * export.
+ *
+ * The underside is not a straight span. Where the sill has risen over a wheel
+ * arch, the return path drops back to the underfloor first, so the section
+ * reads as a body with a wheel well cut into it rather than a body that got
+ * shorter. Spanning straight across at sill height instead puts a shelf the
+ * full width of the car over each axle, and the body stops reading as one
+ * object — it becomes a nose, a middle and a tail with hoops between them.
  *
  * The sculpt field is applied to the half-section before mirroring, so any
  * authored cut or crease lands identically on both sides of the car.
  */
-function rib(x: number, spec: LoftSpec): V3[] {
+export function halfRib(x: number, spec: LoftSpec): V3[] {
   const n = Math.max(4, spec.ribPoints);
-  const curve = halfSection(spec.top(x), spec.bottom(x), Math.max(1, spec.half(x)), spec.shape);
-  const right = curve.sample(n - 1).map((p) => {
+  const floor = spec.floor(x);
+  const sill = Math.max(floor, spec.sill(x));
+  const curve = halfSection(spec.top(x), sill, Math.max(1, spec.half(x)), spec.shape);
+  const flank = curve.sample(n - 1).map((p) => {
     if (!spec.displace) return v3(x, p.y, p.z);
     const d = spec.displace(x, p.y, p.z);
     return v3(x, Math.max(0, d.y), d.z);
   });
+
+  // Under the arch lip and down the well's inner wall. The wall gets real
+  // points rather than one edge: spanning from the lip straight to the floor
+  // in a single quad band gave the opening a shading comb — a 600mm wall
+  // carried by one strip of triangles, whose normals alternate with the quad's
+  // diagonal. Under zebra it read as a saw. It is also the wrong shape: an
+  // arch lip rolls under before the wall drops.
+  const sillPt = flank[flank.length - 1]!;
+  const sy = Math.abs(sillPt.y);
+  const wellY = Math.min(sy * 0.98, spec.wellY?.(x) ?? sy * WELL_Y_FRACTION);
+  const out = [...flank];
+  for (let i = 1; i <= WALL_POINTS; i += 1) {
+    const a = ((i / WALL_POINTS) * Math.PI) / 2;
+    out.push(
+      v3(
+        x,
+        wellY + (sy - wellY) * Math.cos(a),
+        floor + (sillPt.z - floor) * (1 - Math.sin(a)),
+      ),
+    );
+  }
+  return out;
+}
+
+function rib(x: number, spec: LoftSpec): V3[] {
+  const right = halfRib(x, spec);
   const left: V3[] = [];
   for (let i = right.length - 1; i >= 1; i -= 1) {
     const p = right[i]!;
     left.push(v3(p.x, -p.y, p.z));
   }
   const loop = [...left, ...right];
+  // Across the floor to close the loop. The point count is fixed whatever the
+  // sill does, because the loft indexes ribs against each other and a rib that
+  // changes length would shear the mesh.
   const last = loop[loop.length - 1]!;
-  const first = loop[0]!;
   for (let i = 1; i < FLOOR_POINTS; i += 1) {
     const t = i / FLOOR_POINTS;
-    loop.push(v3(x, last.y + (first.y - last.y) * t, last.z + (first.z - last.z) * t));
+    loop.push(v3(x, last.y - 2 * last.y * t, last.z));
   }
   return loop;
 }
@@ -164,7 +282,7 @@ function rib(x: number, spec: LoftSpec): V3[] {
 const CAP_SHRINK = 0.55;
 
 function loft(spec: LoftSpec): Mesh {
-  const stations = [...spec.stations].sort((a, b) => a - b);
+  const stations = dedupe(spec.stations);
   if (stations.length < 2) throw new Error('A loft needs at least two stations.');
 
   const ribs = stations.map((x) => rib(x, spec));
@@ -184,8 +302,15 @@ function loft(spec: LoftSpec): Mesh {
     }
   }
 
-  // Rounded caps: one shrunken ring inboard of each end turns the corner over
-  // a radius instead of fanning a flat disc square across the car.
+  // A rounded cap: a shrunken ring set out along the car from the end rib, and
+  // a hub beyond that.
+  //
+  // The ring used to sit at the end rib's own station, so it shrank in section
+  // but travelled nowhere — a flat annulus and a flat disc, closing the nose
+  // with a vertical face the width of the bumper. Edge-on that face caught the
+  // key light as a bright blade sticking out of the front of the car. Pushing
+  // the ring and the hub out along x is what turns the corner.
+  const depth = Math.max(0, spec.capDepth ?? 0);
   const capOf = (ribIndex: number, flip: boolean): void => {
     const r = ribs[ribIndex]!;
     let cx = 0;
@@ -197,9 +322,16 @@ function loft(spec: LoftSpec): Mesh {
       cz += p.z;
     }
     const c = v3(cx / r.length, cy / r.length, cz / r.length);
+    // Outward is away from the car: toward smaller x at the nose, larger at
+    // the tail.
+    const out = flip ? -1 : 1;
     const ring = pos.length / 3;
     for (const p of r) {
-      pos.push(p.x, c.y + (p.y - c.y) * CAP_SHRINK, c.z + (p.z - c.z) * CAP_SHRINK);
+      pos.push(
+        p.x + out * depth * 0.52,
+        c.y + (p.y - c.y) * CAP_SHRINK,
+        c.z + (p.z - c.z) * CAP_SHRINK,
+      );
     }
     const base = ribIndex * perRib;
     for (let i = 0; i < perRib; i += 1) {
@@ -213,7 +345,7 @@ function loft(spec: LoftSpec): Mesh {
       }
     }
     const hub = pos.length / 3;
-    pos.push(c.x, c.y, c.z);
+    pos.push(c.x + out * depth, c.y, c.z);
     for (let i = 0; i < perRib; i += 1) {
       const j = (i + 1) % perRib;
       if (flip) idx.push(hub, ring + j, ring + i);
@@ -239,28 +371,79 @@ const GLASS_TUCK = 60;
 /** Plan rounding run at the A-pillar and the backlight corners. */
 const GLASS_END_RUN = 260;
 
-export function buildCar(input: CarInput): CarBuild {
+/** How far either side of the cabin the body top slides onto the beltline. */
+const COWL_RUN = 260;
+
+/**
+ * The top of the body volume at a station.
+ *
+ * Inside the cabin the body stops at the belt and the greenhouse carries on
+ * above it — that split is the whole reason there are two volumes. Outside the
+ * cabin there is no glass, so the body's top is the drawn silhouette: the hood
+ * ahead of the cowl and the decklid behind the backlight.
+ *
+ * Capping at the belt everywhere, as this used to, flattened the hood into a
+ * slab the moment the belt sat lower than the cowl — which it does on anything
+ * with a raised cowl, so the entire front of the car went flat. Switching hard
+ * at the cabin edge instead puts a cliff at the cowl. The ramp is the cowl:
+ * the body top slides off the hood and onto the belt over a couple of hundred
+ * millimetres, which is what the panel does.
+ */
+function bodyTopOf(input: CarInput): (x: number) => number {
   const { cabin } = input;
-
-  // With a cabin, the body volume is belt-capped everywhere: the hood and
-  // deck sit below the belt on any real car, so the cap only ever bites where
-  // the silhouette is glass — and glass belongs to the greenhouse. Blending
-  // near the cabin edges instead lets the fender spike up the windshield
-  // base, which is exactly the blister this split exists to kill.
-  const bodyTop = (x: number): number => {
+  if (!cabin) return (x) => input.topZ(x);
+  return (x: number): number => {
     const top = input.topZ(x);
-    return cabin ? Math.min(top, input.beltZ(x)) : top;
+    const capped = Math.min(top, input.beltZ(x));
+    const w =
+      smooth((x - cabin.x0) / COWL_RUN) * smooth((cabin.x1 - x) / COWL_RUN);
+    return top + (capped - top) * w;
   };
+}
 
-  const body = loft({
+/**
+ * The thinnest the body is allowed to get where its lower edge rises to meet
+ * its top — over a wheel arch, in practice. Below this it stops reading as a
+ * fender and starts reading as a torn edge.
+ */
+const MIN_SECTION = 60;
+
+/**
+ * How far either side of the crossover the fender blends into the hood.
+ *
+ * Where an arch reaches the drawn silhouette the body has to swell over the
+ * wheel. Taking the maximum of the two puts a crease across the fender at the
+ * exact station they cross; blending over a couple of hundred millimetres
+ * makes it the swell it is meant to be.
+ */
+const FENDER_BLEND = 190;
+
+/**
+ * The body volume's loft spec, in one place.
+ *
+ * SECTIONS draws from this too. When the two had their own copies of the top
+ * rule they drifted, and a section panel that disagrees with the surface is
+ * worse than no section panel — it is a drawing you would trust and shouldn't.
+ */
+function bodySpec(input: CarInput): LoftSpec {
+  const bodyTop = bodyTopOf(input);
+  return {
     stations: input.stations,
-    top: (x) => Math.max(input.rockerZ(x) + 1, bodyTop(x)),
-    bottom: (x) => input.rockerZ(x),
+    top: (x) => softMax(input.sillZ(x) + MIN_SECTION, bodyTop(x), FENDER_BLEND),
+    sill: input.sillZ,
+    floor: input.floorZ,
     half: (x) => Math.max(20, input.halfWidth(x)),
     shape: input.shape,
     ribPoints: input.ribPoints,
+    ...(input.wellY ? { wellY: input.wellY } : {}),
+    ...(input.capDepth ? { capDepth: input.capDepth } : {}),
     ...(input.displace ? { displace: input.displace } : {}),
-  });
+  };
+}
+
+export function buildCar(input: CarInput): CarBuild {
+  const { cabin } = input;
+  const body = loft(bodySpec(input));
 
   let greenhouse: Mesh | null = null;
   if (cabin && cabin.x1 - cabin.x0 > 200) {
@@ -284,19 +467,23 @@ export function buildCar(input: CarInput): CarBuild {
     for (const x of input.stations) {
       if (x > cabin.x0 + 160 && x < cabin.x1 - 160) stations.push(x);
     }
-    const live = [...new Set(stations)]
-      .sort((a, b) => a - b)
-      .filter((x) => gTop(x) > gBase(x) + 40 && span > 0);
+    const live = dedupe(stations).filter((x) => gTop(x) > gBase(x) + 40 && span > 0);
     if (live.length >= 2) {
       greenhouse = loft({
         stations: live,
         top: gTop,
-        bottom: gBase,
+        // Glass has no wheel well; sill and floor are the same tucked base.
+        sill: gBase,
+        floor: gBase,
         half: (x) => Math.max(16, input.halfWidth(x) * (1 - 0.24 * inset) * taper(x)),
         // The greenhouse is its own volume with its own lean: strongly domed,
         // carried high, leaned hard — the DLO wrapping over the driver.
         shape: { crown: 0.4, shoulder: 0.34, tumblehome: 0.34, glassInset: 0 },
         ribPoints: Math.max(8, Math.round(input.ribPoints * 0.75)),
+        // The sculpt field runs across the whole car, not only below the
+        // belt. Without this a crease authored high simply vanished at the
+        // shoulder, which reads as the control being broken.
+        ...(input.displace ? { displace: input.displace } : {}),
       });
     }
   }
@@ -306,28 +493,21 @@ export function buildCar(input: CarInput): CarBuild {
 
 /**
  * The composed half-section at one station — body, and glass where there is
- * glass. This is what SECTIONS draws, and it is computed from the same tables
- * as the loft so the drawing and the surface can never disagree.
+ * glass.
+ *
+ * This is literally the rib the loft builds, not a second drawing of it. The
+ * two used to compute the body's top separately and they drifted; a section
+ * panel that disagrees with the surface is worse than none, because it is a
+ * drawing you would trust and shouldn't. The half runs centreline-top, out and
+ * down the flank to the sill, under the arch lip and inboard along the wheel
+ * well — so an opening shows up here as the well it is.
  */
 export function sectionAt(
   input: CarInput,
   x: number,
   samples = 40,
 ): { body: V3[]; greenhouse: V3[] | null } {
-  const bodyTop = input.cabin
-    ? Math.min(input.topZ(x), input.beltZ(x))
-    : input.topZ(x);
-  const bodyCurve = halfSection(
-    Math.max(input.rockerZ(x) + 1, bodyTop),
-    input.rockerZ(x),
-    Math.max(20, input.halfWidth(x)),
-    input.shape,
-  );
-  const body = bodyCurve.sample(samples).map((p) => {
-    if (!input.displace) return v3(x, p.y, p.z);
-    const d = input.displace(x, p.y, p.z);
-    return v3(x, Math.max(0, d.y), d.z);
-  });
+  const body = halfRib(x, { ...bodySpec(input), ribPoints: Math.max(8, samples) });
   let greenhouse: V3[] | null = null;
   const { cabin } = input;
   if (cabin && x > cabin.x0 && x < cabin.x1) {

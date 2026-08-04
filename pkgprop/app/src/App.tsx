@@ -10,7 +10,7 @@ import {
   norm,
   type LineId,
 } from './state/lines.js';
-import { defaultFeatures } from './model/features.js';
+import { defaultFeatures, labelOf } from './model/features.js';
 import { useApp, type PanelId, type Snapshot } from './state/store.js';
 import { ConflictBar } from './ui/ConflictBar.js';
 import { Ledger } from './ui/Ledger.js';
@@ -121,7 +121,7 @@ function Shell() {
     selection?.kind === 'line'
       ? LINE_DEFS.find((d) => d.id === selection.id)?.label
       : selection?.kind === 'feature'
-        ? labelOfFeature(state.now.features[selection.id])
+        ? labelOf(state.now.features[selection.id])
         : null;
 
   return (
@@ -175,6 +175,8 @@ function Shell() {
             render={state.now.render}
             mode={state.mode}
             result={result}
+            features={state.now.features}
+            selectedId={selection?.kind === 'feature' ? selection.id : null}
             dispatch={dispatch}
           />
         </Inspector>
@@ -254,12 +256,6 @@ function Shell() {
       </div>
     </div>
   );
-}
-
-/** What the status line calls the thing in your hand. */
-function labelOfFeature(f: { kind: string; slot: string } | undefined): string | null {
-  if (!f) return null;
-  return f.kind === 'wheel-opening' ? `${f.slot} wheel opening` : 'body section';
 }
 
 function RoadmapCard({ title, body }: { title: string; body: string }) {

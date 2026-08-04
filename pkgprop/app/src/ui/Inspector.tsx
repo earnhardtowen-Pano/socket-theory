@@ -1,6 +1,8 @@
 import type { SolveResult } from '@pkgprop/core';
-import { generateFeature, defOf } from '../model/features.js';
+import { generateFeature, defOf, labelOf } from '../model/features.js';
 import { LINE_DEFS, lineTension, linePoints, type DrawingState } from '../state/lines.js';
+import { ADDABLE } from '../model/features.js';
+import { Scrub } from './ds/Scrub.js';
 import type { Action, Selection, Snapshot } from '../state/store.js';
 
 /**
@@ -49,9 +51,7 @@ export function Inspector({
           <button className="inspect-back" onClick={() => dispatch({ type: 'select', selection: null })}>
             ←
           </button>
-          <span className="inspect-title">
-            {feature.slot} {def.label}
-          </span>
+          <span className="inspect-title">{labelOf(feature)}</span>
           <span className="inspect-blurb">{def.blurb}</span>
         </div>
         {geo.binding && (
@@ -67,50 +67,25 @@ export function Inspector({
           const value = feature.params[spec.key] ?? 0;
           return (
             <div className="control param" key={spec.key} data-testid={`param-${spec.key}`}>
-              <div className="control-head">
-                <span className="control-name">{spec.label}</span>
-                <span className="control-value">
-                  {spec.unit === 'ratio' ? value.toFixed(2) : Math.round(value)}
-                  {spec.unit !== 'ratio' && <span className="unit">{spec.unit}</span>}
-                </span>
-              </div>
-              <input
-                type="range"
-                className="plain-range"
+              <Scrub
+                label={spec.label}
+                value={value}
                 min={spec.min}
                 max={spec.max}
-                step={spec.step}
-                value={value}
-                aria-label={spec.label}
-                onChange={(e) =>
+                decimals={spec.unit === 'ratio' ? 2 : 0}
+                {...(spec.unit === 'ratio' ? {} : { unit: spec.unit })}
+                hint={spec.hint}
+                testid={`scrub-${spec.key}`}
+                onChange={(v, commit) =>
                   dispatch({
                     type: 'set-feature-param',
                     id: feature.id,
                     key: spec.key,
-                    value: Number(e.currentTarget.value),
-                    commit: false,
-                  })
-                }
-                onPointerUp={(e) =>
-                  dispatch({
-                    type: 'set-feature-param',
-                    id: feature.id,
-                    key: spec.key,
-                    value: Number(e.currentTarget.value),
-                    commit: true,
-                  })
-                }
-                onKeyUp={(e) =>
-                  dispatch({
-                    type: 'set-feature-param',
-                    id: feature.id,
-                    key: spec.key,
-                    value: Number(e.currentTarget.value),
-                    commit: true,
+                    value: v,
+                    commit,
                   })
                 }
               />
-              <div className="param-hint">{spec.hint}</div>
             </div>
           );
         })}
@@ -118,6 +93,15 @@ export function Inspector({
           <button className="chip" onClick={() => dispatch({ type: 'reset-feature', id: feature.id })}>
             reset this part
           </button>
+          {ADDABLE.some((a) => a.kind === feature.kind) && (
+            <button
+              className="chip"
+              data-testid="remove-part"
+              onClick={() => dispatch({ type: 'remove-feature', id: feature.id })}
+            >
+              remove
+            </button>
+          )}
         </div>
       </div>
     );
@@ -142,40 +126,18 @@ export function Inspector({
         </span>
       </div>
       <div className="control param">
-        <div className="control-head">
-          <span className="control-name">curve</span>
-          <span className="control-value">
-            {tension < 0.05 ? 'straight' : tension > 0.95 ? 'full' : tension.toFixed(2)}
-          </span>
-        </div>
-        <input
-          type="range"
-          className="plain-range"
+        <Scrub
+          label="curve"
+          value={tension}
           min={0}
           max={1}
-          step={0.01}
-          value={tension}
-          aria-label="curve"
-          onChange={(e) =>
-            dispatch({
-              type: 'set-tension',
-              line: def.id,
-              tension: Number(e.currentTarget.value),
-              commit: false,
-            })
-          }
-          onPointerUp={(e) =>
-            dispatch({
-              type: 'set-tension',
-              line: def.id,
-              tension: Number(e.currentTarget.value),
-              commit: true,
-            })
+          decimals={2}
+          display={tension < 0.05 ? 'straight' : tension > 0.95 ? 'full' : tension.toFixed(2)}
+          testid="scrub-curve"
+          onChange={(v, commit) =>
+            dispatch({ type: 'set-tension', line: def.id, tension: v, commit })
           }
         />
-        <div className="param-hint">
-          straight holds the points exactly; full lets the curve breathe through them.
-        </div>
       </div>
       <div className="param-hint block">
         double-click the line to add a point · alt-click a point to remove it · arrows nudge

@@ -179,3 +179,46 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
     narrate the result. It calls `clampToEnvelope` now, which returns both the
     corrected height and the segment that corrected it, so the wall names
     itself. All nine Phase 0 defects are closed.
+
+31. **A wheel opening is the body's lower edge, not a hole.** A displacement
+    field cannot make a hole, and CSG at this stage wrecks the surface. But an
+    opening is exactly the statement that the bodyside stops higher over the
+    wheel than it does either side of it — so the loft's sill rides the arch
+    profile while the underfloor stays down at the rocker, and the space
+    between them is the wheel well. The mesh stays watertight, and the arch in
+    3D is the same curve the side view draws because it is the same feature's
+    geometry. Raising the *whole* section instead put a shelf the full width
+    of the car over each axle, and the body read as a nose, a middle and a tail
+    with hoops between them.
+
+32. **The arch wins; the fender swells to accommodate it.** Where an opening
+    asks for more room than the drawn hood leaves above it, the body rises over
+    the wheel rather than the opening being quietly shaved. That is what a real
+    fender does, it keeps 3D and the side view identical, and it self-resolves
+    — pull the opening radius back in and the bulge goes with it.
+
+33. **Every place two rails compete for one boundary blends, never maxes.** A
+    hard `max` between two smooth rails is smooth everywhere except the station
+    where they cross, and at that station the slope jumps. A slope jump is
+    invisible in the numbers and glaring in the render, because shading reads
+    the first derivative. `softMax` rounds the corner over a stated number of
+    millimetres and the crease across the panel goes away.
+
+34. **The body top is the silhouette outside the cabin and the belt inside
+    it.** Capping at the belt everywhere flattened the hood into a slab the
+    moment the belt sat lower than the cowl — which it does on anything with a
+    raised cowl, so the entire front of the car went flat. Switching hard at
+    the cabin edge instead puts a cliff at the cowl. The ramp *is* the cowl.
+
+35. **Mesh resolution is derived from what is authored, not chosen.** A crease
+    70mm wide sampled every 137mm is two lumps, and 137mm is what a sixteen-
+    point rib gives across a half-section arc of a couple of metres. The rib
+    count comes from the narrowest authored feature, and stations refine only
+    where a cut or an arch actually has an edge — so a car with nothing
+    sculpted on it never pays for density it does not need.
+
+36. **A cap is corner radius, not extra length.** The nose and tail round off
+    over a stated depth, and the caller stops its stations short by exactly
+    that much, so overall length is untouched. The flat version closed the nose
+    with a vertical face the width of the bumper, which caught the key light
+    edge-on as a bright blade sticking out of the front of the car.

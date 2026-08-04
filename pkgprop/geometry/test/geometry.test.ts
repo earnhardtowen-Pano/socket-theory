@@ -26,7 +26,8 @@ function testCar(over: Partial<CarInput> = {}): CarInput {
     beltZ: () => 830,
     halfWidth: (x: number) =>
       950 * Math.sin(Math.PI * Math.max(0.03, Math.min(0.97, (x + 800) / 4200))) ** 0.4,
-    rockerZ: () => 150,
+    sillZ: () => 150,
+    floorZ: () => 150,
     cabin: { x0: 500, x1: 2500 },
     shape: SHAPE,
     ribPoints: 14,
@@ -128,12 +129,88 @@ describe('the two-volume car', () => {
   it('the body stops at the belt inside the cabin — no more blister', () => {
     const input = testCar();
     const car = buildCar(input);
-    const b = bounds(car.body);
-    // The roof is at 1300; the body volume must top out near the belt, not
-    // reach the roof. The greenhouse is what goes up there.
-    expect(b.max.z).toBeLessThan(900);
+    // Sampled inside the cabin rather than over the whole mesh: outside the
+    // cabin the body's top is supposed to be the silhouette — the hood and
+    // the deck are body, not glass — so a global bound would be asserting the
+    // hood gets flattened, which is the defect this pair of volumes had.
+    const mid = (input.cabin!.x0 + input.cabin!.x1) / 2;
+    const sec = sectionAt(input, mid);
+    const topOfBody = Math.max(...sec.body.map((p) => p.z));
+    expect(topOfBody).toBeLessThan(input.beltZ(mid) + 1);
     const g = bounds(car.greenhouse!);
     expect(g.max.z).toBeGreaterThan(1200);
+  });
+
+  it('the hood is not flattened onto the beltline ahead of the cowl', () => {
+    // The regression: capping the body at the belt everywhere turned the whole
+    // front of any car with a raised cowl into a slab at belt height.
+    const input = testCar();
+    const ahead = input.cabin!.x0 - 700;
+    const sec = sectionAt(input, ahead);
+    const topOfBody = Math.max(...sec.body.map((p) => p.z));
+    expect(input.topZ(ahead)).toBeGreaterThan(input.beltZ(ahead));
+    expect(topOfBody).toBeCloseTo(input.topZ(ahead), 0);
+  });
+
+  it('a rounded cap reaches past the end ribs by exactly its depth', () => {
+    // The cap is corner radius, not extra length — the caller stops its
+    // stations short by capDepth and the cap makes up the difference. A flat
+    // cap closed the nose with a vertical face the width of the bumper.
+    const flat = buildCar(testCar());
+    const domed = buildCar(testCar({ capDepth: 100 }));
+    expect(openEdges(domed.body)).toBe(0);
+    expect(bounds(flat.body).min.x).toBeCloseTo(-800, 0);
+    expect(bounds(domed.body).min.x).toBeCloseTo(-900, 0);
+    expect(bounds(domed.body).max.x).toBeCloseTo(bounds(flat.body).max.x + 100, 0);
+  });
+
+  it('a raised sill cuts an opening without breaking the surface', () => {
+    // A wheel arch is the body's lower edge riding up over the wheel. It must
+    // stay watertight, and the flank must actually be missing under it.
+    const archAt = (x: number) => (Math.abs(x - 1400) < 400 ? 700 : 150);
+    const arched = buildCar(testCar({ sillZ: archAt }));
+    expect(openEdges(arched.body)).toBe(0);
+
+    // The section is the rib the loft builds, so it runs down the flank to the
+    // sill and then inboard along the wheel well. What the opening means is
+    // that the *outboard* surface stops at the arch: the widest point of the
+    // section is above it, and everything below the arch is inboard, in the
+    // well.
+    const overWheel = sectionAt({ ...testCar(), sillZ: archAt }, 1400);
+    const widest = overWheel.body.reduce((a, b) => (b.y > a.y ? b : a));
+    const outboardAt = (z: number) =>
+      Math.max(...overWheel.body.filter((p) => Math.abs(p.z - z) < 30).map((p) => p.y), 0);
+    expect(outboardAt(750)).toBeGreaterThan(widest.y * 0.9);
+    expect(outboardAt(300)).toBeLessThan(widest.y * 0.7);
+    // And the well still reaches the floor, so the car has an underside.
+    expect(Math.min(...overWheel.body.map((p) => p.z))).toBeCloseTo(150, 0);
+
+    // Away from the arch the section has no well step at all.
+    const clear = sectionAt({ ...testCar(), sillZ: archAt }, 300);
+    expect(Math.min(...clear.body.map((p) => p.z))).toBeCloseTo(150, 0);
+  });
+
+  it('an arch cuts the flank, not a shelf across the whole car', () => {
+    // The regression: raising the entire section over an axle put a slab the
+    // full width of the car above each wheel, and the body read as a nose, a
+    // middle and a tail with hoops between them instead of one object.
+    const archAt = (x: number) => (Math.abs(x - 1400) < 400 ? 700 : 150);
+    const arched = buildCar(testCar({ sillZ: archAt, wellY: () => 500 }));
+    const flat = buildCar(testCar());
+    // The underfloor survives the arch: the car still reaches the ground.
+    expect(bounds(arched.body).min.z).toBeCloseTo(150, 0);
+    expect(bounds(flat.body).min.z).toBeCloseTo(150, 0);
+    // And there is real material inboard of the well at the axle, below the
+    // arch — that is the floor pan the shelf version deleted.
+    const under = arched.body;
+    let lowInboard = 0;
+    for (let i = 0; i < under.positions.length; i += 3) {
+      const x = under.positions[i]!;
+      const y = under.positions[i + 1]!;
+      const z = under.positions[i + 2]!;
+      if (Math.abs(x - 1400) < 200 && Math.abs(y) < 500 && z < 300) lowInboard += 1;
+    }
+    expect(lowInboard).toBeGreaterThan(0);
   });
 
   it('the greenhouse sits inboard of the body', () => {

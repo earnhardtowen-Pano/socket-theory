@@ -1,5 +1,6 @@
 import type { SolveResult } from '@pkgprop/core';
 import { sectionAt } from '@pkgprop/geometry';
+import { useState } from 'react';
 import { buildCarBody } from '../model/body.js';
 import type { FeatureMap } from '../model/features.js';
 import type { DrawingState } from '../state/lines.js';
@@ -46,6 +47,10 @@ export function SectionsView({
   features: FeatureMap;
   dispatch: React.Dispatch<Action>;
 }) {
+  // Which cut is in front. The driver's section is the one that decides the
+  // car's character, so it leads until you say otherwise — and an axle section
+  // is mostly wheel well, which is exactly the wrong thing to lead with.
+  const [lead, setLead] = useState('h1');
   let build: ReturnType<typeof buildCarBody> | null = null;
   try {
     build = buildCarBody(result, drawing, features);
@@ -72,8 +77,20 @@ export function SectionsView({
     <div className="view-block" data-testid="sections-view">
       <div className="view-title">
         <span>SECTIONS</span>
+        <span className="mode-chips">
+          {cuts.map((c) => (
+            <button
+              key={c.id}
+              className={`chip ${lead === c.id ? 'active' : ''}`}
+              data-testid={`cut-${c.id}`}
+              onClick={() => setLead(c.id)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </span>
         <span className="view-note">
-          the same cuts the surface is lofted from · click one to shape it
+          the same ribs the surface is lofted from · click one to shape it
         </span>
       </div>
       {!build ? (
@@ -96,14 +113,16 @@ export function SectionsView({
             const path = (pts: readonly { y: number; z: number }[]): string => {
               const right = pts.map((p) => `${m.sx(p.y)} ${m.sy(p.z)}`).join(' L ');
               const left = [...pts].reverse().map((p) => `${m.sx(-p.y)} ${m.sy(p.z)}`).join(' L ');
-              return `M ${left} L ${right}`;
+              // Closed: the last span is the underfloor, and a section drawn
+              // with a gap in it looks like a section that failed to compute.
+              return `M ${left} L ${right} Z`;
             };
             return (
               <>
                 <line x1={0} y1={m.sy(0)} x2={m.pxW} y2={m.sy(0)} className="ground-line" />
                 <line x1={m.sx(0)} y1={0} x2={m.sx(0)} y2={m.pxH} className="grid-line" strokeDasharray="3 4" />
-                {drawn.map(({ cut, geo }, i) => {
-                  const lead = i === drawn.length - 1;
+                {drawn.map(({ cut, geo }) => {
+                  const isLead = cut.id === lead;
                   const d = path(geo.body);
                   const gd = geo.greenhouse ? path(geo.greenhouse) : null;
                   return (
@@ -112,23 +131,26 @@ export function SectionsView({
                         d={d}
                         className="feature-hit"
                         data-testid={`section-${cut.id}`}
-                        onPointerDownCapture={selectSection}
+                        onPointerDownCapture={() => {
+                          setLead(cut.id);
+                          selectSection();
+                        }}
                       >
                         <title>{`${cut.label} at ${Math.round(cut.x)}mm`}</title>
                       </path>
                       <path
                         d={d}
-                        className={lead ? 'section-lead' : 'section-ghost'}
+                        className={isLead ? 'section-lead' : 'section-ghost'}
                         style={{ pointerEvents: 'none' }}
                       />
                       {gd && (
                         <path
                           d={gd}
-                          className={lead ? 'section-glass' : 'section-ghost'}
+                          className={isLead ? 'section-glass' : 'section-ghost'}
                           style={{ pointerEvents: 'none' }}
                         />
                       )}
-                      {lead && (
+                      {isLead && (
                         <text
                           x={m.sx(Math.max(...geo.body.map((p) => p.y))) + 8}
                           y={m.sy(geo.body[Math.floor(geo.body.length / 2)]?.z ?? 0)}

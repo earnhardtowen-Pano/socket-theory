@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { draft, grabLine, openFold, putDown } from './helpers.js';
+import { draft, grabLine, openFold, putDown, setControl } from './helpers.js';
 
 /**
  * The ten-minute test (brief §4): blank to a package-true authored side view
@@ -18,17 +18,14 @@ test('blank → a rendered, package-true car worth showing', async ({ page }) =>
   await expect(page.locator('.header')).toContainText('0 conflicts');
 
   // 2 — set the package.
-  const set = async (fold: string, control: string, thousandths: string) => {
+  const set = async (fold: string, control: string, fraction: number) => {
     await openFold(page, fold);
-    const slider = page.locator(`[data-testid="control-${control}"] input`);
-    await slider.focus();
-    await slider.fill(thousandths);
-    await slider.press('ArrowRight');
+    await setControl(page, control, fraction);
   };
-  await set('cabin', 'h30', '150');
-  await set('cabin', 'roof_z', '100');
-  await set('front', 'cowl_z', '800');
-  await set('stance', 'wheelbase', '400');
+  await set('cabin', 'h30', 0.15);
+  await set('cabin', 'roof_z', 0.1);
+  await set('front', 'cowl_z', 0.8);
+  await set('stance', 'wheelbase', 0.4);
 
   // 3 — author: pull the drawn lines around.
   await draft(page);
