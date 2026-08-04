@@ -29,3 +29,37 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
    is max(lowers)/min(uppers) and the argmax/argmin IS the attribution. There is
    no stored string naming a wall anywhere — attribution falls out of the solve,
    live, per Law 3.
+
+6. **Chains re-read the registry inside every trace.** Passing a precomputed
+   number into a contribution severs its attribution chain (an EV roof
+   conflict must point at battery thickness). `chains.ts` holds the shared
+   derivations as functions over the registry, called inside traces only.
+
+7. **The rake-floor monotonicity that is guaranteed is in the clearance
+   radius.** Tangency angle rises strictly as demanded clearance grows, and
+   the farthest legal header pulls forward — that is the property test.
+   Monotonicity in cowl or head position alone is not globally true
+   (two competing terms) and is not claimed.
+
+8. **The rear-vision ceiling starts at the backlight, not the eye.** The
+   glass transmits the view; only the opaque deck ducks under the sight
+   line. Backlight base is an ASSUMED station aft of the last hip. Without
+   this the ceiling clipped the driver's own head sphere, which was wrong.
+
+9. **An inverted band pins the control to its lower wall.** Demands
+   (occupants, structure) outrank targets (style caps) when a band inverts;
+   the geometry stays physical and the conflict chip reports the broken
+   target. Nothing silently clamps — the chip is the report.
+
+10. **A `backlight` line was added to the characteristic set.** The brief's
+    eight side-view lines leave the silhouette open between roof and deck;
+    the backlight closes it under the same clamp contract.
+
+11. **Ten-minute defaults.** Default control fractions and the default style
+    ceilings were tuned so FR·2 (and MR·2) open with zero conflicts. Configs
+    that genuinely do not fit under the default targets (EV three-row under a
+    2950 wheelbase cap) open with honest conflicts naming the knobs.
+
+12. **Playwright pins the environment's Chromium** via launchOptions when
+    `/opt/pw-browsers/chromium` exists, since the registry-installed browser
+    version differs from the runner image.

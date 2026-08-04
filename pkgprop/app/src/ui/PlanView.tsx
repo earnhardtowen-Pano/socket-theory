@@ -45,8 +45,9 @@ export function PlanView({
   const planFrame = { ...frame, zMax: halfMax };
 
   const toMm = useCallback(
-    (e: { clientX: number; clientY: number }): { x: number; y: number } => {
-      const el = svgRef.current!;
+    (e: { clientX: number; clientY: number }): { x: number; y: number } | null => {
+      const el = svgRef.current;
+      if (!el) return null;
       const r = el.getBoundingClientRect();
       return {
         x: x0 + ((e.clientX - r.left) / r.width) * w,
@@ -56,23 +57,22 @@ export function PlanView({
     [x0, w, h, halfMax],
   );
 
-  const pts = linePoints('plan_side', drawing, result).map((p) => {
+  const rawPts = linePoints('plan_side', drawing, result);
+  const pts = rawPts.map((p) => {
     const { x, z } = denorm(planFrame, p);
     return clampLinePoint(def, result, x, z);
   });
 
   const beginDrag = (index: number) => (down: React.PointerEvent) => {
     down.preventDefault();
+    const basePts = [...rawPts];
     const apply = (e: PointerEvent, commit: boolean) => {
-      const { x, y } = toMm(e);
-      const c = clampLinePoint(def, result, x, Math.abs(y));
-      dispatch({
-        type: 'move-point',
-        line: 'plan_side',
-        index,
-        pt: norm(planFrame, c.x, c.z),
-        commit,
-      });
+      const mm = toMm(e);
+      if (!mm) return;
+      const c = clampLinePoint(def, result, mm.x, Math.abs(mm.y));
+      const next = [...basePts];
+      next[index] = norm(planFrame, c.x, c.z);
+      dispatch({ type: 'set-line', line: 'plan_side', pts: next, commit });
     };
     const move = (e: PointerEvent) => apply(e, false);
     const up = (e: PointerEvent) => {

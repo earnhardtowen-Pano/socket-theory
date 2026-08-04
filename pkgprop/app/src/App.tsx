@@ -24,11 +24,15 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
-        if (e.key === 'Escape') (e.target as HTMLElement).blur();
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      const isRange = el instanceof HTMLInputElement && el.type === 'range';
+      // Text fields own their keys; range sliders share the global ones.
+      if ((tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') && !isRange) {
+        if (e.key === 'Escape') el?.blur();
         return;
       }
+      if (isRange && e.key.startsWith('Arrow')) return;
       if (e.key === 'l' || e.key === 'L') dispatch({ type: 'ledger', open: !state.ledgerOpen });
       else if (e.key === 'Escape') dispatch({ type: 'ledger', open: false });
       else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
@@ -50,13 +54,9 @@ export default function App() {
         const nx = x + (e.key === 'ArrowRight' ? step : e.key === 'ArrowLeft' ? -step : 0);
         const nz = z + (e.key === 'ArrowUp' ? step : e.key === 'ArrowDown' ? -step : 0);
         const c = clampLinePoint(def, result, nx, nz);
-        dispatch({
-          type: 'move-point',
-          line: selected.line,
-          index: selected.index,
-          pt: norm(frame, c.x, c.z),
-          commit: true,
-        });
+        const next = [...pts];
+        next[selected.index] = norm(frame, c.x, c.z);
+        dispatch({ type: 'set-line', line: selected.line, pts: next, commit: true });
       }
     };
     window.addEventListener('keydown', onKey);

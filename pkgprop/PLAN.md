@@ -6,7 +6,10 @@ three ★ gates; everything else is decided here and recorded in DECISIONS.md.
 
 ## Status line
 
-**Phases A and B are built and tested (69 green). Now in phase C: the app.**
+**★ GATE 1 REACHED.** Phases A, B, C built and tested: 70 unit tests
+(including the license lint, verified to bite) + 10 Playwright e2e tests
+(including the scripted ten-minute run). Awaiting owner review before
+phase D (sections + loft).
 Seed file `seed/pkgprop-v0.jsx` was absent from the repo at kickoff; its four
 contract behaviors are reconstructed from the brief (see OPEN_QUESTIONS.md #1).
 
@@ -47,19 +50,23 @@ contract behaviors are reconstructed from the brief (see OPEN_QUESTIONS.md #1).
 
 ## Phase C — Drawing layer, side view (§3.2)
 
-- [ ] `/app` scaffold: Vite + React + Three.js; panels PACKAGE · SIDE ·
-      SECTIONS · BODY · BOUNCE · LEDGER; TE register (flat, mono, one accent)
-- [ ] Envelope rendering: dashed threshold lines, labeled as buildable space
-- [ ] Package controls as fraction-of-live-bounds sliders with wall
+- [x] `/app` scaffold: Vite + React; panels PACKAGE · SIDE · SECTIONS ·
+      BODY · BOUNCE · LEDGER; TE register (flat, mono, one accent)
+      (Three.js arrives with BODY at gate 2)
+- [x] Envelope rendering: dashed threshold lines, labeled as buildable space
+- [x] Package controls as fraction-of-live-bounds sliders with wall
       attribution on contact (seed contract)
-- [ ] LEDGER panel: every number listed + tagged; ASSUMED editable in place,
-      edits propagate live; counts in header; one keystroke away
-- [ ] Characteristic-line set as editable splines: ground, rocker, arches,
-      hood, cowl-to-header glass, roof, deck, beltline
-- [ ] Control points clamped to envelope; wall names itself on contact
-- [ ] Plan view with same contract; symmetry enforced
-- [ ] Undo everything; keyboard for common moves; 60 fps
-- [ ] Playwright screenshot loop after every UI task
+- [x] LEDGER panel: every number listed + tagged; ASSUMED editable in place,
+      edits propagate live; counts in header; one keystroke away (L)
+- [x] Characteristic-line set as editable splines: rocker, arches, hood,
+      cowl-to-header glass, roof, backlight, deck, beltline (ground is the
+      solver's reference line; backlight added so the silhouette closes)
+- [x] Control points clamped to envelope; wall names itself on contact
+- [x] Plan view with same contract; symmetry enforced by construction
+- [x] Undo everything (drag-safe history); keyboard: L ledger, ctrl+Z/⇧Z,
+      arrows nudge selected point
+- [x] Playwright screenshot loop after every UI task; e2e suite (10 specs)
+      including the scripted ten-minute run and save/load
 
 **★ GATE 1 — stop, push, owner plays with it.**
 

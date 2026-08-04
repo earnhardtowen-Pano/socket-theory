@@ -18,6 +18,9 @@ export interface Snapshot {
 
 export interface AppState {
   readonly now: Snapshot;
+  /** Last committed snapshot while a drag is in flight, so undo lands on
+   *  the state before the gesture, never mid-gesture. */
+  readonly pendingBase: Snapshot | null;
   readonly history: readonly Snapshot[];
   readonly future: readonly Snapshot[];
   readonly panel: PanelId;
@@ -32,6 +35,7 @@ export const INITIAL_PKG: PackageState = {
 export function initialState(): AppState {
   return {
     now: { pkg: INITIAL_PKG, drawing: defaultLines() },
+    pendingBase: null,
     history: [],
     future: [],
     panel: 'SIDE',
@@ -45,7 +49,7 @@ export type Action =
   | { type: 'set-tire'; designation: string }
   | { type: 'set-control'; id: ControlId; fraction: number; commit: boolean }
   | { type: 'set-override'; id: string; value: number | null }
-  | { type: 'move-point'; line: LineId; index: number; pt: NormPt; commit: boolean }
+  | { type: 'set-line'; line: LineId; pts: readonly NormPt[]; commit: boolean }
   | { type: 'reset-line'; line: LineId }
   | { type: 'reset-drawing' }
   | { type: 'load'; snapshot: Snapshot }
@@ -57,11 +61,15 @@ export type Action =
 const HISTORY_LIMIT = 200;
 
 function push(state: AppState, next: Snapshot, commit: boolean): AppState {
-  if (!commit) return { ...state, now: next };
+  if (!commit) {
+    return { ...state, now: next, pendingBase: state.pendingBase ?? state.now };
+  }
+  const base = state.pendingBase ?? state.now;
   return {
     ...state,
     now: next,
-    history: [...state.history.slice(-HISTORY_LIMIT), state.now],
+    pendingBase: null,
+    history: [...state.history.slice(-HISTORY_LIMIT), base],
     future: [],
   };
 }
@@ -91,10 +99,11 @@ export function reducer(state: AppState, action: Action): AppState {
       else overrides[action.id] = action.value;
       return withPkg(state, { ...pkg, overrides });
     }
-    case 'move-point': {
-      const pts = [...(drawing.lines[action.line] ?? [])];
-      pts[action.index] = action.pt;
-      const next = { ...state.now, drawing: { lines: { ...drawing.lines, [action.line]: pts } } };
+    case 'set-line': {
+      const next = {
+        ...state.now,
+        drawing: { lines: { ...drawing.lines, [action.line]: [...action.pts] } },
+      };
       return push(state, next, action.commit);
     }
     case 'reset-line': {

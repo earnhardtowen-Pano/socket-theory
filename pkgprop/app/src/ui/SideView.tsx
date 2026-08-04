@@ -47,8 +47,9 @@ export function SideView({
   const [liveTouch, setLiveTouch] = useState<Touch | null>(null);
 
   const toMm = useCallback(
-    (e: { clientX: number; clientY: number }): { x: number; z: number } => {
-      const el = svgRef.current!;
+    (e: { clientX: number; clientY: number }): { x: number; z: number } | null => {
+      const el = svgRef.current;
+      if (!el) return null;
       const r = el.getBoundingClientRect();
       const x = v.x0 + ((e.clientX - r.left) / r.width) * v.w;
       const z = v.z1 - ((e.clientY - r.top) / r.height) * v.h;
@@ -61,16 +62,20 @@ export function SideView({
     down.preventDefault();
     onSelect({ line, index });
     const def = LINE_DEFS.find((d) => d.id === line)!;
-    const move = (e: PointerEvent) => {
-      const { x, z } = toMm(e);
-      const c = clampLinePoint(def, result, x, z);
-      setLiveTouch(c.touching ? { line, index, ...c.touching } : null);
-      dispatch({ type: 'move-point', line, index, pt: norm(frame, c.x, c.z), commit: false });
+    // Materialize the full point set so one moved point never orphans the rest.
+    const basePts = [...linePoints(line, drawing, result)];
+    const apply = (e: PointerEvent, commit: boolean) => {
+      const mm = toMm(e);
+      if (!mm) return;
+      const c = clampLinePoint(def, result, mm.x, mm.z);
+      if (!commit) setLiveTouch(c.touching ? { line, index, ...c.touching } : null);
+      const pts = [...basePts];
+      pts[index] = norm(frame, c.x, c.z);
+      dispatch({ type: 'set-line', line, pts, commit });
     };
+    const move = (e: PointerEvent) => apply(e, false);
     const up = (e: PointerEvent) => {
-      const { x, z } = toMm(e);
-      const c = clampLinePoint(def, result, x, z);
-      dispatch({ type: 'move-point', line, index, pt: norm(frame, c.x, c.z), commit: true });
+      apply(e, true);
       setLiveTouch(null);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);

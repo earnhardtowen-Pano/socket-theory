@@ -126,7 +126,10 @@ function AssumedRow({
         onChange={(e) => setDraft(e.currentTarget.value)}
         onBlur={(e) => commit(e.currentTarget.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') commit(e.currentTarget.value);
+          if (e.key === 'Enter') {
+            commit(e.currentTarget.value);
+            e.currentTarget.blur();
+          }
           if (e.key === 'Escape') setDraft(null);
         }}
       />
