@@ -96,15 +96,31 @@ export class ContributionSet {
   }
 
   /** Assemble the bound for one quantity from everything contributed to it. */
+  /**
+   * Assemble the bound for one quantity from everything contributed to it.
+   *
+   * Ties are broken by specificity, not by registration order. Two constraints
+   * can be numerically identical for a given car — a wheelbase floor stated as
+   * "the rear seat needs room" and the same floor stated as "the whole occupant
+   * chain has to fit" agree exactly on a two-seater. Preferring the earlier
+   * call site made the reported author an accident of which function solve()
+   * happened to call first, which is attribution by source layout rather than
+   * by geometry. The longer chain is the more specific claim, so it wins; a
+   * genuine dead heat falls back to the id so the answer is at least stable.
+   */
   bound(quantity: string): Bound {
     const mine = this.items.filter((c) => c.quantity === quantity);
+    const beats = (c: Contribution, best: Contribution): boolean => {
+      if (c.chain.length !== best.chain.length) return c.chain.length > best.chain.length;
+      return c.constraint.id < best.constraint.id;
+    };
     let lo: Contribution | null = null;
     let hi: Contribution | null = null;
     for (const c of mine) {
       if (c.kind === 'lower') {
-        if (!lo || c.value > lo.value) lo = c;
+        if (!lo || c.value > lo.value || (c.value === lo.value && beats(c, lo))) lo = c;
       } else {
-        if (!hi || c.value < hi.value) hi = c;
+        if (!hi || c.value < hi.value || (c.value === hi.value && beats(c, hi))) hi = c;
       }
     }
     return {

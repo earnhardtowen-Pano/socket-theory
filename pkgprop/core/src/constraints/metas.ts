@@ -44,10 +44,16 @@ export const M = {
     reason: 'the owner capped how tall the car may stand',
     license: 'ASSUMED',
   },
-  seatBand: {
-    id: 'seat_band',
-    label: 'seat height band',
-    reason: 'this architecture only works with the hip in this band',
+  seatBandLow: {
+    id: 'seat_band_low',
+    label: 'lowest workable seat height',
+    reason: 'drop the hip below this and the feet no longer clear the floor structure for this layout',
+    license: 'ASSUMED',
+  },
+  seatBandHigh: {
+    id: 'seat_band_high',
+    label: 'highest workable seat height',
+    reason: 'raise the hip above this and the layout stops being this architecture',
     license: 'ASSUMED',
   },
   dashOverPowertrain: {
@@ -65,8 +71,14 @@ export const M = {
   wheelbaseBudget: {
     id: 'wheelbase_budget',
     label: 'wheelbase budget',
-    reason: 'everything aft of the heel still has to fit ahead of the rear axle',
+    reason: 'the occupant chain, the couples, and the rear structure all have to fit ahead of the rear axle',
     license: 'DERIVED',
+  },
+  heelUnderWheelbaseCap: {
+    id: 'heel_under_wheelbase_cap',
+    label: 'heel inside the wheelbase cap',
+    reason: 'the driver can only come back so far before the car outgrows the wheelbase the owner capped',
+    license: 'ASSUMED',
   },
   occupantRoof: (row: number): ConstraintMeta => ({
     id: `occupant_roof_row${row}`,

@@ -29,6 +29,9 @@ export class Readouts {
     if (!Number.isFinite(value)) {
       throw new Error(`Readout '${id}' came out non-finite. The derivation is broken.`);
     }
+    // A readout is a solved quantity like any other: publish its chain so a
+    // constraint that consumes it downstream inherits the provenance.
+    this.registry.publish(id, chain);
     this.items.push({ id, label, unit, value, license: 'DERIVED', derivation, chain });
     return value;
   }

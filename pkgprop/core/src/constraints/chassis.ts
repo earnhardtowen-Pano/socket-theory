@@ -16,16 +16,22 @@ import type { Box } from './structure.js';
 export function wheelbaseBound(ctx: Ctx, heelX: number, h30Front: number): Bound {
   const r = ctx.reg;
   const lastRow = ctx.seating.rows.length - 1;
-  ctx.cs.contribute('wheelbase', 'lower', M.rearSeatStructure, () =>
-    rowHipXOf(r, ctx.seating, heelX, h30Front, lastRow) +
-    r.value('structure_hip_to_rear_axle'),
-  );
-  if (ctx.arch.powertrain === 'mid-rear') {
-    ctx.cs.contribute('wheelbase', 'lower', M.midEngineBay, () =>
+  ctx.cs.contribute('wheelbase', 'lower', M.rearSeatStructure, () => {
+    r.inherit('heel_x', 'h30');
+    return (
       rowHipXOf(r, ctx.seating, heelX, h30Front, lastRow) +
-      r.value('arch_bulkhead_clearance') +
-      r.value('arch_powertrain_length'),
+      r.value('structure_hip_to_rear_axle')
     );
+  });
+  if (ctx.arch.powertrain === 'mid-rear') {
+    ctx.cs.contribute('wheelbase', 'lower', M.midEngineBay, () => {
+      r.inherit('heel_x', 'h30');
+      return (
+        rowHipXOf(r, ctx.seating, heelX, h30Front, lastRow) +
+        r.value('arch_bulkhead_clearance') +
+        r.value('arch_powertrain_length')
+      );
+    });
   }
   if (ctx.arch.powertrain === 'under-floor') {
     ctx.cs.contribute('wheelbase', 'lower', M.batteryFit, () =>
@@ -37,9 +43,12 @@ export function wheelbaseBound(ctx: Ctx, heelX: number, h30Front: number): Bound
   );
   // The budget must at least admit the chain: floor of the band is also
   // bounded below by what the heel placement already committed to.
-  ctx.cs.contribute('wheelbase', 'lower', M.wheelbaseBudget, () =>
-    heelX + legroomOf(r, h30Front) + coupleSumOf(r, ctx.seating) + rearDemandOf(r, ctx.arch),
-  );
+  ctx.cs.contribute('wheelbase', 'lower', M.wheelbaseBudget, () => {
+    r.inherit('heel_x', 'h30');
+    return (
+      heelX + legroomOf(r, h30Front) + coupleSumOf(r, ctx.seating) + rearDemandOf(r, ctx.arch)
+    );
+  });
   return ctx.cs.bound('wheelbase');
 }
 

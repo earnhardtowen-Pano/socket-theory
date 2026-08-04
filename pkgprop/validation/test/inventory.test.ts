@@ -62,7 +62,7 @@ describe('INVENTORY.md describes the code that is actually here', () => {
   it('names every constraint in metas.ts', () => {
     const absent = constraintIds.filter((id) => !inventory.includes(id));
     expect(absent, `constraints missing from the inventory: ${absent.join(', ')}`).toEqual([]);
-    expect(constraintIds.length).toBe(33);
+    expect(constraintIds.length).toBe(35);
   });
 
   it('invents no constraint that does not exist', () => {

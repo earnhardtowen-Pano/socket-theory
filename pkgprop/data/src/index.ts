@@ -7,4 +7,5 @@ export {
 } from './architectures.js';
 export { SEATING_CONFIGS, getSeating, type SeatingConfig, type SeatRow } from './seating.js';
 export { parseTire, TIRE_CHOICES, type TireSpec } from './tires.js';
+export { OPENING_POSE } from './pose.js';
 export { buildSolveInput, type PackageState } from './build.js';

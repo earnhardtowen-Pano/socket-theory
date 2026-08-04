@@ -38,10 +38,14 @@ export function headTangency(cowl: Pt, headCenter: Pt, clearanceRadius: number):
  */
 export function headerBound(ctx: Ctx, cowl: Pt, headCenter: Pt, roofZ: number): Bound {
   const r = ctx.reg;
-  ctx.cs.contribute('header_x', 'lower', M.uprightGlass, () =>
-    cowl.x + r.value('glass_min_run'),
-  );
+  ctx.cs.contribute('header_x', 'lower', M.uprightGlass, () => {
+    r.inherit('cowl_x');
+    return cowl.x + r.value('glass_min_run');
+  });
   ctx.cs.contribute('header_x', 'upper', M.headTangency, () => {
+    // The glass is tangent to the driver's head sphere, so where the head and
+    // the cowl sit is as much a part of this ceiling as the clearance radius.
+    r.inherit('cowl_x', 'cowl_z', 'row1_head_x', 'row1_head_z', 'roof_z');
     const clearance = r.value('anthro_head_radius') + r.value('glass_head_clearance');
     const t = headTangency(cowl, headCenter, clearance);
     if (t.impossible) return cowl.x;
@@ -51,9 +55,10 @@ export function headerBound(ctx: Ctx, cowl: Pt, headCenter: Pt, roofZ: number): 
     if (slope <= 0) return cowl.x;
     return cowl.x + rise / slope;
   });
-  ctx.cs.contribute('header_x', 'upper', M.longestGlass, () =>
-    cowl.x + r.value('glass_max_run'),
-  );
+  ctx.cs.contribute('header_x', 'upper', M.longestGlass, () => {
+    r.inherit('cowl_x');
+    return cowl.x + r.value('glass_max_run');
+  });
   return ctx.cs.bound('header_x');
 }
 

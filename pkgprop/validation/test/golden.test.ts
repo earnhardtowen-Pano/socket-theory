@@ -91,18 +91,17 @@ describe('the solver says what it said yesterday', () => {
  * on a comment and a single assertion. These pin it.
  */
 /**
- * Walls known to name no parameter at all, as of Phase 0. This is a
- * characterization list, not an allowance: it pins a defect so it cannot
- * spread and cannot be quietly reintroduced once fixed. Entries come off this
- * list by being fixed; nothing is ever added without a decision.
+ * Walls known to name no parameter at all. **Empty, and it stays empty.**
  *
- * `sight_over_hood` computes entirely from `eye` and `cowl`, two objects built
- * in earlier stages of solve() and handed in as plain numbers. It reads the
- * registry zero times, so its chain is empty, so its `assumedKnobs` are empty,
- * so a hood conflict reports no resolvers — the user is told two walls collide
- * and offered nothing to move. See INVENTORY.md §4.
+ * It held `hood_z.upper` through Phase 0: `sight_over_hood` computed entirely
+ * from `eye` and `cowl`, two objects built in earlier stages of solve() and
+ * handed in as bare numbers, so it read the registry zero times and a hood
+ * conflict could name no resolver at all. Registry.publish/inherit closed it —
+ * a placed quantity now carries its provenance forward instead of dropping it.
+ *
+ * Anything appearing here again is a regression, not a fact of life.
  */
-const KNOWN_EMPTY_CHAINS = ['hood_z.upper'];
+const KNOWN_EMPTY_CHAINS: string[] = [];
 
 describe('attribution chains are not severed', () => {
   it('no wall beyond the known-severed list names zero parameters', () => {

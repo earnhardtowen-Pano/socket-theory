@@ -50,10 +50,10 @@ Extracted from the AST, so the arithmetic column is the code, not a paraphrase.
 
 | # | id | license | quantity · side | arithmetic | at |
 |---|---|---|---|---|---|
-| 1 | `front_crush` | ASSUMED | `front_overhang` ↓ | `arch_crush_front` | structure.ts:21 |
+| 1 | `front_crush` | ASSUMED | `front_overhang` ↓ | `arch_crush_front`, plus `arch_powertrain_length / 2` when the drive unit straddles the axle | structure.ts:31 |
 | 2 | `style_front_overhang` | ASSUMED | `front_overhang` ↑ | `style_front_overhang_max` | structure.ts:24 |
-| 3 | `seat_band` | ASSUMED | `h30` ↓ | `arch_h30_min` | structure.ts:69 |
-| 4 | `seat_band` | ASSUMED | `h30` ↑ | `arch_h30_max` | structure.ts:70 |
+| 3 | `seat_band_low` | ASSUMED | `h30` ↓ | `arch_h30_min` | structure.ts:87 |
+| 4 | `seat_band_high` | ASSUMED | `h30` ↑ | `arch_h30_max` | structure.ts:88 |
 | 5 | `dash_over_powertrain` | DERIVED | `heel_x` ↓ | `-frontOverhang.value + arch_crush_front + arch_powertrain_length + structure_dash_offset` | structure.ts:80 |
 | 6 | `footwell` | ASSUMED | `heel_x` ↓ | `arch_footwell_aft_of_axle` | structure.ts:91 |
 | 7 | `wheelbase_budget` | DERIVED | `heel_x` ↑ | `style_wheelbase_max - legroomOf(h30) - coupleSumOf() - rearDemandOf()` | structure.ts:94 |
@@ -78,7 +78,7 @@ Extracted from the AST, so the arithmetic column is the code, not a paraphrase.
 | 26 | `engine_behind_axle` | DERIVED | `rear_overhang` ↓ | `arch_powertrain_length + arch_crush_rear` | chassis.ts:53 |
 | 27 | `style_rear_overhang` | ASSUMED | `rear_overhang` ↑ | `style_rear_overhang_max` | chassis.ts:57 |
 | 28 | `engine_under_deck` | DERIVED | `deck_z` ↓ | `powertrainTopOf() + body_hood_clearance` | vision.ts:106 |
-| 29 | `cargo_under_deck` | ASSUMED | `deck_z` ↓ | `floorOf() + cargo_deck_height` | vision.ts:110 |
+| 29 | `cargo_under_deck` | ASSUMED | `deck_z` ↓ | `floorOf() + cargo_deck_height` — now contributed alongside the engine floor, not instead of it | vision.ts:118 |
 | 30 | `sight_over_deck` | DERIVED | `deck_z` ↑ | `groundX = eye.x + vision_rear_ground_sight; sightLineZ(eye, groundX, tailX)` | vision.ts:114 |
 | 31 | `wheels_on_track` | DERIVED | `overall_width` ↓ | `chassis_track + tire_section_width + 2 * body_tire_lateral_clearance` | plan.ts:19 |
 | 32 | `shoulder_room` | DERIVED | `overall_width` ↓ | `widest * anthro_shoulder_width + 2 * door_side_stack` | plan.ts:25 |
@@ -360,12 +360,15 @@ diameter arithmetic is duplicated at `constraints/tires.ts:16` and
 
 ---
 
-## §4 — Defects found. These are live now, not refactor consequences
+## §4 — Defects found, and what happened to them
 
-Nothing here is fixed. Phase 0 reports; fixing is a separate decision, and the
-golden snapshot exists to prove this phase changed no behavior.
+Phase 0 found nine and fixed none — reporting was the job, and the golden
+snapshot existed to prove that phase changed no behaviour. The remaster then
+closed eight of them. Each entry below states what was wrong and, where it has
+been dealt with, what closed it. The golden file was regenerated deliberately
+at that point, so the behaviour changes below are recorded rather than silent.
 
-### 1. Attribution is truncated at every stage boundary — and empty in one place
+### 1. Attribution truncated at every stage boundary — **FIXED**
 
 **This is the most serious finding in the document**, and the severance canary
 in `validation/test/golden.test.ts` found it on its first run.
@@ -396,10 +399,18 @@ mentions that raising the seat would work too.
 
 Since `assumedKnobs` is exactly "the things you are permitted to move" — a
 mechanical consequence of the license taxonomy, and the best idea in the design
-— this quietly hollows out the product's core promise. Pinned as a
-characterization list so it cannot spread.
+— this quietly hollowed out the product's core promise.
 
-### 2. Attribution decided by source-line order
+**Closed by `Registry.publish` / `Registry.inherit`.** A placed control or a
+derived readout now publishes the params behind it, and a constraint that
+consumes one calls `inherit` inside its own trace, so the provenance carries
+forward instead of being dropped at the handoff. `hood_z`'s ceiling went from
+naming **zero** knobs to naming **24**; `cowl_z` from 1 to 23; `header_x` from
+2 to 28. A hood conflict can now tell you that raising the seat is an option.
+`inherit` throws on a quantity that has not been solved yet, so a stage-order
+mistake fails loudly rather than producing a short chain.
+
+### 2. Attribution decided by source-line order — **FIXED**
 
 `wheelbase_budget` is mathematically ≥ `rear_seat_structure` **always**: expand
 `rowHipXOf(last)` and both are `heelX + legroom + coupleSum + …`, where
@@ -415,7 +426,7 @@ with every number identical, changes the reported author on 40 assertions.
 The comment at `chassis.ts:38` calls the budget a safety net; it is in fact a
 strict superset, and `mid_engine_bay` can never strictly win either.
 
-### 3. A licensed demand that is not enforced
+### 3. A licensed demand that was not enforced — **FIXED**
 
 `front_crush`'s reason: *"crush length has to fit between the bumper and the
 first hard mass"* Its math is `front_overhang ≥ arch_crush_front` — **no hard
@@ -423,24 +434,39 @@ mass appears.** For a front-engine car the box is *constructed* at that offset
 (`structure.ts:46`), so the constraint is tautological. For the EV the box sits
 centred on the axle, unrelated to the crush zone: with EV defaults the real
 bumper-to-drive-unit gap at minimum overhang is **340mm against a stated 520mm.**
-Same shape for `rear_crush`.
 
-### 4. A license leak
+**Closed by making the floor account for where the mass actually sits.** For a
+front layout the box is built at bumper-plus-crush, so the gap is true by
+construction; for the skateboard the crush floor now adds the half drive-unit
+that straddles the axle. The reason and the arithmetic finally agree.
+
+### 4. A license leak — **FIXED**
 
 `wheelbase_budget` is tagged `DERIVED` while its `heel_x` form reads
 `style_wheelbase_max` — an ASSUMED owner preference. A wall printing "DERIVED"
-whose position is set by taste. Its reason (*"everything aft of the heel…"*) is
-also the vaguest in the file, and "everything" is exactly where the anonymous
-`Math.max` of §2 hides.
+whose position is set by taste. Its reason was also the vaguest in the file —
+it said only that "everything" aft of the heel had to fit, and "everything" is
+exactly where the anonymous `Math.max` of §2 hides.
 
-### 5. The scalar bound and the drawn envelope disagree
+**Closed by giving the heel ceiling its own identity.** It is now
+`heel_under_wheelbase_cap`, tagged ASSUMED because it stands on the owner's cap,
+with a reason that says so. `wheelbase_budget` keeps the DERIVED tag for the
+chassis use, which is pure geometry, and its reason now names the three things
+it sums instead of saying "everything".
+
+### 5. The scalar bound and the drawn envelope disagreed — **FIXED**
 
 For `under-floor`, `deckBound` takes the cargo branch and ignores the rear drive
 unit, while `buildEnvelope` pushes an `engine_under_deck` floor segment for that
 same box *and* a cargo segment over an overlapping span. The slider and the
-drawing enforce different things for the same architecture.
+drawing enforced different things for the same architecture.
 
-### 6. Thirteen unlicensed constants determine the car you see on load
+**Closed by contributing both demands rather than choosing between them.** The
+engine floor and the cargo floor are independent and both real — the deck clears
+whichever is higher — so `deckBound` now emits each under exactly the conditions
+the envelope uses.
+
+### 6. Thirteen unlicensed constants determined the car you see on load — **FIXED**
 
 `DEFAULT_CONTROLS` (`solve.ts:42–56`) is thirteen bare fractions. They escape the
 license lint entirely, because it walks only `core/src/constraints/` and
@@ -464,7 +490,7 @@ Related: **`DECISIONS.md#4` and the code disagree.** The decision log claims the
 allowlist contains `-1`; it does not. `-1` passes because it parses as a unary
 minus on the literal `1`. The code is right by accident.
 
-### 8. The feature built to prove the model violates Law 3
+### 8. The feature built to prove the model violates Law 3 — **the one still open**
 
 `app/src/model/features/wheelOpening.ts:105–115` recomputes the tire wall with
 its own bare constants — `jounce * 0.15`, and a `ctx.value('body_tire_jounce', 70)`
@@ -480,7 +506,7 @@ in the one place the model was supposed to prove itself — and it is the
 strongest available argument that a module API must make *asking* the kernel
 easier than reimplementing it.
 
-### 9. `pending` means two different things
+### 9. `pending` meant two different things — **FIXED**
 
 `{license: 'SOURCED', pending: true}` with no source passes `define()` cleanly —
 the error message advertises the escape hatch. On ASSUMED, `pending` means "we

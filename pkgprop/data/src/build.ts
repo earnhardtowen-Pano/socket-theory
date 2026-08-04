@@ -2,6 +2,7 @@ import type { ControlId, SolveInput } from '@pkgprop/core';
 import { getArchitecture } from './architectures.js';
 import { GLOBAL_PARAMS } from './global-params.js';
 import { getSeating } from './seating.js';
+import { OPENING_POSE } from './pose.js';
 import { parseTire } from './tires.js';
 
 /**
@@ -28,7 +29,7 @@ export function buildSolveInput(state: PackageState): SolveInput {
     tireParams: tire.params,
     globalParams: GLOBAL_PARAMS,
     ...(state.overrides ? { overrides: state.overrides } : {}),
-    ...(state.controls ? { controls: state.controls } : {}),
+    controls: { ...OPENING_POSE, ...(state.controls ?? {}) },
   };
   return input;
 }

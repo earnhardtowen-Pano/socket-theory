@@ -24,6 +24,10 @@ export function cowlBound(ctx: Ctx, eye: Pt, cowlX: number): Bound {
     floorOf(r, ctx.arch) + r.value('structure_dash_stack'),
   );
   ctx.cs.contribute('cowl_z', 'upper', M.sightOverCowl, () => {
+    // The sight line hangs off the eye, so everything that put the eye where
+    // it is belongs in this wall's chain: raising the seat is as real a way to
+    // move this ceiling as loosening the ground-sight target.
+    r.inherit('eye_x', 'eye_z', 'cowl_x');
     const groundX = eye.x - r.value('vision_ground_sight');
     return sightLineZ(eye, groundX, cowlX);
   });
@@ -71,6 +75,11 @@ export function hoodBound(
     );
   }
   ctx.cs.contribute('hood_z', 'upper', M.sightOverHood, () => {
+    // This wall used to read the registry zero times: it is built entirely
+    // from the eye and the placed cowl, both handed in as bare numbers. That
+    // left it with an empty chain and no resolvers, so a hood conflict named
+    // two walls and offered nothing to move.
+    r.inherit('eye_x', 'eye_z', 'cowl_x', 'cowl_z');
     const dz = eye.z - cowl.z;
     if (dz <= 0) return cowl.z;
     const groundX = eye.x - (eye.z * (eye.x - cowl.x)) / dz;
@@ -85,12 +94,14 @@ export function hoodBound(
  */
 export function beltBound(ctx: Ctx, eye: Pt, row1HipZ: number): Bound {
   const r = ctx.reg;
-  ctx.cs.contribute('belt_z', 'lower', M.doorStack, () =>
-    row1HipZ + r.value('door_belt_stack'),
-  );
-  ctx.cs.contribute('belt_z', 'upper', M.sightBesideDriver, () =>
-    eye.z - r.value('vision_side_drop'),
-  );
+  ctx.cs.contribute('belt_z', 'lower', M.doorStack, () => {
+    r.inherit('row1_hip_z');
+    return row1HipZ + r.value('door_belt_stack');
+  });
+  ctx.cs.contribute('belt_z', 'upper', M.sightBesideDriver, () => {
+    r.inherit('eye_z');
+    return eye.z - r.value('vision_side_drop');
+  });
   return ctx.cs.bound('belt_z');
 }
 
@@ -101,17 +112,28 @@ export function beltBound(ctx: Ctx, eye: Pt, row1HipZ: number): Bound {
  */
 export function deckBound(ctx: Ctx, eye: Pt, tailX: number): Bound {
   const r = ctx.reg;
-  const tailHardMass = ctx.arch.powertrain === 'mid-rear' || ctx.arch.powertrain === 'rear';
+  // These two were an either/or, which disagreed with the drawn envelope for
+  // the skateboard: its drive unit straddles the rear axle, so buildEnvelope
+  // pushed an engine floor there while this bound took the cargo branch and
+  // ignored the hardware entirely. The slider and the drawing enforced
+  // different things for the same car. Both demands are real and independent —
+  // the deck clears whichever is higher — so both are contributed, under the
+  // same conditions the envelope uses.
+  const bay = ctx.arch.powertrain;
+  const tailHardMass = bay === 'mid-rear' || bay === 'rear' || bay === 'under-floor';
+  const tailCarriesCargo = bay !== 'mid-rear' && bay !== 'rear';
   if (tailHardMass) {
     ctx.cs.contribute('deck_z', 'lower', M.engineUnderDeck, () =>
       powertrainTopOf(r) + r.value('body_hood_clearance'),
     );
-  } else {
+  }
+  if (tailCarriesCargo) {
     ctx.cs.contribute('deck_z', 'lower', M.cargoUnderDeck, () =>
       floorOf(r, ctx.arch) + r.value('cargo_deck_height'),
     );
   }
   ctx.cs.contribute('deck_z', 'upper', M.sightOverDeck, () => {
+    r.inherit('eye_x', 'eye_z', 'wheelbase', 'rear_overhang');
     const groundX = eye.x + r.value('vision_rear_ground_sight');
     return sightLineZ(eye, groundX, tailX);
   });

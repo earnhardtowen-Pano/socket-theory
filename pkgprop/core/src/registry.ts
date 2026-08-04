@@ -10,15 +10,28 @@ export class Registry {
   private overrides = new Map<string, number>();
   /** Stack of live traces — every read lands in all of them. */
   private traces: Set<string>[] = [];
+  /** Solved quantity → the params behind it. See publish/inherit below. */
+  private provenance = new Map<string, readonly string[]>();
 
   define(def: ParamDef): void {
     if (this.defs.has(def.id)) {
       throw new Error(`Parameter '${def.id}' is defined twice. Each id is defined once.`);
     }
-    if (def.license === 'SOURCED' && !def.source && !def.pending) {
+    // SOURCED means a source is recorded, with no exceptions. `pending` used to
+    // excuse a missing one, which made the two tags mean the same thing from
+    // the outside: a number nobody has checked, wearing the badge of one that
+    // was. `pending` belongs on ASSUMED, where it means "we intend to source
+    // this" — a promise, not a claim.
+    if (def.license === 'SOURCED' && !def.source) {
       throw new Error(
         `Parameter '${def.id}' is tagged SOURCED but names no source. ` +
-          `Name the source, or tag it ASSUMED, or mark it pending.`,
+          `Name the source, or tag it ASSUMED and mark it pending.`,
+      );
+    }
+    if (def.license !== 'ASSUMED' && def.pending) {
+      throw new Error(
+        `Parameter '${def.id}' is ${def.license} and pending. Pending is for ` +
+          `ASSUMED values awaiting a source; a ${def.license} value is not awaiting anything.`,
       );
     }
     this.defs.set(def.id, def);
@@ -79,6 +92,45 @@ export class Registry {
       if (p.overridden) out.overridden++;
     }
     return out;
+  }
+
+  /**
+   * Publish the provenance of a solved quantity — the params behind a placed
+   * control or a derived readout — so anything computed from it downstream can
+   * inherit that chain instead of losing it.
+   *
+   * A solve is a pipeline: the cowl is placed, then the hood's ceiling is
+   * computed from where the cowl landed. Handing that placement downstream as
+   * a bare number is what severs attribution, and a severed wall cannot name
+   * a single knob when it conflicts.
+   */
+  publish(id: string, chain: readonly string[]): void {
+    const merged = new Set(this.provenance.get(id) ?? []);
+    for (const p of chain) merged.add(p);
+    this.provenance.set(id, [...merged]);
+  }
+
+  /**
+   * Read a solved quantity's provenance into every live trace. Constraint code
+   * calls this when it consumes a placed value rather than a parameter, so the
+   * wall it builds remembers the whole chain and not just its last step.
+   */
+  inherit(...ids: readonly string[]): void {
+    for (const id of ids) {
+      const chain = this.provenance.get(id);
+      if (!chain) {
+        throw new Error(
+          `'${id}' has no published provenance. Either it is not solved yet — ` +
+            `check the stage order in solve() — or its placement was never published.`,
+        );
+      }
+      for (const t of this.traces) for (const p of chain) t.add(p);
+    }
+  }
+
+  /** What has been published so far, for tests and for the ledger. */
+  provenanceOf(id: string): readonly string[] | undefined {
+    return this.provenance.get(id);
   }
 
   /** Begin recording which params are read. Returns a function that ends the

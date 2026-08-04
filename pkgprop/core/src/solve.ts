@@ -38,22 +38,14 @@ import { Registry } from './registry.js';
  * draws the car.
  */
 
-/** Defaults chosen for the ten-minute test: a sane car with no touching walls. */
-const DEFAULT_CONTROLS: Record<ControlId, number> = {
-  front_overhang: 0.35,
-  h30: 0.4,
-  heel_x: 0.15,
-  roof_z: 0.15,
-  cowl_z: 0.85,
-  hood_z: 0.5,
-  header_x: 0.7,
-  belt_z: 0.4,
-  wheelbase: 0.35,
-  rear_overhang: 0.35,
-  deck_z: 0.3,
-  overall_width: 0.4,
-  rocker_z: 0.3,
-};
+/**
+ * A control the project does not name sits in the middle of its own band.
+ *
+ * The kernel holds no opinion about what a good car looks like — the opening
+ * pose is spine data (`data/src/pose.ts`) and arrives through `input.controls`.
+ * Halfway is the one fraction that asserts nothing.
+ */
+const BAND_MIDPOINT = 0.5;
 
 export interface SideGeometry {
   readonly bumperX: number;
@@ -103,8 +95,7 @@ export function solve(input: SolveInput): SolveResult {
   const out = new Readouts(reg);
   const ctx: Ctx = { reg, cs, out, arch: input.architecture, seating: input.seating };
 
-  const fr = (id: ControlId): number =>
-    input.controls?.[id] ?? DEFAULT_CONTROLS[id];
+  const fr = (id: ControlId): number => input.controls?.[id] ?? BAND_MIDPOINT;
 
   const bounds = {} as Record<ControlId, Bound>;
   const controls = {} as Record<ControlId, PlacedControl>;
@@ -112,6 +103,10 @@ export function solve(input: SolveInput): SolveResult {
     bounds[id] = bound;
     const placed = placeControl(bound, fr(id));
     controls[id] = placed;
+    // A placed value sits between its two walls, so it stands on both chains.
+    // Publishing them is what lets a later stage that consumes this placement
+    // inherit the provenance instead of dropping it — see Registry.inherit.
+    reg.publish(id, [...(bound.lower?.chain ?? []), ...(bound.upper?.chain ?? [])]);
     return placed;
   };
 
