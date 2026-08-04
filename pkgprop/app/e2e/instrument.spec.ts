@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { draft, machinery, openFold } from './helpers.js';
+import { draft, grabLine, machinery, openFold, pointOnPath, putDown } from './helpers.js';
 
 /**
  * The interaction contract (brief §4), scripted against the built instrument.
@@ -60,6 +60,7 @@ test('roof slammed down touches the occupant roof minimum', async ({ page }) => 
 test('the canvas never moves while a point is being dragged', async ({ page }) => {
   await page.goto('/');
   await draft(page);
+  await grabLine(page, 'roof');
   const svg = page.locator('[data-testid="side-view"] svg').first();
   const pt = page.getByTestId('pt-roof-1');
   const box = (await pt.boundingBox())!;
@@ -79,6 +80,7 @@ test('the canvas never moves while a point is being dragged', async ({ page }) =
 test('drawn control points clamp to the envelope and the wall speaks during drag', async ({ page }) => {
   await page.goto('/');
   await draft(page);
+  await grabLine(page, 'roof');
   const pt = page.getByTestId('pt-roof-1');
   const box = (await pt.boundingBox())!;
   const cx = box.x + box.width / 2;
@@ -94,11 +96,11 @@ test('drawn control points clamp to the envelope and the wall speaks during drag
 test('double-click adds a point; alt-click removes it', async ({ page }) => {
   await page.goto('/');
   await draft(page);
+  await grabLine(page, 'belt');
   const countPts = async () => page.locator('[data-testid^="pt-belt-"]').count();
   const before = await countPts();
-  const a = (await page.getByTestId('pt-belt-0').boundingBox())!;
-  const b = (await page.getByTestId('pt-belt-1').boundingBox())!;
-  await page.mouse.dblclick((a.x + b.x) / 2 + 4, (a.y + b.y) / 2 + 2);
+  const on = await pointOnPath(page, 'line-belt', 0.25);
+  await page.mouse.dblclick(on.x, on.y);
   await page.waitForTimeout(150);
   expect(await countPts()).toBe(before + 1);
 
@@ -147,12 +149,14 @@ test('paint chips repaint the car', async ({ page }) => {
 test('seat count 2 → 2+2: the envelope updates and the drawing re-clips', async ({ page }) => {
   await page.goto('/');
   await draft(page);
+  await grabLine(page, 'roof');
   const pt = page.getByTestId('pt-roof-1');
   const box = (await pt.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 30, { steps: 4 });
   await page.mouse.up();
+  await putDown(page);
   await page.getByRole('button', { name: '2+2', exact: true }).click();
   await page.waitForTimeout(200);
   await expect(page.getByTestId('side-view')).toBeVisible();

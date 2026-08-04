@@ -277,6 +277,8 @@ select {
 .line-hit {
   fill: none; stroke: transparent; stroke-width: 14;
   cursor: copy; pointer-events: stroke;
+  /* Round caps, or the target dies at the ends — see .feature-hit. */
+  stroke-linecap: round; stroke-linejoin: round;
 }
 
 .viewport-host.staged { background: var(--paper); }
@@ -411,7 +413,18 @@ select {
 
 /* ---- selection and hover on the canvas ---- */
 .view-svg.pan-ready { cursor: grab; }
-.feature-hit { fill: none; stroke: transparent; stroke-width: 22; pointer-events: stroke; cursor: pointer; }
+/*
+ * The invisible grab target. Round caps are not cosmetic here: the drawn
+ * curve below has round caps, so with butt caps this wider target stops
+ * exactly where the thin visible line keeps going, and the drawn line wins
+ * the hit test at every endpoint. Endpoints are where parts meet — the arch
+ * at the rocker, the hood at the cowl — which is exactly where a hand aims.
+ */
+.feature-hit {
+  fill: none; stroke: transparent; stroke-width: 22;
+  pointer-events: stroke; cursor: pointer;
+  stroke-linecap: round; stroke-linejoin: round;
+}
 .feature-curve { fill: none; stroke: var(--ink); stroke-width: var(--stroke-feature); stroke-linecap: round; }
 .feature-curve.hovered { stroke-width: 3; }
 .feature-curve.selected { stroke: var(--accent); stroke-width: 3.2; }

@@ -428,9 +428,7 @@ export function SideView({
 
                 {/* points, only for the line in your hand */}
                 {rendered
-                  // Until canvas selection is wired, every line keeps its points
-                  // so the drawing layer stays usable. Selecting one narrows it.
-                  .filter(({ def }) => selectedLine === null || selectedLine === def.id)
+                  .filter(({ def }) => selectedLine === def.id)
                   .map(({ def, pts }) =>
                     pts.map((p, i) => {
                       if (isBoundPoint(def.id, i, pts.length)) {

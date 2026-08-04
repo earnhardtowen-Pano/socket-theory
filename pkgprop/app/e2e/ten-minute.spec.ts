@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { draft, openFold } from './helpers.js';
+import { draft, grabLine, openFold, putDown } from './helpers.js';
 
 /**
  * The ten-minute test (brief §4): blank to a package-true authored side view
@@ -33,6 +33,9 @@ test('blank → a rendered, package-true car worth showing', async ({ page }) =>
   // 3 — author: pull the drawn lines around.
   await draft(page);
   const drag = async (testid: string, dx: number, dy: number) => {
+    // Pick the line up before reaching for its point — points belong to the
+    // thing in your hand, so this is the path a person actually walks.
+    await grabLine(page, testid.split('-')[1]!);
     const box = (await page.getByTestId(testid).boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -47,6 +50,7 @@ test('blank → a rendered, package-true car worth showing', async ({ page }) =>
   await expect(page.locator('.header')).toContainText('0 conflicts');
 
   // 5 — paint it and light it.
+  await putDown(page);
   await page.getByTestId('mode-RENDER').click();
   await openFold(page, 'render');
   await page.click('button:has-text("steel blue")');

@@ -49,7 +49,13 @@ function Shell() {
       if (isRange && e.key.startsWith('Arrow')) return;
       if (e.key === 'l' || e.key === 'L') dispatch({ type: 'ledger', open: !state.ledgerOpen });
       else if (e.key === 'f' || e.key === 'F') requestFit();
-      else if (e.key === 'Escape') dispatch({ type: 'ledger', open: false });
+      else if (e.key === 'Escape') {
+        // Escape backs out one layer at a time: the ledger first, then
+        // whatever is in your hand. Putting a part down is how the package
+        // controls come back, so it needs a key and not only the back arrow.
+        if (state.ledgerOpen) dispatch({ type: 'ledger', open: false });
+        else if (selection) dispatch({ type: 'select', selection: null });
+      }
       else if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         dispatch({ type: 'undo' });
