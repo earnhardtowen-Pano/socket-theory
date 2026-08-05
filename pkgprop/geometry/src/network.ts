@@ -1,6 +1,6 @@
 import type { Curve } from './curve.js';
 import { coonsPatch, creaseEdge, smoothEdge, type Patch, type PatchEdge } from './patch.js';
-import { add, cross, length, normalize, scale, sub, v3, type V3 } from './vec.js';
+import { add, cross, dot, length, normalize, scale, sub, v3, type V3 } from './vec.js';
 
 /**
  * The car as a network of named curves with panels skinned between them.
@@ -29,21 +29,39 @@ import { add, cross, length, normalize, scale, sub, v3, type V3 } from './vec.js
  * curve object, so the seam has no gap and no duplicate row of vertices to
  * shade separately.
  *
- * WHAT THIS DOES NOT DO YET, stated plainly because the difference matters and
- * is easy to miss. A smooth edge here is smooth in *shading* and not in
- * *geometry*. Both patches meeting at a smooth edge are given the ruled cross
- * field, which each of them computes across itself — so they agree on where
- * the seam is, exactly, but not on the slope at which they arrive, and the
- * seam is tangent-continuous only to the extent the two panels happened to
- * want the same thing. What hides the difference is that the normals are
- * averaged across the weld, which is a shading trick, not surface continuity.
+ * ## Ribbons — why a smooth edge is now smooth in geometry
  *
- * The real fix is to move the cross field from the patch to the edge: one
- * shared unit normal field along the edge, each side projecting its own
- * transversal into the plane perpendicular to it and scaling by its own
- * extent. Until that lands, a zebra stripe crossing a smooth seam can still
- * kink, and calling an edge smooth changes which vertices share a normal
- * rather than where the surface goes.
+ * Sharing a curve makes two panels agree about *where* they meet. It says
+ * nothing about the *slope* at which they arrive, and for a long time this file
+ * did not either: each patch worked out its own cross-boundary field by taking
+ * a chord straight across itself, so two panels meeting on one rail wanted two
+ * different slopes there and nothing reconciled them. Measured at 17.3° of
+ * tangent-plane break on an edge the code called smooth. What hid it was the
+ * normal averaging across the weld — a shading trick that paints over a surface
+ * defect, which is why the zebra could never see it: the zebra was reflecting
+ * the very normal fabricated to conceal the thing it was meant to find.
+ *
+ * The fix, and it is the standard one, is that the cross-boundary data belongs
+ * to the *edge* rather than to either patch. An edge carries one shared unit
+ * normal field N(t) — the average of what its incident panels naturally want,
+ * aligned into one hemisphere so the average means something. Each panel then
+ * projects its own transversal into the plane perpendicular to N and rescales
+ * it to its own reach. Both panels therefore leave the seam inside the same
+ * plane, which is what a common tangent plane *is*, while keeping magnitudes
+ * free per side — and magnitude has to stay free, because a derivative lives in
+ * its own patch's unit parameter space and two panels of different sizes need
+ * different numbers to describe the same physical slope.
+ *
+ * The averaging runs in panel order, which is fixed, so the car is not subtly
+ * different from one build to the next.
+ *
+ * What this still does not buy: exact G1 *at the corners*. The bicubic Coons
+ * form reproduces its prescribed cross field along an edge only when the field
+ * agrees at the corner with the adjacent boundary's own end tangent, and when
+ * the twists agree — the classical twist-incompatibility problem, which Gregory
+ * patches solve with rational blending and this does not. So the break collapses
+ * along the run of a seam and what survives is concentrated at the four corners.
+ * The number is measured in `continuity.test.ts` rather than asserted here.
  */
 
 /**
@@ -150,7 +168,240 @@ const keyOf = (p: V3): string =>
   `${Math.round(p.x * WELD_SCALE)},${Math.round(p.y * WELD_SCALE)},${Math.round(p.z * WELD_SCALE)}`;
 
 /**
- * Build the mesh.
+ * One panel's four sides, resolved: which curve each lies on, which way its
+ * parameter runs relative to that curve, and the derivative the patch wants
+ * there.
+ *
+ * Resolving this once is what lets the two passes agree. The ribbon pass needs
+ * to know, for a given point on a shared curve, what slope each incident panel
+ * naturally wants; the build pass needs to hand the patch a field in the
+ * patch's own parameter. Both are the same information read from two ends, and
+ * deriving it twice is how the north and east fields got signed backwards the
+ * first time.
+ */
+interface PanelSide {
+  readonly kind: EdgeKind;
+  readonly curveId: string;
+  /**
+   * Curve parameter to patch-side parameter, and back.
+   *
+   * It is either the identity or `1 - t`, both of which are their own inverse,
+   * so one function serves both directions.
+   */
+  readonly swap: (t: number) => number;
+  /** The derivative the patch needs along this side, at the side's parameter. */
+  readonly deriv: (s: number) => V3;
+  /**
+   * +1 when that derivative points into the panel, -1 when it points out.
+   *
+   * South and west sit at the low end of their parameter so the derivative
+   * heads inward; north and east sit at the high end so it heads outward. The
+   * ribbon needs the inward one to know which way this panel lies from the
+   * seam; the patch needs the signed one because a derivative has a direction.
+   */
+  readonly inward: 1 | -1;
+}
+
+interface PanelFrame {
+  readonly panel: PanelSpec;
+  readonly kinds: readonly [EdgeKind, EdgeKind, EdgeKind, EdgeKind];
+  readonly south: Curve;
+  readonly north: Curve;
+  readonly west: Curve;
+  readonly east: Curve;
+  /** [south, east, north, west] — the boundary order panels are written in. */
+  readonly sides: readonly [PanelSide, PanelSide, PanelSide, PanelSide];
+}
+
+const same = (t: number): number => t;
+const flip = (t: number): number => 1 - t;
+
+function frameOf(spec: NetworkSpec, panel: PanelSpec): PanelFrame {
+  const rev = panel.reversed ?? [false, false, false, false];
+  const kinds = panel.edges ?? (['smooth', 'smooth', 'smooth', 'smooth'] as const);
+  const raw = panel.boundary.map((id, i) => {
+    const c = curveOf(spec, id);
+    return rev[i] ? reverse(c) : c;
+  });
+
+  // Boundary order is [south, east, north, west] walking the loop, so north
+  // and west arrive running the wrong way for the patch's convention (both
+  // u-edges left to right, both v-edges bottom to top).
+  const south = raw[0]!;
+  const east = raw[1]!;
+  const north = reverse(raw[2]!);
+  const west = reverse(raw[3]!);
+
+  // The cross field is a derivative with respect to the parameter running
+  // AWAY from the edge, and that parameter increases in one direction only.
+  // So the south and north edges share a field — both are ∂S/∂v, both point
+  // from south to north — and west and east share ∂S/∂u pointing west to
+  // east. Handing the far edge "the direction to the other side" instead
+  // gives it the right line and the wrong sign, and the panel leaves two of
+  // its four edges backwards: a shallow bulge that reads as a dent and shows
+  // up under zebra as a stripe that doubles back.
+  const dv = (t: number): V3 => sub(north.at(t), south.at(t));
+  const du = (t: number): V3 => sub(east.at(t), west.at(t));
+
+  // The double reversal on north and west is why their parameter maps look
+  // inverted next to south and east: the panel already reversed the curve to
+  // walk the loop, and the patch reversed it again to run left-to-right.
+  const sides: [PanelSide, PanelSide, PanelSide, PanelSide] = [
+    { kind: kinds[0], curveId: panel.boundary[0], swap: rev[0] ? flip : same, deriv: dv, inward: 1 },
+    { kind: kinds[1], curveId: panel.boundary[1], swap: rev[1] ? flip : same, deriv: du, inward: -1 },
+    { kind: kinds[2], curveId: panel.boundary[2], swap: rev[2] ? same : flip, deriv: dv, inward: -1 },
+    { kind: kinds[3], curveId: panel.boundary[3], swap: rev[3] ? same : flip, deriv: du, inward: 1 },
+  ];
+
+  return { panel, kinds, south, north, west, east, sides };
+}
+
+/**
+ * The shared unit normal field an edge owns, for every curve two or more
+ * panels meet along smoothly.
+ *
+ * Each incident panel is asked, at the same physical point, which way it is
+ * heading into itself. Crossed with the curve's own tangent that gives the
+ * normal that panel would naturally have there. Two panels on opposite sides of
+ * a seam head opposite ways, so their natural normals come out roughly
+ * antiparallel — which makes a straight average meaningless. Aligning each into
+ * the first one's hemisphere first is what turns them into two opinions about
+ * the same plane rather than two vectors that cancel.
+ *
+ * Only smooth sides are collected. A crease has no opinion by definition, and a
+ * mirror edge has a stronger one that comes from the reflection rather than
+ * from a neighbour.
+ */
+function ribbonNormals(
+  spec: NetworkSpec,
+  frames: readonly PanelFrame[],
+): Map<string, (t: number) => V3> {
+  const uses = new Map<string, PanelSide[]>();
+  for (const f of frames) {
+    for (const side of f.sides) {
+      if (side.kind !== 'smooth') continue;
+      const list = uses.get(side.curveId);
+      if (list) list.push(side);
+      else uses.set(side.curveId, [side]);
+    }
+  }
+
+  const out = new Map<string, (t: number) => V3>();
+  for (const [id, list] of uses) {
+    // One panel on its own is a network boundary — the nose opening, the tail.
+    // It has nobody to agree with, so its own normal is already the answer and
+    // projecting against it is the identity. Skipping keeps the work off the
+    // hot path and keeps the field undefined rather than trivially defined.
+    if (list.length < 2) continue;
+    const curve = curveOf(spec, id);
+    out.set(id, (t: number): V3 => {
+      const tangent = curve.tangentAt(t);
+      let acc = v3(0, 0, 0);
+      let ref: V3 | null = null;
+      for (const side of list) {
+        const into = scale(side.deriv(side.swap(t)), side.inward);
+        const nrm = normalize(cross(tangent, into));
+        if (length(nrm) < 0.5) continue;
+        const aligned: V3 = ref !== null && dot(nrm, ref) < 0 ? scale(nrm, -1) : nrm;
+        if (ref === null) ref = aligned;
+        acc = add(acc, aligned);
+      }
+      return normalize(acc);
+    });
+  }
+  return out;
+}
+
+/**
+ * A cross field that leaves the seam inside the edge's own tangent plane.
+ *
+ * The panel keeps its direction as far as the plane allows and keeps its reach
+ * exactly: only the component along the shared normal is removed. That is the
+ * whole of the G1 argument — remove the part of the slope that would tip this
+ * panel out of the common plane, and leave everything else the panel wanted.
+ */
+function ribbonCross(side: PanelSide, normal: (t: number) => V3): (s: number) => V3 {
+  return (s: number): V3 => {
+    const d = side.deriv(s);
+    const N = normal(side.swap(s));
+    const reach = length(d);
+    if (reach < 1e-9) return d;
+    const planar = sub(d, scale(N, dot(d, N)));
+    const l = length(planar);
+    // Degenerate only if the panel wanted to leave straight along the shared
+    // normal, which would mean it is not a surface there at all.
+    return l < 1e-9 ? d : scale(planar, reach / l);
+  };
+}
+
+/** A panel and the surface it actually became, boundaries and ribbons resolved. */
+export interface NetworkPatch {
+  readonly panel: PanelSpec;
+  readonly patch: Patch;
+  /** [south, east, north, west] — which curve each side lies on, and its kind. */
+  readonly sides: readonly PanelSide[];
+}
+
+/**
+ * Resolve the network into surfaces, without tessellating anything.
+ *
+ * Two passes, and the first one is why a seam is smooth. Pass one resolves
+ * every panel's four sides and works out, for each curve that two panels meet
+ * along, the one normal field they will both answer to. Pass two builds the
+ * patches against it. Doing it in one pass is impossible: a panel cannot know
+ * what slope to leave at a seam until its neighbour has also been read.
+ *
+ * Exported because the mesh is a sampling of this and not the thing itself.
+ * Anything that wants to know what the *surface* does — a highlight line, a
+ * continuity measurement, a section cut — has to ask here. Asking the mesh gets
+ * you the welded vertex normal, which is an average fabricated for shading, and
+ * a continuity check run against it is a check against the cosmetic that hides
+ * the defect.
+ */
+export function networkPatches(spec: NetworkSpec): NetworkPatch[] {
+  const frames = spec.panels.map((p) => frameOf(spec, p));
+  const ribbons = ribbonNormals(spec, frames);
+
+  return frames.map((frame) => {
+    const { panel, south, north, west, east } = frame;
+
+    const edge = (c: Curve, side: PanelSide): PatchEdge => {
+      if (side.kind === 'crease') return creaseEdge(c);
+      if (side.kind === 'mirror') {
+        // Straight out sideways, carrying the chord's reach but none of its
+        // rise. This is the ribbon written directly: on the centreline the
+        // shared normal is the surface's own reflection partner, so the plane
+        // both halves must leave in is the one containing the seam tangent and
+        // the lateral axis. Saying "go sideways" is the same statement, and it
+        // does not need a neighbour to be present to be true.
+        return smoothEdge(
+          c,
+          (t) => v3(0, Math.sign(side.deriv(t).y) || 1, 0),
+          (t) => length(side.deriv(t)),
+        );
+      }
+      const normal = ribbons.get(side.curveId);
+      // No ribbon means nobody is on the other side — an open boundary. The
+      // panel's own chord is then the whole truth, which is what it used to be
+      // everywhere.
+      if (!normal) return smoothEdge(c, side.deriv, (t) => length(side.deriv(t)));
+      return { curve: c, cross: ribbonCross(side, normal) };
+    };
+
+    const patch = coonsPatch({
+      south: edge(south, frame.sides[0]),
+      north: edge(north, frame.sides[2]),
+      west: edge(west, frame.sides[3]),
+      east: edge(east, frame.sides[1]),
+      ...(panel.fullness !== undefined ? { fullness: panel.fullness } : {}),
+    });
+
+    return { panel, patch, sides: frame.sides };
+  });
+}
+
+/**
+ * Build the mesh: sample every patch on a uniform grid and weld.
  *
  * Positions are welded across smooth edges and deliberately *not* welded
  * across creases, because a crease is exactly two normals at one location. The
@@ -167,57 +418,8 @@ export function buildNetwork(spec: NetworkSpec): NetworkMesh {
   // share a normal. Crease edges get their own bucket, so they never merge.
   const welds = new Map<string, number[]>();
 
-  for (const panel of spec.panels) {
-    const rev = panel.reversed ?? [false, false, false, false];
-    const kinds = panel.edges ?? (['smooth', 'smooth', 'smooth', 'smooth'] as const);
-    const raw = panel.boundary.map((id, i) => {
-      const c = curveOf(spec, id);
-      return rev[i] ? reverse(c) : c;
-    });
-
-    // boundary order is [south, east, north, west] walking the loop, so north
-    // and west arrive running the wrong way for the patch's convention (both
-    // u-edges left to right, both v-edges bottom to top).
-    const south = raw[0]!;
-    const east = raw[1]!;
-    const north = reverse(raw[2]!);
-    const west = reverse(raw[3]!);
-
-    // The cross field is a derivative with respect to the parameter running
-    // AWAY from the edge, and that parameter increases in one direction only.
-    // So the south and north edges share a field — both are ∂S/∂v, both point
-    // from south to north — and west and east share ∂S/∂u pointing west to
-    // east. Handing the far edge "the direction to the other side" instead
-    // gives it the right line and the wrong sign, and the panel leaves two of
-    // its four edges backwards: a shallow bulge that reads as a dent and shows
-    // up under zebra as a stripe that doubles back.
-    const dv = (t: number): V3 => sub(north.at(t), south.at(t));
-    const du = (t: number): V3 => sub(east.at(t), west.at(t));
-
-    const edge = (c: Curve, kind: EdgeKind, field: (t: number) => V3): PatchEdge => {
-      if (kind === 'crease') return creaseEdge(c);
-      if (kind === 'mirror') {
-        // Straight out sideways, carrying the chord's reach but none of its
-        // rise. This is what makes the two halves one surface.
-        return smoothEdge(
-          c,
-          (t) => v3(0, Math.sign(field(t).y) || 1, 0),
-          (t) => length(field(t)),
-        );
-      }
-      // The ruled slope, said explicitly rather than left to the patch's
-      // fallback, so a later step can retune an edge without changing the
-      // shape this one currently produces.
-      return smoothEdge(c, field, (t) => length(field(t)));
-    };
-
-    const patch: Patch = coonsPatch({
-      south: edge(south, kinds[0], dv),
-      north: edge(north, kinds[2], dv),
-      west: edge(west, kinds[3], du),
-      east: edge(east, kinds[1], du),
-      ...(panel.fullness !== undefined ? { fullness: panel.fullness } : {}),
-    });
+  for (const { panel, patch, sides } of networkPatches(spec)) {
+    const kinds = [sides[0]!.kind, sides[1]!.kind, sides[2]!.kind, sides[3]!.kind] as const;
 
     const base = positions.length / 3;
     const triStart = indices.length / 3;

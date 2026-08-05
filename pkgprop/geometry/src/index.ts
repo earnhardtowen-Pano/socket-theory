@@ -7,6 +7,7 @@ export {
   clampedKnots,
   polylineLength,
   type Curve,
+  type EndTangents,
 } from './curve.js';
 export {
   coonsPatch,
@@ -18,10 +19,12 @@ export {
 } from './patch.js';
 export {
   buildNetwork,
+  networkPatches,
   mirrorNetwork,
   type EdgeKind,
   type NetCurve,
   type NetworkMesh,
+  type NetworkPatch,
   type NetworkSpec,
   type PanelSpec,
 } from './network.js';

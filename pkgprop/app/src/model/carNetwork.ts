@@ -8,6 +8,7 @@ import {
   type EdgeKind,
   type NetCurve,
   type NetworkMesh,
+  type NetworkSpec,
   type PanelSpec,
   type SectionShape,
   type V3,
@@ -169,6 +170,91 @@ const FULLNESS: Readonly<Record<string, number>> = {
   underfloor: 0.5,
 };
 
+/**
+ * The least body depth between the top of a wheel opening and the shoulder.
+ *
+ * ASSUMED. There is a real number behind it — the arch flange, the inner
+ * wheelhouse and the sheet metal between them — but it is a body-engineering
+ * dimension and not one this tool solves yet, so it is named and flagged rather
+ * than dressed up as derived.
+ *
+ * It exists because without it the section turns itself inside out. The sill
+ * rail is the rocker along most of the car and the arch rim across a wheel
+ * opening, and a big wheel under a low body puts that rim *above* the shoulder:
+ * measured at 299mm above, over more than half the length of the rear opening.
+ * The section then doubles back in z, the panel between shoulder and sill is
+ * built upside down, and the flank reads as a gouge with a shelf in it rather
+ * than as a fender.
+ */
+const ARCH_TO_SHOULDER = 110;
+
+/**
+ * How softly the shoulder lifts over an arch.
+ *
+ * A hard `max` would put a corner in the shoulder rail at the exact station
+ * where the arch overtakes it, and a corner in a rail is a crease on the
+ * finished car that nobody drew. Blending over a run turns it into what it
+ * physically is: the fender crowning over the wheel. That crown has a name —
+ * the haunch — and it is most of why a rear-drive car looks planted.
+ */
+const HAUNCH_BLEND = 130;
+
+/**
+ * A maximum with the corner taken off it.
+ *
+ * Standard log-sum-exp softmax: exactly `max` when the two are far apart,
+ * rounded over a run of `k` where they cross. Written in the numerically stable
+ * form — the naive `k·log(e^{a/k} + e^{b/k})` overflows for millimetre inputs.
+ */
+function softMax(a: number, b: number, k: number): number {
+  if (k <= 0) return Math.max(a, b);
+  return Math.max(a, b) + k * Math.log1p(Math.exp(-Math.abs(a - b) / k));
+}
+
+/**
+ * The closest two panel divisions may sit before one of them is dropped.
+ *
+ * ASSUMED. Two reasons, and they agree on roughly the same number.
+ *
+ * The design one: nobody draws a shutline 20mm from a pillar edge. Panel gaps
+ * on a production car run 3-5mm and the metal between two of them has to be
+ * formable, so divisions this close are not a style anyone chose — they are two
+ * unrelated stations that happened to land near each other.
+ *
+ * The arithmetic one, which is what forced this: the C-pillar's trailing edge
+ * and the fore end of the rear wheel opening landed 20mm apart on the default
+ * car. That is a panel 20mm wide and 400mm tall — aspect ratio 1:20 — and the
+ * finite-difference normals across it are numerical noise rather than surface.
+ * Measured at 84-88° of "tangent break" on seams that are geometrically fine;
+ * the surface was not broken, the sliver was.
+ */
+const MIN_STATION_SPACING = 60;
+
+/**
+ * Drop divisions that land on top of each other.
+ *
+ * When two are too close, the stronger statement survives: a crease is a line
+ * somebody drew — a pillar edge, a shutline, the cowl — while a smooth station
+ * is only where a wheel opening happens to begin or end. The first and last are
+ * the nose and the tail and are never dropped, because dropping either shortens
+ * the car.
+ */
+function spaceOut(cuts: readonly Cut[]): Cut[] {
+  if (cuts.length < 3) return [...cuts];
+  const rank = (c: Cut): number => (c.kind === 'crease' ? 1 : 0);
+  const out: Cut[] = [cuts[0]!];
+  const last = cuts[cuts.length - 1]!;
+  for (const cut of cuts.slice(1, -1)) {
+    const prev = out[out.length - 1]!;
+    if (cut.x - prev.x >= MIN_STATION_SPACING) out.push(cut);
+    else if (out.length > 1 && rank(cut) > rank(prev)) out[out.length - 1] = cut;
+  }
+  // The tail wins any argument with whatever crowded up against it.
+  while (out.length > 1 && last.x - out[out.length - 1]!.x < MIN_STATION_SPACING) out.pop();
+  out.push(last);
+  return out;
+}
+
 const clamp01 = (t: number): number => Math.min(1, Math.max(0, t));
 
 export interface CarNetworkInput {
@@ -236,15 +322,48 @@ function glassWeight(input: CarNetworkInput, x: number): number {
 function sectionAt(input: CarNetworkInput, x: number): Section | null {
   const top = input.topZ(x);
   const belt = input.beltZ(x);
-  const bottom = input.archZ ? Math.max(input.rockerZ(x), input.archZ(x)) : input.rockerZ(x);
   const halfW = Math.max(20, input.halfWidth(x));
   const w0 = glassWeight(input, x);
+
+  // Two different bottoms, and conflating them was putting an 80° crease up the
+  // side of the car at every wheel arch.
+  //
+  // `ground` is the rocker: one continuous line the length of the body. `hem`
+  // is where this particular section stops, which inside a wheel opening is the
+  // arch rim instead — a max, so it has a corner at each end of the opening.
+  // That corner is correct and wanted: a real rocker does turn sharply up into
+  // the arch, and the sill rail is where that happens.
+  //
+  // What is not wanted is the corner travelling. Everything above the sill used
+  // to be measured from the hem, so the moment the arch lifted the bottom of
+  // the section it lifted the shoulder, the fender top and the underfloor with
+  // it — a step of a hundred-odd millimetres in every rail on the flank, at four
+  // stations, propagating all the way to the roof. Measured at 47-55° of tangent
+  // break across the arch cuts, against 2.5° everywhere else on the car.
+  //
+  // So the arch raises the hem and nothing else. It is a wheel opening, not a
+  // change of body height.
+  const ground = input.rockerZ(x);
+  const hem = input.archZ ? Math.max(ground, input.archZ(x)) : ground;
 
   // The bodyside below the belt: shoulder out at maximum width, sill tucked in
   // under it. Its height reference slides with the glass weight for the same
   // reason the rails do — a step here would step the shoulder.
-  const shoulderTop = Math.max(bottom + 60, top + (belt - top) * w0);
-  const shoulderZ = bottom + (shoulderTop - bottom) * clamp01(input.shape.shoulder);
+  const shoulderTop = Math.max(ground + 60, top + (belt - top) * w0);
+  const drawnShoulder = ground + (shoulderTop - ground) * clamp01(input.shape.shoulder);
+  // The shoulder rides over the wheel rather than being cut by it. Where the
+  // arch would otherwise come through, the fender crowns — which is a haunch,
+  // and a haunch is not a workaround, it is the thing that makes a rear-drive
+  // car look like it is standing on its back wheels.
+  const shoulderZ = softMax(drawnShoulder, hem + ARCH_TO_SHOULDER, HAUNCH_BLEND);
+
+  // The rocker tucks under by the tumblehome, and it keeps tucking across a
+  // wheel opening. Releasing the tuck there was tried and reverted: it put the
+  // arch rim at the body's full width, which made every arch the widest point
+  // on the car and turned the fenders into blisters bolted to a narrower tub.
+  // Pontoon fenders, 1948. The flange really is near full width on a real car,
+  // but only because the flank beside it is too — that is a plan-outline
+  // question, not a section one, and faking it here reads as separate volumes.
   const sillY = halfW * (1 - 0.66 * clamp01(input.shape.tumblehome));
 
   // Both point sets, always, and blended across the cabin's ends.
@@ -264,18 +383,20 @@ function sectionAt(input: CarNetworkInput, x: number): Section | null {
     v3(x, dloY * (1 - 0.52 * ROOF_RAIL_FRACTION), belt + (top - belt) * (1 - ROOF_RAIL_FRACTION * 0.55)),
     v3(x, dloY, belt),
     v3(x, halfW, shoulderZ),
-    v3(x, sillY, bottom),
-    v3(x, 0, bottom - FLOOR_DROP),
+    v3(x, sillY, hem),
+    // The floor pan is flat. It does not climb into the wheel well, which is
+    // what measuring it from the hem had it doing.
+    v3(x, 0, ground - FLOOR_DROP),
   ];
   const crownY = halfW * (0.18 + 0.42 * (1 - clamp01(input.shape.crown)));
-  const rise = Math.max(60, top - bottom);
+  const rise = Math.max(60, top - ground);
   const solidPts: V3[] = [
     v3(x, 0, top),
     v3(x, crownY * NOSE_ROOF_FRACTION * 2.2, top - rise * NOSE_ROOF_FRACTION * 0.35),
     v3(x, crownY, top - rise * NOSE_DLO_FRACTION * 0.4),
     v3(x, halfW, shoulderZ),
-    v3(x, sillY, bottom),
-    v3(x, 0, bottom - FLOOR_DROP),
+    v3(x, sillY, hem),
+    v3(x, 0, ground - FLOOR_DROP),
   ];
 
   const w = glassWeight(input, x);
@@ -343,17 +464,45 @@ function railCurve(
  * Restricted, not rebuilt. The points come off the same curve the rails come
  * off, at parameters between the same two the rails sit at, so a cut meets its
  * rails at exactly their points and the four corners of every panel close.
+ *
+ * ## Why there are no character lines, measured
+ *
+ * This function is the reason, and it is worth writing down because two rounds
+ * of work went at the wrong end of it.
+ *
+ * Declaring a panel edge a `crease` withholds the cross-boundary field from the
+ * patch and lets it fall back to the ruled chord. That was supposed to be the
+ * hard fold. It is not: a crease measures 2.54° of tangent break against a
+ * smooth edge's 2.52°, with 0.33mm of geometry between them across a whole
+ * panel. Every shutline, drip rail, pillar edge and DLO on the car is a
+ * flat-shading trick that disappears the moment you look at the silhouette.
+ *
+ * The cause is here rather than in the patch. A cut is a restriction of ONE
+ * section spline between two rail parameters, so the piece above a rail and the
+ * piece below it are segments of the same smooth curve and meet tangentially
+ * however loudly the panel edge says "crease". A surface cannot fold where its
+ * boundary curves refuse to; the patch is doing exactly what it was asked.
+ *
+ * Clamping the end tangents here was tried and reverted. It moves almost
+ * nothing — the other thirteen sample points still lie on the smooth section,
+ * so the fold is confined to a fourteenth of the curve — and it cost 3.89° →
+ * 5.06° of upper-body continuity to buy no visible line. Measured, not guessed.
+ *
+ * The fold has to go in the section itself: `sectionAt` must build a chain of
+ * segments with a real corner at each crease rail, and that corner wants a
+ * depth, which is the "cut into the body any depth I want" control. That is the
+ * next piece of work, and it is a change to the section rather than to this.
  */
 function cutCurve(
   section: (x: number) => Section | null,
   x: number,
-  railA: number,
-  railB: number,
+  railA: Rail,
+  railB: Rail,
 ): Curve | null {
   const sec = section(x);
   if (!sec) return null;
-  const a = sec.t[railA]!;
-  const b = sec.t[railB]!;
+  const a = sec.t[railA.f]!;
+  const b = sec.t[railB.f]!;
   const pts: V3[] = [];
   for (let i = 0; i <= CURVE_SAMPLES; i += 1) {
     pts.push(sec.curve.at(a + ((b - a) * i) / CURVE_SAMPLES));
@@ -404,8 +553,8 @@ function grid(
       const ok =
         push(loId, railCurve(section, lo.f, fwd.x, aft.x), lo.label) &&
         push(hiId, railCurve(section, hi.f, fwd.x, aft.x), hi.label) &&
-        push(fwdId, cutCurve(section, fwd.x, lo.f, hi.f), fwd.label) &&
-        push(aftId, cutCurve(section, aft.x, lo.f, hi.f), aft.label);
+        push(fwdId, cutCurve(section, fwd.x, lo, hi), fwd.label) &&
+        push(aftId, cutCurve(section, aft.x, lo, hi), aft.label);
       if (!ok) continue;
 
       // Boundary order is [south, east, north, west] walking the loop: along
@@ -428,6 +577,17 @@ export interface CarNetwork {
   readonly mesh: NetworkMesh;
   readonly panelCount: number;
   readonly creaseCount: number;
+  /**
+   * The network the mesh was sampled from — the half, before mirroring.
+   *
+   * The mesh is a sampling of the surface and not the surface itself, and the
+   * difference matters to anything that asks a question about quality: a
+   * highlight line, a continuity measurement, a section cut. Those want the
+   * analytic patch normal. The mesh only has the welded vertex normal, which is
+   * an average computed to make shading look continuous, so asking the mesh
+   * about continuity asks the cosmetic whether it is doing its job.
+   */
+  readonly spec: NetworkSpec;
 }
 
 /**
@@ -507,11 +667,12 @@ export function buildCarNetwork(rawInput: CarNetworkInput): CarNetwork {
   cuts.push({ id: 'backlight-base', label: 'backlight base', x: backX, kind: 'crease' });
   cuts.push({ id: 'tail', label: 'rear parting', x: input.tailX, kind: 'smooth' });
   cuts.sort((a, b) => a.x - b.x);
+  const stations = spaceOut(cuts);
 
   /** What a cell is called, in car language, given where it sits. */
   const nameOf = (r: number, c: number) => {
-    const fwd = cuts[c]!;
-    const aft = cuts[c + 1]!;
+    const fwd = stations[c]!;
+    const aft = stations[c + 1]!;
     const mid = (fwd.x + aft.x) / 2;
     const cabin = inCabin(mid);
     const isPillar =
@@ -545,20 +706,26 @@ export function buildCarNetwork(rawInput: CarNetworkInput): CarNetwork {
     };
   };
 
-  const built = grid(section, rails, cuts, nameOf);
+  const built = grid(section, rails, stations, nameOf);
 
-  const half = buildNetwork({
+  const spec: NetworkSpec = {
     curves: built.curves,
     panels: built.panels,
     density: Math.max(3, Math.floor(input.density)),
-  });
+  };
+  const half = buildNetwork(spec);
 
   const creases = built.panels.reduce(
     (sum, p) => sum + (p.edges ?? []).filter((e) => e === 'crease').length,
     0,
   );
 
-  return { mesh: mirrorNetwork(half), panelCount: built.panels.length, creaseCount: creases };
+  return {
+    mesh: mirrorNetwork(half),
+    panelCount: built.panels.length,
+    creaseCount: creases,
+    spec,
+  };
 }
 
 export { PILLAR_WIDTH };

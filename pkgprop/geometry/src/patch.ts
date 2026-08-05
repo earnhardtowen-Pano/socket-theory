@@ -178,28 +178,37 @@ interface Crosses {
  * twist estimated from them mostly buys a way to bulge a corner nobody asked
  * to bulge.
  */
-function cornerTerm(e: PatchEdges, c: Crosses, u: number, v: number): V3 {
+function cornerMatrix(e: PatchEdges, c: Crosses): readonly (readonly V3[])[] {
   const p00 = e.south.curve.at(0);
   const p10 = e.south.curve.at(1);
   const p01 = e.north.curve.at(0);
   const p11 = e.north.curve.at(1);
-
-  const hu = [H0(u), H1(u), H2(u), H3(u)] as const;
-  const hv = [H0(v), H1(v), H2(v), H3(v)] as const;
 
   //   [ P00    P01    Cs(0)  Cn(0) ]
   //   [ P10    P11    Cs(1)  Cn(1) ]
   //   [ Cw(0)  Cw(1)  0      0     ]
   //   [ Ce(0)  Ce(1)  0      0     ]
   const zero = v3(0, 0, 0);
-  const G: readonly (readonly V3[])[] = [
+  return [
     [p00, p01, c.s(0), c.n(0)],
     [p10, p11, c.s(1), c.n(1)],
     [c.w(0), c.w(1), zero, zero],
     [c.e(0), c.e(1), zero, zero],
   ];
+}
 
-  let out = zero;
+/**
+ * Evaluate the correction. The matrix is built once per patch rather than once
+ * per sample — every entry is a corner value, so nothing in it varies with u or
+ * v, and rebuilding it per sample meant eight cross-field evaluations for a
+ * result that never changed. That was cheap when a cross field was a subtraction
+ * and stopped being cheap when it became a ribbon.
+ */
+function cornerTerm(G: readonly (readonly V3[])[], u: number, v: number): V3 {
+  const hu = [H0(u), H1(u), H2(u), H3(u)] as const;
+  const hv = [H0(v), H1(v), H2(v), H3(v)] as const;
+
+  let out = v3(0, 0, 0);
   for (let i = 0; i < 4; i += 1) {
     const row = G[i]!;
     for (let j = 0; j < 4; j += 1) {
@@ -221,11 +230,7 @@ function ruledCross(from: Curve, to: Curve, t: number): V3 {
 }
 
 /** The bilinear patch through the four corners — the flattest surface they admit. */
-function bilinear(e: PatchEdges, u: number, v: number): V3 {
-  const p00 = e.south.curve.at(0);
-  const p10 = e.south.curve.at(1);
-  const p01 = e.north.curve.at(0);
-  const p11 = e.north.curve.at(1);
+function bilinear(p00: V3, p10: V3, p01: V3, p11: V3, u: number, v: number): V3 {
   return add(
     add(scale(p00, (1 - u) * (1 - v)), scale(p10, u * (1 - v))),
     add(scale(p01, (1 - u) * v), scale(p11, u * v)),
@@ -246,6 +251,13 @@ export function coonsPatch(edges: PatchEdges): Patch {
     w: west.cross ?? ((v) => ruledCross(west.curve, east.curve, v)),
     e: east.cross ?? ((v) => ruledCross(west.curve, east.curve, v)),
   };
+  const G = cornerMatrix(edges, c);
+
+  // The four corners, for fullness. Same reason: constant per patch.
+  const q00 = south.curve.at(0);
+  const q10 = south.curve.at(1);
+  const q01 = north.curve.at(0);
+  const q11 = north.curve.at(1);
 
   const at = (uRaw: number, vRaw: number): V3 => {
     const u = clamp01(uRaw);
@@ -264,7 +276,7 @@ export function coonsPatch(edges: PatchEdges): Patch {
       add(scale(c.w(v), H2(u)), scale(c.e(v), H3(u))),
     );
 
-    const surface = sub(add(ruledV, ruledU), cornerTerm(edges, c, u, v));
+    const surface = sub(add(ruledV, ruledU), cornerTerm(G, u, v));
     if (fullness === 1) return surface;
 
     // Fullness moves the interior and must leave the boundary exactly where it
@@ -276,7 +288,7 @@ export function coonsPatch(edges: PatchEdges): Patch {
     // means.
     const bubble = 16 * u * (1 - u) * v * (1 - v);
     if (bubble <= 0) return surface;
-    const flat = bilinear(edges, u, v);
+    const flat = bilinear(q00, q10, q01, q11, u, v);
     return add(surface, scale(sub(surface, flat), (fullness - 1) * bubble));
   };
 
