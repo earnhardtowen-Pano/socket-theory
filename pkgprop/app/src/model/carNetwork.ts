@@ -1,7 +1,6 @@
 import type { SolveResult } from '@pkgprop/core';
 import {
   buildNetwork,
-  halfSection,
   interpolate,
   mirrorNetwork,
   v3,
@@ -61,36 +60,53 @@ interface Cut {
 }
 
 /**
- * Where the named rails sit across the half-section.
+ * The five stations across a half-section, from the centreline outboard and
+ * down to the sill. Every rail on the car is one of these, and every panel
+ * lies between two of them.
  *
- * These are the four control points `halfSection` is built from, and the
- * parameters are where those points land under chord-length interpolation —
- * near enough evenly spaced, because the four points are roughly evenly spaced
- * around the section. They are stated rather than solved for because the
- * section's own control structure is not exposed, and because a rail wants to
- * sit at a *named* place on the car whether or not the section happens to have
- * a control point there.
+ * Five points and one curve through all of them, rather than a body section
+ * and a separate greenhouse section, because two sections cannot be made to
+ * agree. They did not: the body was capped flat at the beltline right across
+ * its width, and the glass landed on that deck 289mm inboard of where the deck
+ * ended. So every car had a horizontal shelf a foot wide running the length of
+ * the cabin on both sides, with a tent sitting on it. That is the chip bag, and
+ * no amount of continuity work on either volume could have fixed it, because
+ * the two volumes were describing different cars.
  *
- * The hood shutline is the one that is genuinely a choice: it is the line where
- * the hood stops being the hood and starts being the fender top, and on a real
- * car it sits just outboard of the crown roll-off.
+ * With one curve there is no shelf to have. The bottom of the glass IS the top
+ * of the bodyside — the same point, on the same curve, at the same parameter.
  */
-const F_CENTRELINE = 0;
-const F_HOOD_SHUT = 0.3;
-const F_SHOULDER = 0.6;
-const F_SILL = 1;
+const RAIL_CROWN = 0;
+const RAIL_ROOF = 1;
+const RAIL_DLO = 2;
+const RAIL_SHOULDER = 3;
+const RAIL_SILL = 4;
+/**
+ * The underfloor, at the centreline.
+ *
+ * Without it the half-section is an open arc and the car is a shell you can
+ * see straight up into from below — which is most of what "parts of the body
+ * are just empty" was. With it the half-section is a closed half-loop from the
+ * centreline over the roof and back to the centreline under the floor, so
+ * mirroring produces a closed tube and the only openings left are the two ends.
+ */
+const RAIL_FLOOR = 5;
 
 /**
- * The greenhouse's own section, from the DLO up over the roof.
- *
- * Separate from the body's because it is a separate volume with its own lean —
- * a cabin let into a body, not a continuation of it. The rails are the DLO
- * lower edge, the roof rail where the glass stops and the roof begins, and the
- * roof centreline.
+ * How far out along the roof the drip rail sits, as a fraction of the glass
+ * band. Where the roof stops being roof and the side glass begins.
  */
-const G_CENTRELINE = 0;
-const G_ROOF_RAIL = 0.42;
-const G_DLO_LOWER = 1;
+const ROOF_RAIL_FRACTION = 0.42;
+
+/**
+ * Outside the cabin there is no glass, so the two middle rails have no job to
+ * do — but the grid still wants five. They land on the body's own crown
+ * instead, which is where the hood shutline and the fender top belong anyway,
+ * so the same two rails are the DLO down the cabin and the hood shut across
+ * the nose without the topology changing under them.
+ */
+const NOSE_ROOF_FRACTION = 0.18;
+const NOSE_DLO_FRACTION = 0.38;
 
 /** Samples along a curve when turning a rail or a cut into a network curve. */
 const CURVE_SAMPLES = 14;
@@ -104,6 +120,16 @@ const CURVE_SAMPLES = 14;
  * named, and the same for all three pillars.
  */
 const PILLAR_WIDTH = 110;
+
+/**
+ * How far the underfloor sits below the sill at the centreline.
+ *
+ * Small and deliberate: a flat pan at exactly sill height would put the floor
+ * in the same plane as the rocker's lowest point and the section would have a
+ * zero-area corner there. Dropping it slightly also reads correctly — a real
+ * floor pan sits below the rocker's outer flange.
+ */
+const FLOOR_DROP = 25;
 
 const clamp01 = (t: number): number => Math.min(1, Math.max(0, t));
 
@@ -127,48 +153,134 @@ export interface CarNetworkInput {
   readonly density: number;
 }
 
-/** The body's half-section at a station, capped at the belt inside the cabin. */
-function bodySectionAt(input: CarNetworkInput, x: number): Curve {
+/**
+ * One half-section: the five named points, and the single curve through them.
+ *
+ * The parameters are returned alongside because everything downstream needs to
+ * know where a rail *is* on the curve, and they are computed the same way the
+ * interpolation computes them — chord length, normalised — so a rail sits
+ * exactly on its own point rather than near it.
+ */
+interface Section {
+  readonly curve: Curve;
+  /** Parameter of each named rail, RAIL_CROWN through RAIL_SILL. */
+  readonly t: readonly number[];
+}
+
+function chordParams(pts: readonly V3[]): number[] {
+  const t = [0];
+  for (let i = 1; i < pts.length; i += 1) {
+    const a = pts[i]!;
+    const b = pts[i - 1]!;
+    t.push(t[i - 1]! + Math.max(1e-6, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)));
+  }
+  const total = t[t.length - 1]!;
+  return t.map((v) => v / total);
+}
+
+/**
+ * How much of the glass section applies at this station: 1 down the cabin, 0
+ * across the nose and the tail, and a smooth ramp over the cowl and the
+ * backlight base where the one becomes the other.
+ */
+const GLASS_RUN = 170;
+
+function glassWeight(input: CarNetworkInput, x: number): number {
+  const { cabin } = input;
+  if (!cabin) return 0;
+  const t = (v: number): number => {
+    const c = clamp01(v);
+    return c * c * (3 - 2 * c);
+  };
+  return Math.min(t((x - cabin.x0 + GLASS_RUN) / GLASS_RUN), t((cabin.x1 + GLASS_RUN - x) / GLASS_RUN));
+}
+
+function sectionAt(input: CarNetworkInput, x: number): Section | null {
   const top = input.topZ(x);
   const belt = input.beltZ(x);
-  const inCabin = input.cabin !== null && x > input.cabin.x0 && x < input.cabin.x1;
   const bottom = input.archZ ? Math.max(input.rockerZ(x), input.archZ(x)) : input.rockerZ(x);
-  const upper = inCabin ? Math.min(top, belt) : top;
-  return halfSection(
-    Math.max(bottom + 60, upper),
-    bottom,
-    Math.max(20, input.halfWidth(x)),
-    input.shape,
-  );
-}
+  const halfW = Math.max(20, input.halfWidth(x));
+  const w0 = glassWeight(input, x);
 
-/** The greenhouse's half-section at a station, or null where there is no cabin. */
-function glassSectionAt(input: CarNetworkInput, x: number): Curve | null {
-  const { cabin } = input;
-  // Inclusive at both ends. The windscreen base and the backlight base are
-  // cuts that sit exactly on the cabin boundary, so an exclusive test deletes
-  // every panel that touches them — which was silently costing the car its
-  // windscreen, its backlight and two thirds of its roof.
-  if (!cabin || x < cabin.x0 - 1e-6 || x > cabin.x1 + 1e-6) return null;
-  const base = input.beltZ(x);
-  const top = input.topZ(x);
-  if (top < base + 60) return null;
-  // The cabin sits inboard of the shoulder — that step is what makes it read
-  // as a cabin let into a body rather than a bubble sat on top of one.
+  // The bodyside below the belt: shoulder out at maximum width, sill tucked in
+  // under it. Its height reference slides with the glass weight for the same
+  // reason the rails do — a step here would step the shoulder.
+  const shoulderTop = Math.max(bottom + 60, top + (belt - top) * w0);
+  const shoulderZ = bottom + (shoulderTop - bottom) * clamp01(input.shape.shoulder);
+  const sillY = halfW * (1 - 0.66 * clamp01(input.shape.tumblehome));
+
+  // Both point sets, always, and blended across the cabin's ends.
+  //
+  // The two are genuinely different topologies — with glass the middle rails
+  // are the roof rail and the DLO, without it they ride the body's own crown —
+  // and switching between them at a station puts a cliff in every rail that
+  // crosses the boundary. A rail is sampled along the car, so a cliff between
+  // two samples is a spike on the finished surface, which is exactly what
+  // appeared at the cowl. Blending over a short run turns the cliff into the
+  // transition it physically is: the hood running up to the base of the
+  // windscreen.
   const inset = clamp01(input.shape.glassInset);
-  const half = Math.max(16, input.halfWidth(x) * (1 - 0.24 * inset));
-  return halfSection(top, base, half, {
-    crown: 0.4,
-    shoulder: 0.34,
-    tumblehome: 0.34,
-    glassInset: 0,
+  const dloY = Math.max(16, halfW * (1 - 0.24 * inset));
+  const glassPts: V3[] = [
+    v3(x, 0, top),
+    v3(x, dloY * (1 - 0.52 * ROOF_RAIL_FRACTION), belt + (top - belt) * (1 - ROOF_RAIL_FRACTION * 0.55)),
+    v3(x, dloY, belt),
+    v3(x, halfW, shoulderZ),
+    v3(x, sillY, bottom),
+    v3(x, 0, bottom - FLOOR_DROP),
+  ];
+  const crownY = halfW * (0.18 + 0.42 * (1 - clamp01(input.shape.crown)));
+  const rise = Math.max(60, top - bottom);
+  const solidPts: V3[] = [
+    v3(x, 0, top),
+    v3(x, crownY * NOSE_ROOF_FRACTION * 2.2, top - rise * NOSE_ROOF_FRACTION * 0.35),
+    v3(x, crownY, top - rise * NOSE_DLO_FRACTION * 0.4),
+    v3(x, halfW, shoulderZ),
+    v3(x, sillY, bottom),
+    v3(x, 0, bottom - FLOOR_DROP),
+  ];
+
+  const w = glassWeight(input, x);
+  const pts: V3[] = glassPts.map((gp, i) => {
+    const sp = solidPts[i]!;
+    return v3(x, sp.y + (gp.y - sp.y) * w, sp.z + (gp.z - sp.z) * w);
   });
+
+  // Monotonic outboard, or the section folds back on itself and the surface
+  // self-intersects. This fires on a very narrow nose section, where the
+  // shoulder can come inboard of the crown.
+  for (let i = 1; i < RAIL_SILL; i += 1) {
+    const prev = pts[i - 1]!;
+    const cur = pts[i]!;
+    if (cur.y < prev.y) pts[i] = v3(x, prev.y + 1, cur.z);
+  }
+
+  const t = chordParams(pts);
+  const curve = interpolate(pts);
+  // The interpolation overshoots past the widest point, and the plan half-width
+  // is a solved wall. Scale back rather than clamp, which would leave a flat
+  // spot along the widest point.
+  let peak = 0;
+  for (let i = 0; i <= 48; i += 1) peak = Math.max(peak, curve.at(i / 48).y);
+  if (peak <= halfW) return { curve, t };
+  const k = halfW / peak;
+  return {
+    curve: {
+      at: (u) => {
+        const p = curve.at(u);
+        return v3(p.x, p.y * k, p.z);
+      },
+      tangentAt: (u) => curve.tangentAt(u),
+      sample: (n) => curve.sample(n).map((p) => v3(p.x, p.y * k, p.z)),
+    },
+    t,
+  };
 }
 
-/** A rail: one section parameter swept between two stations. */
+/** A rail: one named section point swept between two stations. */
 function railCurve(
-  section: (x: number) => Curve | null,
-  f: number,
+  section: (x: number) => Section | null,
+  rail: number,
   x0: number,
   x1: number,
 ): Curve | null {
@@ -177,25 +289,31 @@ function railCurve(
     const x = x0 + ((x1 - x0) * i) / CURVE_SAMPLES;
     const sec = section(x);
     if (!sec) return null;
-    const p = sec.at(f);
-    pts.push(v3(x, p.y, p.z));
+    pts.push(sec.curve.at(sec.t[rail]!));
   }
   return interpolate(pts);
 }
 
-/** A cut: one station's section, restricted between two rails. */
+/**
+ * A cut: one station's section, restricted between two named rails.
+ *
+ * Restricted, not rebuilt. The points come off the same curve the rails come
+ * off, at parameters between the same two the rails sit at, so a cut meets its
+ * rails at exactly their points and the four corners of every panel close.
+ */
 function cutCurve(
-  section: (x: number) => Curve | null,
+  section: (x: number) => Section | null,
   x: number,
-  f0: number,
-  f1: number,
+  railA: number,
+  railB: number,
 ): Curve | null {
   const sec = section(x);
   if (!sec) return null;
+  const a = sec.t[railA]!;
+  const b = sec.t[railB]!;
   const pts: V3[] = [];
   for (let i = 0; i <= CURVE_SAMPLES; i += 1) {
-    const p = sec.at(f0 + ((f1 - f0) * i) / CURVE_SAMPLES);
-    pts.push(v3(x, p.y, p.z));
+    pts.push(sec.curve.at(a + ((b - a) * i) / CURVE_SAMPLES));
   }
   return interpolate(pts);
 }
@@ -208,7 +326,7 @@ function cutCurve(
  * case in the code.
  */
 function grid(
-  section: (x: number) => Curve | null,
+  section: (x: number) => Section | null,
   rails: readonly Rail[],
   cuts: readonly Cut[],
   names: (rail: number, cut: number) => { id: string; label: string; group: string } | null,
@@ -300,126 +418,100 @@ function liveCabin(input: CarNetworkInput): { x0: number; x1: number } | null {
 export function buildCarNetwork(rawInput: CarNetworkInput): CarNetwork {
   const live = liveCabin(rawInput);
   const input: CarNetworkInput = { ...rawInput, cabin: live };
-  const body = (x: number): Curve | null => bodySectionAt(input, x);
-  const glass = (x: number): Curve | null => glassSectionAt(input, x);
-
-  // ---- the body: hood, fender, doors, quarter, rocker ---------------------
-  const bodyRails: Rail[] = [
-    { id: 'centreline', label: 'centreline', f: F_CENTRELINE, kind: 'smooth' },
-    // The hood shutline is where the hood ends and the fender begins. It is a
-    // gap on a real car, so it is a crease here.
-    { id: 'hood-shut', label: 'hood shutline', f: F_HOOD_SHUT, kind: 'crease' },
-    { id: 'shoulder', label: 'shoulder', f: F_SHOULDER, kind: 'smooth' },
-    { id: 'sill', label: 'sill', f: F_SILL, kind: 'smooth' },
-  ];
+  const section = (x: number): Section | null => sectionAt(input, x);
 
   const cowlX = input.cabin?.x0 ?? input.wheelbase * 0.35;
   const backX = input.cabin?.x1 ?? input.wheelbase * 0.85;
-  const bodyCuts: Cut[] = [{ id: 'nose', label: 'front parting', x: input.bumperX, kind: 'smooth' }];
+  const inCabin = (x: number): boolean => x > cowlX + 1 && x < backX - 1;
+
+  // ---- the rails: one set, the whole car ---------------------------------
+  //
+  // Two of them change their name depending on where you are along the car,
+  // and that is the point rather than a compromise. Down the cabin the middle
+  // pair are the roof rail and the DLO; across the nose the same pair are the
+  // hood shutline and the fender top. One grid, five rails, and no seam
+  // between a "body" and a "greenhouse" because there is only one section.
+  const rails: Rail[] = [
+    { id: 'crown', label: 'centreline', f: RAIL_CROWN, kind: 'smooth' },
+    { id: 'roof-rail', label: 'roof rail', f: RAIL_ROOF, kind: 'crease' },
+    { id: 'dlo', label: 'DLO lower edge', f: RAIL_DLO, kind: 'crease' },
+    { id: 'shoulder', label: 'shoulder', f: RAIL_SHOULDER, kind: 'smooth' },
+    { id: 'sill', label: 'sill', f: RAIL_SILL, kind: 'crease' },
+    { id: 'floor', label: 'underfloor', f: RAIL_FLOOR, kind: 'smooth' },
+  ];
+
+  // ---- the cuts: panel divisions along the car ---------------------------
+  const cuts: Cut[] = [{ id: 'nose', label: 'front parting', x: input.bumperX, kind: 'smooth' }];
   for (const a of input.arches) {
-    bodyCuts.push({ id: `arch-${a.slot}-fore`, label: `${a.slot} arch, fore`, x: a.x0, kind: 'smooth' });
-    bodyCuts.push({ id: `arch-${a.slot}-aft`, label: `${a.slot} arch, aft`, x: a.x1, kind: 'smooth' });
+    cuts.push({ id: `arch-${a.slot}-fore`, label: `${a.slot} arch, fore`, x: a.x0, kind: 'smooth' });
+    cuts.push({ id: `arch-${a.slot}-aft`, label: `${a.slot} arch, aft`, x: a.x1, kind: 'smooth' });
   }
-  // The cowl is where the hood stops. It is a shutline across the whole car.
-  bodyCuts.push({ id: 'cowl', label: 'cowl shutline', x: cowlX, kind: 'crease' });
-  if (input.secondRowX !== null && input.secondRowX > cowlX + 200 && input.secondRowX < backX - 200) {
-    bodyCuts.push({ id: 'b-shut', label: 'centre door shutline', x: input.secondRowX, kind: 'crease' });
+  const pillarAt = (id: string, label: string, x: number): void => {
+    cuts.push({ id: `${id}-fore`, label: `${label} leading edge`, x: x - PILLAR_WIDTH / 2, kind: 'crease' });
+    cuts.push({ id: `${id}-aft`, label: `${label} trailing edge`, x: x + PILLAR_WIDTH / 2, kind: 'crease' });
+  };
+  cuts.push({ id: 'cowl', label: 'cowl shutline', x: cowlX, kind: 'crease' });
+  if (input.cabin) {
+    pillarAt('a-pillar', 'A-pillar', cowlX + PILLAR_WIDTH * 1.4);
+    if (input.secondRowX !== null && input.secondRowX > cowlX + 400 && input.secondRowX < backX - 400) {
+      pillarAt('b-pillar', 'B-pillar', input.secondRowX);
+    }
+    pillarAt('c-pillar', 'C-pillar', backX - PILLAR_WIDTH * 1.4);
   }
-  bodyCuts.push({ id: 'quarter-shut', label: 'rear door shutline', x: backX, kind: 'crease' });
-  bodyCuts.push({ id: 'tail', label: 'rear parting', x: input.tailX, kind: 'smooth' });
-  bodyCuts.sort((a, b) => a.x - b.x);
+  cuts.push({ id: 'backlight-base', label: 'backlight base', x: backX, kind: 'crease' });
+  cuts.push({ id: 'tail', label: 'rear parting', x: input.tailX, kind: 'smooth' });
+  cuts.sort((a, b) => a.x - b.x);
 
   /** What a cell is called, in car language, given where it sits. */
-  const bodyName = (r: number, c: number) => {
-    const fwd = bodyCuts[c]!;
-    const aft = bodyCuts[c + 1]!;
+  const nameOf = (r: number, c: number) => {
+    const fwd = cuts[c]!;
+    const aft = cuts[c + 1]!;
     const mid = (fwd.x + aft.x) / 2;
-    const band = r === 0 ? 'upper' : r === 1 ? 'outer' : 'side';
-    const where =
-      mid < cowlX
-        ? band === 'upper'
-          ? 'hood'
-          : band === 'outer'
-            ? 'fender top'
-            : 'front fender'
-        : mid > backX
-          ? band === 'upper'
-            ? 'decklid'
-            : band === 'outer'
-              ? 'quarter top'
-              : 'rear quarter'
-          : band === 'upper'
-            ? 'roof band'
-            : band === 'outer'
-              ? 'shoulder'
-              : 'door';
+    const cabin = inCabin(mid);
+    const isPillar =
+      cabin &&
+      fwd.id.endsWith('-fore') &&
+      aft.id.endsWith('-aft') &&
+      fwd.id.slice(0, -5) === aft.id.slice(0, -4);
+
+    // Above the DLO rail inside the cabin is roof and glass; outside it is
+    // hood or decklid.
+    let group: string;
+    if (r === RAIL_CROWN) group = cabin ? 'roof' : mid < cowlX ? 'hood' : 'decklid';
+    else if (r === RAIL_ROOF) {
+      if (!cabin) group = mid < cowlX ? 'fender top' : 'quarter top';
+      else if (isPillar) group = 'pillar';
+      else group = 'glass';
+    } else if (r === RAIL_DLO) {
+      // The belt rail: the band of body between the glass and the shoulder.
+      group = cabin ? 'belt rail' : mid < cowlX ? 'front fender' : 'rear quarter';
+    } else if (r === RAIL_SHOULDER) {
+      group = cabin ? 'door' : mid < cowlX ? 'front fender' : 'rear quarter';
+    } else {
+      group = 'underfloor';
+    }
+
     return {
-      id: `body-${r}-${c}`,
-      label: `${where} · ${fwd.label} to ${aft.label}`,
-      group: where,
+      id: `p-${r}-${c}`,
+      label: isPillar ? fwd.label.replace(' leading edge', '') : `${group} · ${fwd.label} to ${aft.label}`,
+      group,
     };
   };
 
-  const bodyGrid = grid(body, bodyRails, bodyCuts, bodyName);
-
-  // ---- the greenhouse: windscreen, pillars, side glass, backlight ---------
-  const glassRails: Rail[] = [
-    { id: 'roof-crown', label: 'roof centreline', f: G_CENTRELINE, kind: 'smooth' },
-    // The drip rail: where the roof stops and the glass starts. A hard line on
-    // every car ever made, and the reason a roof reads as a roof.
-    { id: 'roof-rail', label: 'roof rail', f: G_ROOF_RAIL, kind: 'crease' },
-    { id: 'dlo-lower', label: 'DLO lower edge', f: G_DLO_LOWER, kind: 'crease' },
-  ];
-
-  const glassCuts: Cut[] = [];
-  const pillarAt = (id: string, label: string, x: number): void => {
-    glassCuts.push({ id: `${id}-fore`, label: `${label} leading edge`, x: x - PILLAR_WIDTH / 2, kind: 'crease' });
-    glassCuts.push({ id: `${id}-aft`, label: `${label} trailing edge`, x: x + PILLAR_WIDTH / 2, kind: 'crease' });
-  };
-  if (input.cabin) {
-    const { x0, x1 } = input.cabin;
-    glassCuts.push({ id: 'cowl-line', label: 'windscreen base', x: x0, kind: 'crease' });
-    pillarAt('a-pillar', 'A-pillar', x0 + PILLAR_WIDTH * 1.4);
-    if (input.secondRowX !== null && input.secondRowX > x0 + 400 && input.secondRowX < x1 - 400) {
-      pillarAt('b-pillar', 'B-pillar', input.secondRowX);
-    }
-    pillarAt('c-pillar', 'C-pillar', x1 - PILLAR_WIDTH * 1.4);
-    glassCuts.push({ id: 'backlight-base', label: 'backlight base', x: x1, kind: 'crease' });
-    glassCuts.sort((a, b) => a.x - b.x);
-  }
-
-  const glassName = (r: number, c: number) => {
-    const fwd = glassCuts[c]!;
-    const aft = glassCuts[c + 1]!;
-    const pillar = fwd.id.endsWith('-fore') && aft.id.endsWith('-aft') && fwd.id.split('-')[0] === aft.id.split('-')[0];
-    const name = fwd.id.replace('-fore', '');
-    if (r === 0) {
-      // Above the roof rail: this is roof, whatever is happening below it.
-      return { id: `roof-${c}`, label: `roof · ${fwd.label} to ${aft.label}`, group: 'roof' };
-    }
-    if (pillar) {
-      return { id: `${name}-${c}`, label: `${name.replace('-', ' ')}`, group: 'pillar' };
-    }
-    if (fwd.id === 'cowl-line') return { id: `windscreen-${c}`, label: 'windscreen', group: 'glass' };
-    if (aft.id === 'backlight-base') return { id: `backlight-${c}`, label: 'backlight', group: 'glass' };
-    return { id: `sideglass-${c}`, label: 'side glass', group: 'glass' };
-  };
-
-  const glassGrid = input.cabin && glassCuts.length >= 2 ? grid(glass, glassRails, glassCuts, glassName) : { curves: [], panels: [] };
+  const built = grid(section, rails, cuts, nameOf);
 
   const half = buildNetwork({
-    curves: [...bodyGrid.curves, ...glassGrid.curves],
-    panels: [...bodyGrid.panels, ...glassGrid.panels],
+    curves: built.curves,
+    panels: built.panels,
     density: Math.max(3, Math.floor(input.density)),
   });
 
-  const panels = bodyGrid.panels.length + glassGrid.panels.length;
-  const creases = [...bodyGrid.panels, ...glassGrid.panels].reduce(
+  const creases = built.panels.reduce(
     (sum, p) => sum + (p.edges ?? []).filter((e) => e === 'crease').length,
     0,
   );
 
-  return { mesh: mirrorNetwork(half), panelCount: panels, creaseCount: creases };
+  return { mesh: mirrorNetwork(half), panelCount: built.panels.length, creaseCount: creases };
 }
 
 export { PILLAR_WIDTH };
