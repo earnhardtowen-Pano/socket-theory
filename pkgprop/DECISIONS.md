@@ -222,3 +222,23 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
     that much, so overall length is untouched. The flat version closed the nose
     with a vertical face the width of the bumper, which caught the key light
     edge-on as a bright blade sticking out of the front of the car.
+
+37. **The build emits one file.** The instrument is a thing you hand to
+    someone — a designer opens it off a download, not off a server they have
+    to start first. A three-file dist cannot do that: an ES module fetched
+    from `file://` is a cross-origin request and the browser blocks it, so
+    `index.html` opens to a blank page. The stylesheet and the bundle are
+    inlined instead, and an inline module script has nothing to fetch.
+    Two things bite when writing that plugin, and both are silent: `</script>`
+    inside a string literal closes the tag you are opening, and — the one that
+    actually shipped a corrupt file for a minute — a replacement *string* in
+    `String.replace` expands `$&`, `` $` `` and `$'`, so minified JavaScript
+    splices pieces of the surrounding HTML into itself. Every replacement goes
+    through a function.
+
+38. **Leaving the ledger closes it.** It opened on the way in and never closed
+    on the way out, so one click on the LEDGER tab left the overlay sitting
+    over every other panel. Worse, because Escape peels one layer at a time,
+    the next Escape went to dismissing the ledger instead of putting down the
+    part in your hand — so the bug presented as Escape being broken, three
+    interactions away from its cause.

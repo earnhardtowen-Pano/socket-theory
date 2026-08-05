@@ -247,8 +247,15 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, mode: action.mode };
     case 'load':
       return push(state, action.snapshot, true);
-    case 'panel':
-      return { ...state, panel: action.id, ledgerOpen: action.id === 'LEDGER' ? true : state.ledgerOpen };
+    case 'panel': {
+      // Leaving the ledger closes it. It used to open on the way in and never
+      // close on the way out, so one click on LEDGER left the overlay sitting
+      // over every other panel — and because Escape peels one layer at a time,
+      // the next Escape went to dismissing the ledger instead of putting down
+      // the part in your hand, which read as Escape being broken.
+      if (action.id === state.panel) return state;
+      return { ...state, panel: action.id, ledgerOpen: action.id === 'LEDGER' };
+    }
     case 'ledger':
       return { ...state, ledgerOpen: action.open };
     case 'undo': {

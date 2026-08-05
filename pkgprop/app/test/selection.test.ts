@@ -39,3 +39,22 @@ describe('selection and features', () => {
     expect(s1.now.features['opening-front']!.params.radius).toBe(480);
   });
 });
+
+describe('panels and the ledger overlay', () => {
+  it('leaving the ledger panel closes the ledger', () => {
+    const opened = reducer(initialState(), { type: 'panel', id: 'LEDGER' });
+    expect(opened.ledgerOpen).toBe(true);
+    // The overlay used to follow you onto every other panel, and because
+    // Escape peels one layer at a time it then ate the escape that should
+    // have put down the part in your hand.
+    const left = reducer(opened, { type: 'panel', id: 'BODY' });
+    expect(left.ledgerOpen).toBe(false);
+    expect(left.panel).toBe('BODY');
+  });
+
+  it('re-clicking the panel you are on changes nothing', () => {
+    const s = reducer(initialState(), { type: 'panel', id: 'SIDE' });
+    const withLedger = reducer(s, { type: 'ledger', open: true });
+    expect(reducer(withLedger, { type: 'panel', id: 'SIDE' })).toBe(withLedger);
+  });
+});
