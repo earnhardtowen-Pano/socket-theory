@@ -59,6 +59,23 @@ export const INITIAL_PKG: PackageState = {
   seating: '2',
 };
 
+/**
+ * A selection is only valid while the thing it names still exists.
+ *
+ * Undo can remove the very part that is in your hand, and a loaded project has
+ * its own parts and knows nothing about what was selected before it. Leaving a
+ * stale id behind used to take the whole left rail down with it — the panel
+ * that resolves a selection also wraps the rail, so an unresolvable id emptied
+ * the column and collapsed the layout, with no error to explain it. Dropping
+ * the selection instead is not a workaround: a part that no longer exists
+ * cannot be the part in your hand.
+ */
+function keep(selection: Selection, snapshot: Snapshot): Selection {
+  if (!selection) return null;
+  if (selection.kind === 'feature') return snapshot.features[selection.id] ? selection : null;
+  return selection;
+}
+
 export function initialState(): AppState {
   return {
     now: {
@@ -246,7 +263,7 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'mode':
       return { ...state, mode: action.mode };
     case 'load':
-      return push(state, action.snapshot, true);
+      return { ...push(state, action.snapshot, true), selection: keep(state.selection, action.snapshot) };
     case 'panel': {
       // Leaving the ledger closes it. It used to open on the way in and never
       // close on the way out, so one click on LEDGER left the overlay sitting
@@ -266,6 +283,7 @@ export function reducer(state: AppState, action: Action): AppState {
         now: prev,
         history: state.history.slice(0, -1),
         future: [state.now, ...state.future],
+        selection: keep(state.selection, prev),
       };
     }
     case 'redo': {
@@ -276,6 +294,7 @@ export function reducer(state: AppState, action: Action): AppState {
         now: next,
         history: [...state.history, state.now],
         future: state.future.slice(1),
+        selection: keep(state.selection, next),
       };
     }
   }

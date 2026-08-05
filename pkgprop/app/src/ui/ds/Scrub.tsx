@@ -41,6 +41,15 @@ export interface ScrubProps {
 
 const fmt = (n: number, d: number): string => (d > 0 ? n.toFixed(d) : String(Math.round(n)));
 
+/**
+ * How far the pointer may travel before a press stops being a click.
+ *
+ * A hand resting on a mouse button moves a pixel or two. Below this it is a
+ * click and means "let me type"; above it, it is a drag and means "scrub".
+ * One number for both decisions, so a twitch cannot do both.
+ */
+const DRAG_SLOP = 3;
+
 export function Scrub({
   label,
   value,
@@ -60,10 +69,23 @@ export function Scrub({
   const [live, setLive] = useState(false);
   const drag = useRef<{ x: number; base: number; moved: boolean } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const editing = typing !== null;
 
+  /**
+   * Select the whole value when the field OPENS, and never again.
+   *
+   * This used to depend on `typing`, which is the field's text rather than a
+   * flag — so every keystroke changed the dependency, the effect re-ran, and
+   * the whole field got re-selected. The next character then replaced
+   * everything before it, and only the last one you typed survived. Typing
+   * 2800 into the wheelbase committed 0, which silently clamped to the band's
+   * lower wall. Every number in this tool is three or four digits, so the
+   * type-an-exact-value path — the entire reason the field exists — could not
+   * be used at all.
+   */
   useEffect(() => {
-    if (typing !== null) inputRef.current?.select();
-  }, [typing]);
+    if (editing) inputRef.current?.select();
+  }, [editing]);
 
   const span = Math.max(1e-9, max - min);
   const step = perPx ?? span / 320;
@@ -78,7 +100,11 @@ export function Scrub({
       const d = drag.current;
       if (!d) return;
       const dx = ev.clientX - d.x;
-      if (Math.abs(dx) > 2) d.moved = true;
+      // One threshold decides both questions — "has this become a drag" and
+      // "was this a click" — so a two-pixel twitch cannot both scrub the value
+      // and then open the type-in box on release.
+      if (Math.abs(dx) > DRAG_SLOP) d.moved = true;
+      if (!d.moved) return;
       // Fine and coarse are where a scrubber earns its keep: the same gesture
       // covers a whole band or a single millimetre without changing tools.
       const gain = ev.shiftKey ? 0.1 : ev.altKey ? 10 : 1;
@@ -123,8 +149,14 @@ export function Scrub({
 
   const commitTyped = (): void => {
     if (typing === null) return;
-    const n = Number(typing);
+    const text = typing.trim();
     setTyping(null);
+    // An empty field is a cancelled edit, not a request for zero. `Number('')`
+    // is 0, so clearing the box and tabbing away used to slam the control onto
+    // its lower wall — which looks exactly like the tool deciding something on
+    // your behalf.
+    if (text === '') return;
+    const n = Number(text);
     if (Number.isFinite(n)) onChange(clamp(n), true);
   };
 

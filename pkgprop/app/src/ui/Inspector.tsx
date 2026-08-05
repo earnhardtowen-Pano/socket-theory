@@ -28,21 +28,35 @@ export function Inspector({
   /** The package panel, shown when nothing is selected. */
   children: React.ReactNode;
 }) {
-  if (!selection) {
-    return (
-      <div className="rail" data-testid="inspector">
-        <div className="inspect-head">
-          <span className="inspect-title">PACKAGE</span>
-          <span className="inspect-blurb">what the car is · click a part to shape it</span>
-        </div>
-        {children}
+  /**
+   * The package panel — and the fallback for a selection that points at
+   * nothing.
+   *
+   * This component wraps the entire left rail, so returning null from it does
+   * not blank the inspector, it deletes the whole column and collapses the
+   * layout to a strip. That is what undo used to do: removing a part left the
+   * selection naming an id that no longer existed, this returned null, and the
+   * app appeared to fall over — with no error and no way back except Escape,
+   * which nobody would guess. Loading a project did the same.
+   *
+   * A selection that cannot be resolved is not an error state. It is nothing
+   * selected.
+   */
+  const packagePanel = (
+    <div className="rail" data-testid="inspector">
+      <div className="inspect-head">
+        <span className="inspect-title">PACKAGE</span>
+        <span className="inspect-blurb">what the car is · click a part to shape it</span>
       </div>
-    );
-  }
+      {children}
+    </div>
+  );
+
+  if (!selection) return packagePanel;
 
   if (selection.kind === 'feature') {
     const feature = snapshot.features[selection.id];
-    if (!feature) return null;
+    if (!feature) return packagePanel;
     const def = defOf(feature.kind);
     const geo = generateFeature(feature, result);
     return (
@@ -110,7 +124,7 @@ export function Inspector({
   // A drawn line: freeform by nature, so the inspector offers its curve and
   // its points rather than pretending it has parameters it does not have.
   const def = LINE_DEFS.find((d) => d.id === selection.id);
-  if (!def) return null;
+  if (!def) return packagePanel;
   const pts = linePoints(selection.id, snapshot.drawing as DrawingState, result);
   const tension = lineTension(selection.id, snapshot.drawing as DrawingState);
   return (

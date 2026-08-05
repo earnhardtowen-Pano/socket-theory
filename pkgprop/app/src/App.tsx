@@ -1,3 +1,5 @@
+import { solve } from '@pkgprop/core';
+import { buildSolveInput } from '@pkgprop/data';
 import { useEffect, useRef, useState } from 'react';
 import {
   clampLinePoint,
@@ -98,21 +100,49 @@ function Shell() {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+  /**
+   * Load a project, and refuse anything that would not survive being loaded.
+   *
+   * Three separate ways this used to fail. Malformed JSON threw out of an
+   * async handler and vanished — no alert, no message, nothing on screen, so
+   * the file simply appeared not to load. A file whose `format` passed but
+   * whose package the solver rejects took the entire app down to a blank page,
+   * because the solve runs during render and there is nobody above it to
+   * catch. And loading while a part was selected left the selection naming a
+   * part the new project has never heard of.
+   *
+   * So the snapshot is solved here, before it is committed. If it will not
+   * solve, the project on screen is untouched and the reason is said out loud.
+   */
   const loadProject = async (file: File) => {
-    const parsed = JSON.parse(await file.text()) as Partial<Snapshot> & { format?: string };
-    if (parsed.format !== 'pkgprop-project' || !parsed.pkg) {
+    let parsed: (Partial<Snapshot> & { format?: string }) | null = null;
+    try {
+      parsed = JSON.parse(await file.text()) as Partial<Snapshot> & { format?: string };
+    } catch (e) {
+      alert(`That file is not valid JSON.\n\n${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+    if (!parsed || parsed.format !== 'pkgprop-project' || !parsed.pkg) {
       alert('That file is not a pkgprop project.');
       return;
     }
-    dispatch({
-      type: 'load',
-      snapshot: {
-        pkg: parsed.pkg,
-        drawing: migrateDrawing(parsed.drawing),
-        features: { ...defaultFeatures(), ...(parsed.features ?? {}) },
-        render: { ...DEFAULT_RENDER, ...(parsed.render ?? {}) },
-      },
-    });
+    const snapshot: Snapshot = {
+      pkg: parsed.pkg,
+      drawing: migrateDrawing(parsed.drawing),
+      features: { ...defaultFeatures(), ...(parsed.features ?? {}) },
+      render: { ...DEFAULT_RENDER, ...(parsed.render ?? {}) },
+    };
+    try {
+      solve(buildSolveInput(snapshot.pkg));
+    } catch (e) {
+      alert(
+        `That project will not solve, so it has not been loaded.\n\n` +
+          `${e instanceof Error ? e.message : String(e)}\n\n` +
+          `Your current car is untouched.`,
+      );
+      return;
+    }
+    dispatch({ type: 'load', snapshot });
   };
 
   const c = result.counts;
