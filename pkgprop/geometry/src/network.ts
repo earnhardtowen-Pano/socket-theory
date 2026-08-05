@@ -28,6 +28,22 @@ import { add, cross, length, normalize, scale, sub, v3, type V3 } from './vec.js
  * along a shared curve produce the same points because they evaluate the same
  * curve object, so the seam has no gap and no duplicate row of vertices to
  * shade separately.
+ *
+ * WHAT THIS DOES NOT DO YET, stated plainly because the difference matters and
+ * is easy to miss. A smooth edge here is smooth in *shading* and not in
+ * *geometry*. Both patches meeting at a smooth edge are given the ruled cross
+ * field, which each of them computes across itself — so they agree on where
+ * the seam is, exactly, but not on the slope at which they arrive, and the
+ * seam is tangent-continuous only to the extent the two panels happened to
+ * want the same thing. What hides the difference is that the normals are
+ * averaged across the weld, which is a shading trick, not surface continuity.
+ *
+ * The real fix is to move the cross field from the patch to the edge: one
+ * shared unit normal field along the edge, each side projecting its own
+ * transversal into the plane perpendicular to it and scaling by its own
+ * extent. Until that lands, a zebra stripe crossing a smooth seam can still
+ * kink, and calling an edge smooth changes which vertices share a normal
+ * rather than where the surface goes.
  */
 
 export type EdgeKind = 'smooth' | 'crease';
