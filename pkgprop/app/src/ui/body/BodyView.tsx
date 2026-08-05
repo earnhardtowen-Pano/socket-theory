@@ -6,7 +6,14 @@ import type { FeatureMap } from '../../model/features.js';
 import type { DrawingState, RenderState } from '../../state/lines.js';
 import type { Action } from '../../state/store.js';
 import { studioEnvironment } from './studio.js';
-import { checkMaterial, clayMaterial, glassMaterial, paintMaterial, zebraMaterial } from './materials.js';
+import {
+  checkMaterial,
+  clayMaterial,
+  glassMaterial,
+  paintMaterial,
+  trimMaterial,
+  zebraMaterial,
+} from './materials.js';
 import { buildWheel } from './wheel.js';
 
 /**
@@ -32,8 +39,25 @@ const LOOKS: readonly { id: Look; hint: string }[] = [
   { id: 'CHECK', hint: 'blue is calm, red is where the surface accelerates' },
 ];
 
+/**
+ * What each panel is made of.
+ *
+ * Order matters: it is the material-index order the geometry's draw groups
+ * refer to. Pillars are their own slot because on almost every car they are
+ * blacked out — a body-colour A-pillar is a 1950s look and, more to the point,
+ * a pillar that is the same colour as the glass beside it does not read as a
+ * pillar at all, which is most of why the cabin looked like a balloon.
+ */
+const MATERIAL_SLOTS = ['body', 'glass', 'pillar'] as const;
+type MaterialSlot = (typeof MATERIAL_SLOTS)[number];
+
+const slotOf = (group: string): MaterialSlot =>
+  group === 'glass' ? 'glass' : group === 'pillar' ? 'pillar' : 'body';
+
 interface Studio {
   scene: THREE.Scene;
+  /** Panel group per draw group, parallel to the geometry's groups. */
+  panels: string[];
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
   body: THREE.Mesh;
@@ -145,7 +169,7 @@ export function BodyView({
     scene.add(wheels, parts);
 
     studioRef.current = {
-      scene, camera, renderer, body, glass, wheels, parts, env, key,
+      scene, camera, renderer, body, glass, wheels, parts, env, key, panels: [],
       dispose: () => {
         renderer.dispose();
         env.dispose();
@@ -207,13 +231,28 @@ export function BodyView({
       return geo;
     };
 
+    // The panelled surface when it built, the loft when it did not.
+    //
+    // This is the change the owner can see. A loft has one material because it
+    // is one thing; a network knows that this run of triangles is a windscreen
+    // and that one is a C-pillar, so the glass can be glass and the pillar can
+    // be blacked out. A cabin whose glass and whose pillars are all one colour
+    // is a bubble canopy no matter how good the surface underneath it is.
+    const net = build.ok.network;
     s.body.geometry.dispose();
-    s.body.geometry = toGeo(build.ok.car.body);
+    s.body.geometry = toGeo(net ? net.mesh : build.ok.car.body);
+    s.panels = net ? net.mesh.groups.map((g) => g.group) : [];
+    if (net) {
+      for (const g of net.mesh.groups) {
+        s.body.geometry.addGroup(g.start, g.count, MATERIAL_SLOTS.indexOf(slotOf(g.group)));
+      }
+    }
     s.glass.geometry.dispose();
-    s.glass.visible = build.ok.car.greenhouse !== null;
-    s.glass.geometry = build.ok.car.greenhouse
-      ? toGeo(build.ok.car.greenhouse)
-      : new THREE.BufferGeometry();
+    // The network carries its own glass as panels, so the second mesh is only
+    // needed while the loft is what is on screen.
+    s.glass.visible = !net && build.ok.car.greenhouse !== null;
+    s.glass.geometry =
+      !net && build.ok.car.greenhouse ? toGeo(build.ok.car.greenhouse) : new THREE.BufferGeometry();
 
     // Wheels. The cylinder's own axis is Y, and the car's lateral axis is Z
     // after the body rotation above — so the tire rotates about X. Rotating
@@ -269,12 +308,24 @@ export function BodyView({
   useEffect(() => {
     const s = studioRef.current;
     if (!s) return;
-    (s.body.material as THREE.Material).dispose();
-    s.body.material = materialFor(look, render, s.env);
+    const old = s.body.material;
+    if (Array.isArray(old)) for (const m of old) m.dispose();
+    else old.dispose();
+
+    // One material per slot, in MATERIAL_SLOTS order. In PAINT the glass is
+    // glass and the pillars are blacked out; every analysis look puts the
+    // whole car in one material, because a stripe that stops at the cabin
+    // tells you nothing about whether the join is fair.
+    s.body.material = s.panels.length
+      ? MATERIAL_SLOTS.map((slot) => {
+          if (look !== 'PAINT') return materialFor(look, render, s.env);
+          if (slot === 'glass') return glassMaterial(render, s.env);
+          if (slot === 'pillar') return trimMaterial(s.env);
+          return paintMaterial(render, s.env);
+        })
+      : materialFor(look, render, s.env);
+
     (s.glass.material as THREE.Material).dispose();
-    // Glass is only glass in PAINT; every analysis look wants the greenhouse
-    // in the same material as the body or the stripes stop where the cabin
-    // starts and tell you nothing about the join.
     s.glass.material = look === 'PAINT' ? glassMaterial(render, s.env) : materialFor(look, render, s.env);
 
     const el = 0.16 + render.sunEl * 1.2;

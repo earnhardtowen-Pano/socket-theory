@@ -242,3 +242,43 @@ Running log of decisions made without asking, per brief §5.7. Newest last.
     the next Escape went to dismissing the ledger instead of putting down the
     part in your hand — so the bug presented as Escape being broken, three
     interactions away from its cause.
+
+39. **A rail is a function of station, not a curve in space.** `tableOf` used
+    to build a parametric curve through the drawn points, sample it 480 times,
+    and — because a parametric curve cannot be asked "what is your value at
+    this x" without inverting it — scan those samples for the nearest by x into
+    a 240-cell grid. Every rail on the car went through it, so each one became
+    a 240-segment polyline whose vertices sat up to half a sample-spacing off
+    the true curve. Shading reads the first derivative. Measured on a
+    roof-shaped rail: 89 curvature sign flips before, 3 after, with jerk down
+    by a factor of two thousand. Those were the ruffles.
+
+40. **Panels, not a sweep.** A loft has one thing to say about a body and says
+    it everywhere. Nothing it makes can be a hood — only a region of the sweep
+    that happens to be over the engine — and nothing can be a shutline, because
+    a shutline is a boundary and a sweep has none except its ends. A Coons
+    patch is the other way round: four boundary curves, and the interior is a
+    consequence. Tool the boundary, tool the surface.
+
+41. **The section is the only source of truth about shape.** A rail is the
+    section evaluated at a fixed parameter and swept; a transverse cut is the
+    same section restricted between two parameters. So every boundary in the
+    network comes off one curve and two panels that meet cannot disagree about
+    where. A rail is pinned to a *parameter* rather than a height, because a
+    parameter tracks the same feature as the car changes: pin the shoulder to a
+    height and it wanders onto the roof the moment someone lowers the belt.
+
+42. **Watertight is structural, and a crease is a property of an edge.** Two
+    panels sharing a curve share it exactly, because they evaluate the same
+    curve object at the same parameters. An edge is smooth or a crease, and
+    that decides only whether the two sides may share a normal — a crease is
+    two normals at one position, which is what a character line *is*. The old
+    `vertexNormals` averaged across the entire mesh, so the surface was
+    incapable of holding a hard edge no matter what the geometry did.
+
+43. **The greenhouse's balloon was a smoothstep.** The cabin's whole plan shape
+    was `0.82 + 0.18·smoothstep(...)` over a 260mm run. A smoothstep is C1 by
+    construction, so the surface was provably incapable of showing a pillar —
+    the A-pillar *was* the first 260mm of a taper. A pillar is now a patch with
+    a crease down each side, and it is blacked out, because a pillar the same
+    colour as the glass beside it does not read as a pillar at all.

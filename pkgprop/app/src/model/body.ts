@@ -17,6 +17,7 @@ import {
   type LineId,
 } from '../state/lines.js';
 import { generateFeature, type Feature, type FeatureMap } from './features.js';
+import { buildCarNetwork, networkInputFrom, type CarNetwork } from './carNetwork.js';
 
 /**
  * The drawn car, lofted — and sculpted.
@@ -189,8 +190,13 @@ function archTable(
   };
 }
 
+/** Samples across each panel. Panels are small, so this is per-panel, not per-car. */
+const PANEL_DENSITY = 7;
+
 export interface BodyBuild {
   readonly car: CarBuild;
+  /** The panelled surface: named panels, real pillars, creases that hold. */
+  readonly network: CarNetwork | null;
   readonly input: CarInput;
   readonly wheels: readonly { x: number; y: number; radius: number; section: number }[];
   readonly groundZ: number;
@@ -394,7 +400,43 @@ export function buildCarBody(
     })),
   );
 
-  return { car: buildCar(input), input, wheels, groundZ: 0 };
+  // The panelled surface, built from the same rails and the same section the
+  // loft uses — so the two are describing one car while the loft is still
+  // here for SECTIONS and the golden geometry checks.
+  const archSpans = Object.values(features)
+    .filter((f) => f.kind === 'wheel-opening')
+    .map((f) => {
+      const pts = generateFeature(f, result).curve;
+      let a = Infinity;
+      let b = -Infinity;
+      for (const p of pts) {
+        a = Math.min(a, p.x);
+        b = Math.max(b, p.x);
+      }
+      return { slot: f.slot, x0: a, x1: b };
+    })
+    .filter((s) => s.x1 > s.x0);
+
+  let network: CarNetwork | null = null;
+  try {
+    network = buildCarNetwork(
+      networkInputFrom(
+        result,
+        { topZ: bodyTopAt, beltZ, halfWidth: halfW, rockerZ: rocker },
+        shape,
+        cabin,
+        arch,
+        archSpans,
+        PANEL_DENSITY,
+      ),
+    );
+  } catch {
+    // A topology that will not close is a bug worth seeing, but not one worth
+    // taking the whole view down for — the loft still renders.
+    network = null;
+  }
+
+  return { car: buildCar(input), input, wheels, groundZ: 0, network };
 }
 
 /** The sculpt and appendage parts on the car right now, for the 3D view. */

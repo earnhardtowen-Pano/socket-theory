@@ -135,3 +135,25 @@ export function checkMaterial(): THREE.ShaderMaterial {
       }`,
   });
 }
+
+/**
+ * Blackout trim — pillars, and anything else that is not painted metal.
+ *
+ * Almost every car built since the seventies blacks out its pillars, and the
+ * reason is exactly the one that matters here: a pillar the same colour as the
+ * glass on either side of it disappears, and the greenhouse stops reading as a
+ * cabin with structure and starts reading as a single tinted dome. Satin
+ * rather than gloss, because a gloss pillar competes with the glass beside it
+ * for the same highlight and the eye cannot tell where one stops.
+ */
+export function trimMaterial(env: THREE.Texture): THREE.Material {
+  return new THREE.MeshPhysicalMaterial({
+    color: 0x15171b,
+    roughness: 0.42,
+    metalness: 0.1,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.4,
+    envMap: env,
+    envMapIntensity: 0.7,
+  });
+}
