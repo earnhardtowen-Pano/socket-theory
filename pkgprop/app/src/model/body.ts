@@ -1,5 +1,11 @@
 import type { SolveResult } from '@pkgprop/core';
-import { buildCar, interpolate, v3, type CarBuild, type CarInput, type Displace } from '@pkgprop/geometry';
+import {
+  buildCar,
+  scalarSpline,
+  type CarBuild,
+  type CarInput,
+  type Displace,
+} from '@pkgprop/geometry';
 import {
   clampLinePoint,
   denorm,
@@ -25,47 +31,25 @@ import { generateFeature, type Feature, type FeatureMap } from './features.js';
 const SILHOUETTE: readonly LineId[] = ['hood', 'glass', 'roof', 'backlight', 'deck'];
 
 /**
- * A sampled (x, value) table turned into a smooth lookup. Piecewise-linear
- * would put a slope discontinuity at every drawn point, and a slope
- * discontinuity in a rail is a crease across the car once it is lit.
+ * A rail: one drawn line turned into an exact, smooth function of station.
+ *
+ * This used to build a parametric curve through the points, sample it 480
+ * times, and then — because a parametric curve cannot be asked "what is your
+ * value at this x" without inverting it — walk those samples looking for the
+ * nearest one by x, into a 240-cell grid it then interpolated linearly.
+ *
+ * That is where the ruffles came from. Every rail on the car went through it,
+ * so `topZ`, `halfWidth`, `rockerZ` and `beltZ` were each a 240-segment
+ * polyline whose vertices sat up to half a sample-spacing off the true curve.
+ * Shading reads the first derivative, and 240 jittered slope breaks along the
+ * length of a car is exactly the bunching you can see. The comment that used
+ * to sit here claimed the function existed to avoid slope discontinuities; the
+ * implementation manufactured two hundred and forty of them.
+ *
+ * Solved as a function of x rather than as a curve in space, the answer is
+ * exact and C2 and there is nothing left to sample.
  */
-function tableOf(pairs: readonly { x: number; v: number }[]): (x: number) => number {
-  const sorted = [...pairs].sort((a, b) => a.x - b.x);
-  const pts: { x: number; v: number }[] = [];
-  for (const p of sorted) {
-    const prev = pts[pts.length - 1];
-    if (prev && Math.abs(p.x - prev.x) < 1) pts[pts.length - 1] = { x: prev.x, v: (prev.v + p.v) / 2 };
-    else pts.push(p);
-  }
-  if (pts.length === 0) return () => 0;
-  const first = pts[0]!;
-  const last = pts[pts.length - 1]!;
-  if (pts.length < 3) {
-    return (x) => {
-      if (x <= first.x) return first.v;
-      if (x >= last.x) return last.v;
-      const span = last.x - first.x;
-      return first.v + (last.v - first.v) * (span > 0 ? (x - first.x) / span : 0);
-    };
-  }
-  const curve = interpolate(pts.map((p) => v3(p.x, p.v, 0)));
-  const GRID = 240;
-  const grid: number[] = [];
-  const samples = curve.sample(GRID * 2);
-  for (let i = 0; i <= GRID; i += 1) {
-    const x = first.x + ((last.x - first.x) * i) / GRID;
-    let best = samples[0]!;
-    for (const s of samples) if (Math.abs(s.x - x) < Math.abs(best.x - x)) best = s;
-    grid.push(best.y);
-  }
-  return (x: number): number => {
-    if (x <= first.x) return grid[0]!;
-    if (x >= last.x) return grid[GRID]!;
-    const t = ((x - first.x) / (last.x - first.x)) * GRID;
-    const i = Math.min(GRID - 1, Math.floor(t));
-    return grid[i]! + (grid[i + 1]! - grid[i]!) * (t - i);
-  };
-}
+const tableOf = scalarSpline;
 
 function pointsOf(id: LineId, drawing: DrawingState, result: SolveResult): { x: number; z: number }[] {
   const def = LINE_DEFS.find((d) => d.id === id);

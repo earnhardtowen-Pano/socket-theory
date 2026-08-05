@@ -215,6 +215,108 @@ export function interpolate(points: readonly V3[]): Curve {
   };
 }
 
+/**
+ * A rail: one value as a smooth function of station.
+ *
+ * A car's rails — how tall the roof is at x, how wide the body is at x — are
+ * functions, not free curves in space, and treating them as free curves costs
+ * more than it sounds. A parametric curve has to be *inverted* to answer "what
+ * is the value at this x", and the cheap way to invert it is to sample it
+ * densely and look up the nearest sample. That is what this replaces, and the
+ * nearest-sample lookup was the single largest source of the rippling the
+ * owner could see on the body: every rail became a 240-segment polyline whose
+ * vertices sat up to half a sample-spacing off the true curve, and shading
+ * reads the first derivative, so 240 jittered slope breaks along the length of
+ * the car is 240 ripples.
+ *
+ * Solved as a function of x instead, the answer is exact, C2, and costs a
+ * binary search. There is nothing to sample and nothing to drift.
+ *
+ * Outside the given range the rail continues at its end slope rather than
+ * flattening: a nose or a tail that runs past the last drawn point should keep
+ * going the way it was going, not turn a corner.
+ */
+export function scalarSpline(
+  points: readonly { readonly x: number; readonly v: number }[],
+): (x: number) => number {
+  const pts = [...points].sort((a, b) => a.x - b.x);
+  // Two points at the same station are one point; averaging is the only
+  // answer that does not depend on which was drawn first.
+  const clean: { x: number; v: number }[] = [];
+  for (const p of pts) {
+    const prev = clean[clean.length - 1];
+    if (prev && Math.abs(p.x - prev.x) < 1e-9) prev.v = (prev.v + p.v) / 2;
+    else clean.push({ x: p.x, v: p.v });
+  }
+
+  const n = clean.length;
+  if (n === 0) return () => 0;
+  const first = clean[0]!;
+  if (n === 1) return () => first.v;
+  const last = clean[n - 1]!;
+  if (n === 2) {
+    const m = (last.v - first.v) / (last.x - first.x);
+    return (x: number) => first.v + m * (x - first.x);
+  }
+
+  // Natural cubic: second derivative zero at both ends. Solved for the second
+  // derivatives with the Thomas algorithm, one forward and one back pass.
+  const h: number[] = [];
+  for (let i = 0; i < n - 1; i += 1) h.push(clean[i + 1]!.x - clean[i]!.x);
+
+  const lo = new Array<number>(n).fill(0);
+  const di = new Array<number>(n).fill(1);
+  const hi = new Array<number>(n).fill(0);
+  const rhs = new Array<number>(n).fill(0);
+  for (let i = 1; i < n - 1; i += 1) {
+    lo[i] = h[i - 1]!;
+    di[i] = 2 * (h[i - 1]! + h[i]!);
+    hi[i] = h[i]!;
+    rhs[i] = 6 * ((clean[i + 1]!.v - clean[i]!.v) / h[i]! - (clean[i]!.v - clean[i - 1]!.v) / h[i - 1]!);
+  }
+  for (let i = 1; i < n; i += 1) {
+    const w = lo[i]! / di[i - 1]!;
+    di[i] = di[i]! - w * hi[i - 1]!;
+    rhs[i] = rhs[i]! - w * rhs[i - 1]!;
+  }
+  const m = new Array<number>(n).fill(0);
+  m[n - 1] = di[n - 1] !== 0 ? rhs[n - 1]! / di[n - 1]! : 0;
+  for (let i = n - 2; i >= 0; i -= 1) {
+    m[i] = di[i] !== 0 ? (rhs[i]! - hi[i]! * m[i + 1]!) / di[i]! : 0;
+  }
+
+  const evalSpan = (i: number, x: number): number => {
+    const a = clean[i]!;
+    const b = clean[i + 1]!;
+    const hh = h[i]!;
+    const t = x - a.x;
+    const s = b.x - x;
+    return (
+      (m[i]! * s * s * s + m[i + 1]! * t * t * t) / (6 * hh) +
+      (a.v / hh - (m[i]! * hh) / 6) * s +
+      (b.v / hh - (m[i + 1]! * hh) / 6) * t
+    );
+  };
+
+  const slopeAt = (i: number, x: number): number => {
+    const eps = 1e-3;
+    return (evalSpan(i, x + eps) - evalSpan(i, x - eps)) / (2 * eps);
+  };
+
+  return (x: number): number => {
+    if (x <= first.x) return first.v + slopeAt(0, first.x) * (x - first.x);
+    if (x >= last.x) return last.v + slopeAt(n - 2, last.x) * (x - last.x);
+    let loI = 0;
+    let hiI = n - 2;
+    while (loI < hiI) {
+      const mid = (loI + hiI + 1) >> 1;
+      if (clean[mid]!.x <= x) loI = mid;
+      else hiI = mid - 1;
+    }
+    return evalSpan(loI, x);
+  };
+}
+
 /** Resample a curve at a fixed count, for lofting rib against rib. */
 export function resample(curve: Curve, count: number): V3[] {
   return curve.sample(Math.max(1, count - 1));
