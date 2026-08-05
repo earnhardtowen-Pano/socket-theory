@@ -67,6 +67,23 @@ export interface PatchEdges {
   readonly north: PatchEdge;
   readonly west: PatchEdge;
   readonly east: PatchEdge;
+  /**
+   * How full the panel is between its boundaries. 1 leaves the Coons interior
+   * alone; below 1 pulls it flat and taut; above 1 pushes it out.
+   *
+   * This is the answer to "they look like balloons", and the balloon is not a
+   * matter of taste — it is what this surface type does when nobody tells it
+   * otherwise. A Coons patch knows its four boundary curves and *nothing* about
+   * its interior, so it fills the middle with the average of its two ruled
+   * surfaces, which is the fattest inoffensive thing available. Every panel on
+   * the car inflates by exactly the same logic, and the whole body puffs.
+   *
+   * Real bodywork is not uniformly full. A hood is taut and nearly flat across
+   * its middle with the crown concentrated near the shoulder; a fender is full;
+   * a door is somewhere between. Being able to say which is the difference
+   * between panels and cushions.
+   */
+  readonly fullness?: number;
 }
 
 export interface Patch {
@@ -203,9 +220,22 @@ function ruledCross(from: Curve, to: Curve, t: number): V3 {
   return sub(to.at(t), from.at(t));
 }
 
+/** The bilinear patch through the four corners — the flattest surface they admit. */
+function bilinear(e: PatchEdges, u: number, v: number): V3 {
+  const p00 = e.south.curve.at(0);
+  const p10 = e.south.curve.at(1);
+  const p01 = e.north.curve.at(0);
+  const p11 = e.north.curve.at(1);
+  return add(
+    add(scale(p00, (1 - u) * (1 - v)), scale(p10, u * (1 - v))),
+    add(scale(p01, (1 - u) * v), scale(p11, u * v)),
+  );
+}
+
 export function coonsPatch(edges: PatchEdges): Patch {
   assertCorners(edges);
   const { south, north, west, east } = edges;
+  const fullness = edges.fullness ?? 1;
 
   // Resolve the fallbacks once. The correction term has to see exactly the
   // same fields the ruled terms do, so they are settled here rather than
@@ -234,7 +264,20 @@ export function coonsPatch(edges: PatchEdges): Patch {
       add(scale(c.w(v), H2(u)), scale(c.e(v), H3(u))),
     );
 
-    return sub(add(ruledV, ruledU), cornerTerm(edges, c, u, v));
+    const surface = sub(add(ruledV, ruledU), cornerTerm(edges, c, u, v));
+    if (fullness === 1) return surface;
+
+    // Fullness moves the interior and must leave the boundary exactly where it
+    // was, or the panel stops meeting its neighbours and the whole watertight
+    // argument collapses. So the correction rides a bubble that is zero on all
+    // four edges and one in the middle, and it is measured against the bilinear
+    // patch through the corners — the flattest surface those four corners admit.
+    // Scaling the distance from flat is precisely what "how full is this panel"
+    // means.
+    const bubble = 16 * u * (1 - u) * v * (1 - v);
+    if (bubble <= 0) return surface;
+    const flat = bilinear(edges, u, v);
+    return add(surface, scale(sub(surface, flat), (fullness - 1) * bubble));
   };
 
   /**

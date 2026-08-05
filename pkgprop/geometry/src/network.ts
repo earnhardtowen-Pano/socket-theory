@@ -96,6 +96,8 @@ export interface PanelSpec {
   readonly flip?: boolean;
   /** Colour key for the layers panel and the panel-shaded look. */
   readonly group?: string;
+  /** How full this panel is. 1 is the Coons default; below 1 is tauter. */
+  readonly fullness?: number;
 }
 
 export interface NetworkSpec {
@@ -214,6 +216,7 @@ export function buildNetwork(spec: NetworkSpec): NetworkMesh {
       north: edge(north, kinds[2], dv),
       west: edge(west, kinds[3], du),
       east: edge(east, kinds[1], du),
+      ...(panel.fullness !== undefined ? { fullness: panel.fullness } : {}),
     });
 
     const base = positions.length / 3;

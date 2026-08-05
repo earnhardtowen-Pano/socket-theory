@@ -131,6 +131,44 @@ const PILLAR_WIDTH = 110;
  */
 const FLOOR_DROP = 25;
 
+/**
+ * How full each panel sits between its boundaries.
+ *
+ * A Coons patch knows its four boundary curves and nothing whatever about its
+ * interior, so left alone it fills the middle with the average of its two ruled
+ * surfaces — the fattest inoffensive thing on offer. Every panel does it, so
+ * the whole body puffs, and that is the balloon. It is not taste, it is the
+ * surface type's default behaviour, and the fix is to say what each panel is.
+ *
+ * Real bodywork is not uniformly full. A hood is taut across its middle with
+ * its crown gathered near the shoulder; a roof is nearly flat; a fender is
+ * full because it has a wheel underneath it; glass is close to developable
+ * because it has to be made. These say so.
+ *
+ * Below 1 pulls a panel toward the flat quadrilateral through its corners;
+ * above 1 pushes it out. The boundary never moves either way.
+ */
+const DEFAULT_FULLNESS = 0.72;
+const FULLNESS: Readonly<Record<string, number>> = {
+  // Big, seen edge-on, and the panel where slack reads worst.
+  hood: 0.55,
+  roof: 0.5,
+  decklid: 0.6,
+  // Glass is nearly developable on a real car — it has to be formed.
+  glass: 0.62,
+  // A pillar is a narrow strap; fullness there just bulges it.
+  pillar: 0.85,
+  // Fenders and quarters have a wheel under them and want their volume.
+  'front fender': 0.95,
+  'rear quarter': 0.95,
+  'fender top': 0.85,
+  'quarter top': 0.85,
+  // The door is the flattest big panel on most cars.
+  door: 0.6,
+  'belt rail': 0.8,
+  underfloor: 0.5,
+};
+
 const clamp01 = (t: number): number => Math.min(1, Math.max(0, t));
 
 export interface CarNetworkInput {
@@ -503,6 +541,7 @@ export function buildCarNetwork(rawInput: CarNetworkInput): CarNetwork {
       id: `p-${r}-${c}`,
       label: isPillar ? fwd.label.replace(' leading edge', '') : `${group} · ${fwd.label} to ${aft.label}`,
       group,
+      fullness: FULLNESS[group] ?? DEFAULT_FULLNESS,
     };
   };
 
