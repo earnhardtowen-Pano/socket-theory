@@ -131,7 +131,29 @@ export function bspline(control: readonly V3[]): Curve {
  * The system is tridiagonal, so it is solved with the Thomas algorithm in one
  * forward and one back pass instead of a general matrix routine.
  */
-export function interpolate(points: readonly V3[]): Curve {
+/**
+ * Directions the curve must leave and arrive along.
+ *
+ * Only the direction is used; the magnitude is taken from the curve's own
+ * chord length, because a tangent whose length disagrees with the curve's
+ * parameterisation produces a loop at the end rather than a lean.
+ *
+ * This exists for one reason above all others. A car is a mirrored half, and a
+ * mirrored half only reads as one surface if it leaves the mirror plane
+ * perpendicular to it. A *natural* spline pins the second derivative at its
+ * ends and leaves the first derivative free, so where the section met the
+ * centreline the tangent was whatever the point spacing happened to produce —
+ * measured at nine to twenty-seven degrees off. Mirrored, that is a crease
+ * running the entire length of the car, down the hood, over the roof and along
+ * the decklid, with a matching one down the keel. It is the single loudest
+ * reason the bodies read as folded rather than moulded, and nobody drew it.
+ */
+export interface EndTangents {
+  readonly start?: V3;
+  readonly end?: V3;
+}
+
+export function interpolate(points: readonly V3[], ends?: EndTangents): Curve {
   const n = points.length;
   if (n < 3) return bspline(points);
 
@@ -148,9 +170,14 @@ export function interpolate(points: readonly V3[]): Curve {
   const total = t[n - 1]!;
   for (let i = 0; i < n; i += 1) t[i] = t[i]! / total;
 
-  // Natural cubic spline through the points, per axis, then resampled into
-  // control points for a B-spline. Solving the spline is cheap and exact;
-  // resampling keeps one curve type downstream.
+  // Scaled into the normalised parameter, so the prescribed slope is in the
+  // same units as the spline's own derivative.
+  const startD = ends?.start ? scale(normalize(ends.start), total) : null;
+  const endD = ends?.end ? scale(normalize(ends.end), total) : null;
+
+  // Cubic spline through the points, per axis. Natural at an end with no
+  // prescribed tangent — second derivative zero — and clamped at an end that
+  // has one.
   const solveAxis = (get: (p: V3) => number): number[] => {
     const a = points.map(get);
     const rhs = new Array<number>(n).fill(0);
@@ -164,6 +191,20 @@ export function interpolate(points: readonly V3[]): Curve {
       di[i] = 2 * (h0 + h1);
       hi[i] = h1;
       rhs[i] = 3 * ((a[i + 1]! - a[i]!) / h1 - (a[i]! - a[i - 1]!) / h0);
+    }
+    // Clamped rows, from S'(t0) = m0 and S'(t_{n-1}) = m_end under this file's
+    // c = S''/2 convention.
+    if (startD) {
+      const h0 = t[1]! - t[0]!;
+      di[0] = 2 * h0;
+      hi[0] = h0;
+      rhs[0] = 3 * ((a[1]! - a[0]!) / h0 - get(startD));
+    }
+    if (endD) {
+      const hL = t[n - 1]! - t[n - 2]!;
+      lo[n - 1] = hL;
+      di[n - 1] = 2 * hL;
+      rhs[n - 1] = 3 * (get(endD) - (a[n - 1]! - a[n - 2]!) / hL);
     }
     // Thomas: forward sweep then back substitution.
     for (let i = 1; i < n; i += 1) {

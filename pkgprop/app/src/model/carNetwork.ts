@@ -256,7 +256,12 @@ function sectionAt(input: CarNetworkInput, x: number): Section | null {
   }
 
   const t = chordParams(pts);
-  const curve = interpolate(pts);
+  // Perpendicular to the mirror plane at both ends. The car is a mirrored
+  // half, and a mirrored half only reads as one surface if it leaves the
+  // centreline square — otherwise the reflection meets it at an angle and the
+  // body wears a crease down its spine and another down its keel, running its
+  // whole length, that nobody drew. Alias calls this Golden Rule 4.
+  const curve = interpolate(pts, { start: v3(0, 1, 0), end: v3(0, -1, 0) });
   // The interpolation overshoots past the widest point, and the plan half-width
   // is a solved wall. Scale back rather than clamp, which would leave a flat
   // spot along the widest point.
@@ -432,12 +437,15 @@ export function buildCarNetwork(rawInput: CarNetworkInput): CarNetwork {
   // hood shutline and the fender top. One grid, five rails, and no seam
   // between a "body" and a "greenhouse" because there is only one section.
   const rails: Rail[] = [
-    { id: 'crown', label: 'centreline', f: RAIL_CROWN, kind: 'smooth' },
+    // The centreline and the keel are where the car meets its own
+    // reflection: the surface has to leave them square or the mirror puts a
+    // crease the length of the body down each one.
+    { id: 'crown', label: 'centreline', f: RAIL_CROWN, kind: 'mirror' },
     { id: 'roof-rail', label: 'roof rail', f: RAIL_ROOF, kind: 'crease' },
     { id: 'dlo', label: 'DLO lower edge', f: RAIL_DLO, kind: 'crease' },
     { id: 'shoulder', label: 'shoulder', f: RAIL_SHOULDER, kind: 'smooth' },
     { id: 'sill', label: 'sill', f: RAIL_SILL, kind: 'crease' },
-    { id: 'floor', label: 'underfloor', f: RAIL_FLOOR, kind: 'smooth' },
+    { id: 'floor', label: 'underfloor', f: RAIL_FLOOR, kind: 'mirror' },
   ];
 
   // ---- the cuts: panel divisions along the car ---------------------------

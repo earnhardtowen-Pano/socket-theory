@@ -46,7 +46,24 @@ import { add, cross, length, normalize, scale, sub, v3, type V3 } from './vec.js
  * rather than where the surface goes.
  */
 
-export type EdgeKind = 'smooth' | 'crease';
+/**
+ * What an edge does to the surface arriving at it.
+ *
+ * `mirror` is the centreline, and it is not a stylistic choice. A car is a
+ * mirrored half, so along y = 0 the surface meets its own reflection. For the
+ * two halves to be one surface the normal there must lie *in* the mirror
+ * plane — no lateral component — and since the normal is the cross product of
+ * the along-edge and across-edge directions, that requires the surface to
+ * leave the centreline squarely sideways, with no vertical component at all.
+ *
+ * Left to the ruled chord it does not: the chord from the roof centreline to
+ * the roof rail drops as it goes outboard, so the surface leaves the spine
+ * tilted, and the reflection meets it at twice that angle. Measured at 14°.
+ * That is a crease running the full length of the car — down the hood, over
+ * the roof, along the decklid, and a second one down the keel — drawn by the
+ * arithmetic rather than by anybody.
+ */
+export type EdgeKind = 'smooth' | 'crease' | 'mirror';
 
 /** A named curve in the network. Panels refer to it; it belongs to no one. */
 export interface NetCurve {
@@ -175,13 +192,22 @@ export function buildNetwork(spec: NetworkSpec): NetworkMesh {
     const dv = (t: number): V3 => sub(north.at(t), south.at(t));
     const du = (t: number): V3 => sub(east.at(t), west.at(t));
 
-    const edge = (c: Curve, kind: EdgeKind, field: (t: number) => V3): PatchEdge =>
-      kind === 'crease'
-        ? creaseEdge(c)
-        : // The ruled slope, said explicitly rather than left to the patch's
-          // fallback, so a later step can retune an edge without changing the
-          // shape this one currently produces.
-          smoothEdge(c, field, (t) => length(field(t)));
+    const edge = (c: Curve, kind: EdgeKind, field: (t: number) => V3): PatchEdge => {
+      if (kind === 'crease') return creaseEdge(c);
+      if (kind === 'mirror') {
+        // Straight out sideways, carrying the chord's reach but none of its
+        // rise. This is what makes the two halves one surface.
+        return smoothEdge(
+          c,
+          (t) => v3(0, Math.sign(field(t).y) || 1, 0),
+          (t) => length(field(t)),
+        );
+      }
+      // The ruled slope, said explicitly rather than left to the patch's
+      // fallback, so a later step can retune an edge without changing the
+      // shape this one currently produces.
+      return smoothEdge(c, field, (t) => length(field(t)));
+    };
 
     const patch: Patch = coonsPatch({
       south: edge(south, kinds[0], dv),
@@ -312,13 +338,34 @@ function weldedNormals(
   return out;
 }
 
-/** Mirror a network mesh across the centre plane and append it. */
+/**
+ * A vertex this close to the centre plane is on it.
+ *
+ * A tenth of a millimetre. The centreline rails are built from points whose y
+ * is literally zero, so this is not a tolerance so much as insurance against
+ * the last bit of a float.
+ */
+const MIRROR_TOLERANCE = 0.1;
+
+/**
+ * Mirror a network mesh across the centre plane and append it.
+ *
+ * The normals on the seam are squared up on the way through, and that is a
+ * correction rather than a cosmetic. On the mirror plane the true surface
+ * normal has no lateral component — it cannot, because the surface continues
+ * into its own reflection — so any lateral component a triangle's normal picked
+ * up there is an artefact of the tessellation, not the surface. Left in, the
+ * two halves disagree by twice that angle and the car wears a crease down its
+ * spine and its keel. Measured at 4.4° after the patch fields were fixed, which
+ * is still a line you can see.
+ */
 export function mirrorNetwork(mesh: NetworkMesh): NetworkMesh {
   const n = mesh.vertexCount;
   const positions = new Float32Array(mesh.positions.length * 2);
   const normals = new Float32Array(mesh.normals.length * 2);
   positions.set(mesh.positions, 0);
   normals.set(mesh.normals, 0);
+
   for (let i = 0; i < n; i += 1) {
     positions[(n + i) * 3] = mesh.positions[i * 3]!;
     positions[(n + i) * 3 + 1] = -mesh.positions[i * 3 + 1]!;
@@ -326,6 +373,20 @@ export function mirrorNetwork(mesh: NetworkMesh): NetworkMesh {
     normals[(n + i) * 3] = mesh.normals[i * 3]!;
     normals[(n + i) * 3 + 1] = -mesh.normals[i * 3 + 1]!;
     normals[(n + i) * 3 + 2] = mesh.normals[i * 3 + 2]!;
+  }
+
+  // Square the seam up — on both halves, after both exist. Doing it before the
+  // copy corrects one side and then hands the mirrored side the uncorrected
+  // original, which leaves exactly the disagreement this is here to remove.
+  for (let i = 0; i < positions.length / 3; i += 1) {
+    if (Math.abs(positions[i * 3 + 1]!) > MIRROR_TOLERANCE) continue;
+    const nx = normals[i * 3]!;
+    const nz = normals[i * 3 + 2]!;
+    const len = Math.hypot(nx, nz);
+    if (len < 1e-9) continue;
+    normals[i * 3] = nx / len;
+    normals[i * 3 + 1] = 0;
+    normals[i * 3 + 2] = nz / len;
   }
   // Mirroring reverses handedness, so the winding has to be flipped back or
   // the whole left side of the car renders inside out.
