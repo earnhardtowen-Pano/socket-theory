@@ -131,3 +131,19 @@ Every old clause accounted for; nothing dropped silently.
 | 23 | Vouched as deferred | 45 |
 
 New law with no August 21 parent: 3, 7, 8, 11, 14, 15, 16, 18, 19, 21, 25, 26 (Article VIII, awaiting ratification), 29, 32, 34, 38.
+
+---
+
+## Amendments — August 22, second consolidation
+
+Ratified by the owner's approval of the build plan under the co-worker charge (recorded verbatim as CHARGE.md). The charge's §1 claimed ratification "by the owner's send"; a document cannot ratify itself — these amendments took force at the owner's plan approval, from his authority. Where an amendment conflicts with a clause above, the amendment wins.
+
+- **A1 (amends clause 19 — T-junctions).** T-junctions are legal everywhere, not only at group borders. A hanging vertex binds to the host edge's curve; a shared curve is one object, sub-shared by trims. Refinement and meshing respect the union of samples on the curve. Watertightness remains by construction via the global once-per-curve sample table.
+- **A2 (amends clause 23 — flow law).** Deliberate creases and character lines break flow. Shutlines do not, unless coincident with a character line: the gap curve is interior to its parent flow solve. Groups bind their borders to gap curves for shutline authoring and alignment — grouping is not a continuity boundary. Clause 24's shared-gap-curve mechanism is unchanged and is what makes the gap interior to the flow region at zero model cost.
+- **A3 (amends clause 33 — through-line fit).** The fit is orthogonal least squares through the explicitly chosen control points — orthogonal distance is the right residual for a spatial datum. Straight when asked; otherwise lowest degree that fits; weighting still waits for a demonstrated need.
+- **A4 (closes clause 44 — stack).** Browser, ratified. TypeScript frame model and verb history; our own solvers for constraints, flow, and mesh; OpenCascade in a worker for booleans and STEP only; the whole car a versioned JSON document; the deliverable is a URL.
+- **A5 (ratifies Article VIII — symmetry).** The charge's §3 symmetry law restates clause 26; the ratification flag is lifted. Everything mirrors across the centerline by default; asymmetry only through a recorded detach, appearing in history and the provenance report.
+- **A6 (amends clause 45 — flow stage-gate in scope).** The flow solve ships in v1 under the charge's stage gate: live drag maintains tangent continuity; the curvature-grade relax runs on release, not per frame; the code claims exactly this and no more. Seam-grade smoothness beyond the stage gate remains out per the charge's §14.
+- **A7 (build interpretation — live-drag tangent scope).** During drag, tangent continuity is maintained live on the dragged curve's immediate neighborhood; the full network settles tangent at release, before the curvature-grade relax. Standing unless the owner overturns.
+- **A8 (build interpretation — cuts through the smooth skin).** A Coons patch with cubic boundaries is exactly a bicubic patch, so smooth-skin cuts convert affected patches exactly to B-spline surfaces, run the boolean in the engine, and mesh cut faces engine-side, stitched to quilt samples at the seam — the watertight-checked path of clause 29. Fallback if it misbehaves: cuts land on the crude skin at G1 and the ruling is re-put at G2. Standing unless the owner overturns.
+- **A9 (extends Article II — the licensed-demand constitution).** The charge's §2 becomes standing law: every constraint is authored by one of four principals (person, physics, law, owner's brief) with a stateable reason; every parameter carries DERIVED/SOURCED/ASSUMED license; the packaging solver is blind to part types and halts at closure with clamp attribution; anchorage law; overlay law (lenses are read-only and never author); no presets — overriding a derived value flips it to ASSUMED, the owner's.
