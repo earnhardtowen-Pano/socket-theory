@@ -1,0 +1,26 @@
+{
+  "name": "instrument",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser instrument for designing a complete car — chassis and body — under the ratified statute.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "ci": "npm run typecheck && vitest run",
+    "dev": "vite --config apps/instrument/vite.config.ts",
+    "build": "vite build --config apps/instrument/vite.config.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@types/three": "^0.160.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "opencascade.js": "^1.1.1",
+    "three": "^0.160.0"
+  }
+}
