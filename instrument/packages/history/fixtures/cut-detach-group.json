@@ -1,0 +1,130 @@
+{
+  "format": "car",
+  "version": 1,
+  "title": "fixture: cut, mirror-detach, group, creases",
+  "counters": {
+    "cell": 6,
+    "curve": 12,
+    "vertex": 8,
+    "datum": 0,
+    "group": 1,
+    "material": 1,
+    "feature": 1,
+    "demand": 0,
+    "port": 0,
+    "part": 0,
+    "constraint": 0
+  },
+  "verbs": [
+    {
+      "seq": 0,
+      "verb": "tape",
+      "args": {
+        "kind": "box",
+        "rect": {
+          "view": {
+            "kind": "side"
+          },
+          "a": [
+            0,
+            0
+          ],
+          "b": [
+            100,
+            80
+          ],
+          "depth": 60,
+          "at": 0
+        }
+      }
+    },
+    {
+      "seq": 1,
+      "verb": "constrain",
+      "args": {
+        "note": "roof height held at 80 for the blocking study",
+        "spec": {
+          "kind": "z-max",
+          "value": 80
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "verb": "cut",
+      "args": {
+        "profile": {
+          "kind": "rect",
+          "rect": {
+            "view": {
+              "kind": "plan"
+            },
+            "a": [
+              20,
+              10
+            ],
+            "b": [
+              60,
+              50
+            ],
+            "depth": -30,
+            "at": 80
+          }
+        },
+        "targets": [
+          "cell#5"
+        ],
+        "taperToPoint": false
+      }
+    },
+    {
+      "seq": 3,
+      "verb": "mirror-detach",
+      "args": {
+        "cellId": "cell#3"
+      }
+    },
+    {
+      "seq": 4,
+      "verb": "group",
+      "args": {
+        "cellIds": [
+          "cell#0",
+          "cell#1"
+        ],
+        "name": "ends"
+      }
+    },
+    {
+      "seq": 5,
+      "verb": "crease",
+      "args": {
+        "curveId": "curve#3"
+      }
+    },
+    {
+      "seq": 6,
+      "verb": "crease",
+      "args": {
+        "curveId": "curve#9"
+      }
+    },
+    {
+      "seq": 7,
+      "verb": "place-point",
+      "args": {
+        "curveId": "curve#0",
+        "t": 0.5
+      }
+    },
+    {
+      "seq": 8,
+      "verb": "assign-material",
+      "args": {
+        "targetId": "cell#5",
+        "name": "paint",
+        "color": "#c8102e"
+      }
+    }
+  ]
+}

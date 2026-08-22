@@ -1,0 +1,83 @@
+{
+  "format": "car",
+  "version": 1,
+  "title": "fixture: tape split with T-junction, ctrl pinch",
+  "counters": {
+    "cell": 8,
+    "curve": 13,
+    "vertex": 10,
+    "datum": 0,
+    "group": 0,
+    "material": 0,
+    "feature": 0,
+    "demand": 0,
+    "port": 0,
+    "part": 0,
+    "constraint": 0
+  },
+  "verbs": [
+    {
+      "seq": 0,
+      "verb": "tape",
+      "args": {
+        "kind": "box",
+        "rect": {
+          "view": {
+            "kind": "side"
+          },
+          "a": [
+            0,
+            0
+          ],
+          "b": [
+            100,
+            80
+          ],
+          "depth": 60,
+          "at": 0
+        }
+      }
+    },
+    {
+      "seq": 1,
+      "verb": "tape",
+      "args": {
+        "kind": "line",
+        "line": {
+          "view": {
+            "kind": "side"
+          },
+          "a": [
+            40,
+            -10
+          ],
+          "b": [
+            40,
+            90
+          ],
+          "lineClass": "tape"
+        },
+        "targets": [
+          "cell#3"
+        ]
+      }
+    },
+    {
+      "seq": 2,
+      "verb": "push-pull",
+      "args": {
+        "target": {
+          "kind": "ctrl",
+          "id": "curve#12",
+          "seg": 0,
+          "idx": 1
+        },
+        "delta": [
+          0,
+          6,
+          0
+        ]
+      }
+    }
+  ]
+}

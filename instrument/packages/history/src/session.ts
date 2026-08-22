@@ -114,9 +114,25 @@ class SessionImpl implements Session {
         }
         if (a.targets.length === 0) throw new Error("tape: a tape line needs target cells");
         for (const target of a.targets) {
-          for (const leaf of state.resolveCell(target)) {
-            state.splitCell(leaf, a.line, alloc);
+          const leaves = state.resolveCell(target);
+          if (leaves.length === 1 && leaves[0] !== undefined) {
+            state.splitCell(leaves[0], a.line, alloc);
+            continue;
           }
+          // Persistent naming: a target that has since split applies to the
+          // children the line actually crosses. splitCell throws its
+          // "crossed 0" miss before any mutation or allocation, so skipping
+          // a missed leaf is state-safe and deterministic.
+          let hits = 0;
+          for (const leaf of leaves) {
+            try {
+              state.splitCell(leaf, a.line, alloc);
+              hits += 1;
+            } catch (err) {
+              if (!(err instanceof Error) || !/crossed 0\)$/.test(err.message)) throw err;
+            }
+          }
+          if (hits === 0) throw new Error(`tape: line crosses no descendant of ${target}`);
         }
         return;
       }
