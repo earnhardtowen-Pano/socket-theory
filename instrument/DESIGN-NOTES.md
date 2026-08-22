@@ -29,3 +29,35 @@ pattern, named) or constructed (reasoned here, worth adversarial review).
 - **Coons patch with cubic boundaries = exact bicubic** — constructed claim,
   standard math (bilinear blend of cubics is degree (3,3)); it underwrites
   amendment A8's smooth-skin cut path.
+
+## Run conduct — the max protocol (owner-ratified, mid-run)
+
+1. Stretch prompts injected at gates, never mid-seam: G1 — attempt T-junction
+   meshing with grooves in all parameter regions, report exactly where it
+   fails; G2 — add three more real cars from public specs, report deltas, do
+   not block on tolerance; G3 — panel method on all six cars, zebra and
+   curvature maps, attempt STEP export for one cut.
+2. Speculative branches on the hardest problems (flow solve, cut path): three
+   or four parallel attempts, CI filters, the gate summary promotes the
+   survivor by measured score, not style.
+3. The six-car battery is a feedback loop started early in P3, its own lane —
+   deltas are capability visibility, not failure.
+4. The deterministic core is sacred: no agent is ever told to skip the hash,
+   ignore the clock bans, or bypass the closed-mesh check. Widening evidence,
+   never weakening invariants.
+5. Compute goes to parallelism — more branches, more SOURCED research, more
+   adversarial verifiers — never to shortcuts past law.
+
+Consequence taken immediately: P2's lanes (type library, blind packaging
+solver, mass ledger, regulatory/brief sets, real-car fixture) run in parallel
+with P1 — their seams (demand/port/quantity, and the packaging SolveInput/
+SolveResult contract added to @car/schema) are frozen and pushed.
+
+## P2 — packaging contract
+
+- **Translation-only poses in v1** — constructed simplification, stated in
+  schema: ports are authored in world-aligned part frames; mates carry fixed
+  offsets. Rotated installs (tilted engines) enter through the type's port
+  authoring, not solver orientation variables. Honest scope, revisit on need.
+- **Blindness layer three** — the rename-fuzz behavioral test: renaming every
+  part label yields an identical solve modulo the renaming.

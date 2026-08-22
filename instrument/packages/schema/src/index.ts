@@ -322,6 +322,78 @@ export interface QuiltSpec {
 }
 
 // ---------------------------------------------------------------------------
+// Packaging — the blind solver's entire world. It consumes these records and
+// nothing else; they carry NO part-type field, so there is nothing to branch
+// on. Layout is read back after placement, never chosen as a mode.
+// v1 poses are translation-only: parts author their ports in world-aligned
+// part frames and mates carry any fixed relative orientation in their offsets.
+// ---------------------------------------------------------------------------
+
+export interface Pose {
+  readonly origin: Pt3;
+}
+
+export interface PartInstance {
+  readonly id: Id; // part#n
+  /** Descriptive only — the solver must treat it as opaque (rename-fuzz test). */
+  readonly label: string;
+  readonly ports: readonly PortRecord[];
+  readonly demands: readonly DemandRecord[];
+  readonly mass?: Quantity<"kg">;
+  /** Envelope the part claims, for pairwise separation. */
+  readonly envelope?: BoxShape;
+}
+
+export interface PortRef {
+  readonly partId: Id;
+  readonly portId: Id;
+}
+
+export interface Mate {
+  readonly a: PortRef;
+  readonly b: PortRef;
+  /** Offset of b's port origin from a's, in world axes, mm. */
+  readonly offset?: Pt3;
+}
+
+/** Substrate member — reinforced structure that anchorages must terminate in. */
+export interface MemberRecord {
+  readonly id: Id;
+  readonly label: string;
+  readonly box: BoxShape;
+  readonly at: Pt3;
+  readonly reinforced: boolean;
+}
+
+export interface SolveInput {
+  readonly parts: readonly PartInstance[];
+  readonly mates: readonly Mate[];
+  /** Parts pinned in world space (the substrate chain root). */
+  readonly fixed: ReadonlyMap<Id, Pose>;
+  readonly members: readonly MemberRecord[];
+  /** World-scoped demands: bands, protected zones, ground line. */
+  readonly worldDemands: readonly DemandRecord[];
+}
+
+export interface SolveViolation {
+  readonly kind: "clearance" | "band" | "protected-zone" | "anchorage" | "unplaced";
+  readonly detail: string;
+  readonly demandId?: Id;
+  readonly partIds: readonly Id[];
+}
+
+export interface SolveResult {
+  readonly placements: ReadonlyMap<Id, Pose>;
+  /** Every active bound, attributed: which demand, whose, why. */
+  readonly clamps: readonly ClampAttribution[];
+  readonly violations: readonly SolveViolation[];
+  /** Ports and point-at demands published into the grids. */
+  readonly hardPoints: readonly SnapPoint[];
+  /** True when every inequality is satisfied and every anchorage terminates. */
+  readonly closed: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Provenance — monotone; the print report carries it (statute clauses 7, 41).
 // ---------------------------------------------------------------------------
 
