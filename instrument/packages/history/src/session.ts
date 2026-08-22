@@ -224,7 +224,7 @@ export function load(doc: CarDocument): Session {
   const checked = validateDocumentShape(doc, "load");
   const session = new SessionImpl(checked.title);
   for (const rec of checked.verbs) {
-    session.apply(rec.verb, rec.args as VerbArgs[typeof rec.verb]);
+    session.apply(rec.verb, rec.args as unknown as VerbArgs[typeof rec.verb]);
   }
   const got = session.alloc.counters();
   for (const kind of ID_KINDS) {
