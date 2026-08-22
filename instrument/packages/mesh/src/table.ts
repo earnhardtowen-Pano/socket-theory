@@ -27,6 +27,15 @@ export interface SideSamples {
   readonly verts: readonly number[];
   /** Loop-local parameters in [0,1], ascending, parallel to `verts`; [0] when collapsed. */
   readonly s: readonly number[];
+  /**
+   * The reverse parameterization (loop end → start), parallel to `verts`.
+   * NOT computed as 1 - s: each entry comes from the opposite trim formula
+   * ((t-lo)/span vs (hi-t)/span), so a cell whose grid axis runs against the
+   * loop gets bitwise-identical params to its opposite side — 1-(1-t) is not
+   * t in floats, and that ulp would split the grid union into near-duplicate
+   * columns.
+   */
+  readonly sOpp: readonly number[];
 }
 
 export type CellSides = readonly [SideSamples, SideSamples, SideSamples, SideSamples];
@@ -216,22 +225,28 @@ export function buildSampleTable(quilt: QuiltSpec, baseDensity: number): GlobalS
     const { lo, hi, reversed } = trimOf(side);
     const ends = sideEnds(side);
     if (ends.collapsed) {
-      return { collapsed: true, verts: [finalOfRaw[ends.start]!], s: [0] };
+      return { collapsed: true, verts: [finalOfRaw[ends.start]!], s: [0], sOpp: [0] };
     }
     const span = hi - lo;
     const all = paramsByCurve.get(side.curveId)!;
-    const entries: { s: number; v: number }[] = [];
+    const entries: { s: number; sOpp: number; v: number }[] = [];
     for (const t of all) {
       if (t < lo || t > hi) continue;
       // exact 0 and 1 at the trim ends: (lo-lo)/span = 0, (hi-lo)/span = 1
-      const s = reversed ? (hi - t) / span : (t - lo) / span;
-      entries.push({ s, v: vertexAt(side.curveId, t) });
+      const sFwd = (t - lo) / span;
+      const sBwd = (hi - t) / span;
+      entries.push({
+        s: reversed ? sBwd : sFwd,
+        sOpp: reversed ? sFwd : sBwd,
+        v: vertexAt(side.curveId, t),
+      });
     }
     entries.sort((a, b) => a.s - b.s);
     return {
       collapsed: false,
       verts: entries.map((e) => e.v),
       s: entries.map((e) => e.s),
+      sOpp: entries.map((e) => e.sOpp),
     };
   };
   const sidesByCell = new Map<Id, CellSides>();

@@ -62,6 +62,7 @@ import type {
   PushPullTarget,
   SharedCurve,
   SideRef,
+  Vertex,
 } from "./records.js";
 import { viewToWorld, worldToView } from "./views.js";
 import { computeEvaluatedBuffers, computeQuilt, type EvaluatedObject } from "./evaluate.js";

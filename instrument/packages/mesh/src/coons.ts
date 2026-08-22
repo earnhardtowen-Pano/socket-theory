@@ -48,10 +48,11 @@ interface GridSide {
 function toGridSide(side: SideSamples, flip: boolean): GridSide {
   if (side.collapsed) return { collapsed: true, g: [0], verts: [...side.verts] };
   if (!flip) return { collapsed: false, g: [...side.s], verts: [...side.verts] };
+  // flipped axis: use the table's exact reverse parameterization, never 1 - s
   const g: number[] = [];
   const verts: number[] = [];
   for (let i = side.s.length - 1; i >= 0; i--) {
-    g.push(1 - side.s[i]!); // exact at the ends: 1-0=1, 1-1=0
+    g.push(side.sOpp[i]!);
     verts.push(side.verts[i]!);
   }
   return { collapsed: false, g, verts };
