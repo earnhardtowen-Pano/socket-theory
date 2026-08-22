@@ -293,6 +293,35 @@ export interface SnapPoint {
 }
 
 // ---------------------------------------------------------------------------
+// QuiltSpec — the frozen seam between @car/surface (producer) and @car/mesh
+// (consumer). Sides are given in loop order, counter-clockwise seen from
+// outside; the end of side k coincides exactly with the start of side k+1.
+// A side traverses its shared curve's sub-range [t0,t1]; `reversed` means the
+// loop runs the curve from t1 down to t0. T-junctions appear as multiple
+// owners trimming the same curveId — the mesher's global sample table takes
+// the union of samples per curve so neighbors consume identical vertices.
+// ---------------------------------------------------------------------------
+
+export interface QuiltSide {
+  readonly curveId: Id;
+  readonly t0: number;
+  readonly t1: number;
+  readonly reversed: boolean;
+}
+
+export interface QuiltCell {
+  readonly id: Id;
+  readonly sides: readonly [QuiltSide, QuiltSide, QuiltSide, QuiltSide];
+}
+
+export interface QuiltSpec {
+  readonly cells: readonly QuiltCell[];
+  readonly curves: ReadonlyMap<Id, CurveChain>;
+  readonly creases: ReadonlySet<Id>;
+  readonly gaps: ReadonlySet<Id>;
+}
+
+// ---------------------------------------------------------------------------
 // Provenance — monotone; the print report carries it (statute clauses 7, 41).
 // ---------------------------------------------------------------------------
 
