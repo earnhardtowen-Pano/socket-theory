@@ -188,7 +188,13 @@ export function makeDriveline(params: DrivelineParams, alloc: IdAllocator): Driv
     layout === "longitudinal"
       ? assumed(35, "kg", "final-drive housing + gears + lube — no citable source found this run")
       : derived(0, "kg", "transverse layout: final drive integral to the transaxle, counted in the transmission entry");
-  const mass = qAdd(shaftMass, diffMass);
+  const halfshaftPairMass = derived(
+    (PI / 4) * shaftDiameter.value * shaftDiameter.value * halfshaftLength.value * steelDensity.value * 1e-6 * 2,
+    "kg",
+    `halfshaft pair mass = 2*(pi/4)*d^2*L*rho, taking the propshaft-sized d as a conservative stand-in: ` +
+      `d = ${shaftDiameter.value.toFixed(1)} mm [DERIVED], L = ${halfshaftLength.value} mm [${halfshaftLength.license.tag}], rho = ${steelDensity.value} g/cm3 [SOURCED]`,
+  );
+  const mass = qAdd(qAdd(shaftMass, diffMass), halfshaftPairMass);
 
   // --- geometry -------------------------------------------------------------
   const L = shaftLength.value;

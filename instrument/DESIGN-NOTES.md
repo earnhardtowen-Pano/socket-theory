@@ -53,6 +53,19 @@ solver, mass ledger, regulatory/brief sets, real-car fixture) run in parallel
 with P1 — their seams (demand/port/quantity, and the packaging SolveInput/
 SolveResult contract added to @car/schema) are frozen and pushed.
 
+## First end-to-end integration (night build)
+
+- **Mirror double-emission, found and fixed** — the first verbs→quilt→mesh run
+  came back OPEN (512 violations): the per-cell centered test gave the side
+  faces of a centerline-straddling box phantom mirror twins, doubling panels.
+  Corrected law reading, now in evaluateMirrors: a cell earns a twin only when
+  its mirror image is absent from the model (a self-symmetric body already
+  contains the mirror of each of its faces). The test that encoded the old
+  expectation was corrected; replay goldens unchanged (fixtures are
+  off-center). After the fix the same body meshes CLOSED with zero violations.
+  This is what the gate exists for: the mesher's closed check caught a frame
+  evaluator bug neither package could see alone.
+
 ## P2 — packaging contract
 
 - **Translation-only poses in v1** — constructed simplification, stated in

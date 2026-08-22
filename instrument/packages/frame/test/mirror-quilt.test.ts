@@ -25,12 +25,14 @@ describe("mirror evaluation (symmetry law)", () => {
     expect(cell2 && isCenteredOnCenterline(state, cell2)).toBe(true);
   });
 
-  it("a box straddling the centerline mirrors only its off-center faces", () => {
+  it("a body straddling the centerline symmetrically emits no twins at all", () => {
+    // Corrected at first end-to-end integration: the -Y side face's mirror
+    // image IS the +Y side face, which already exists — emitting twins for
+    // them doubles panels and opens the closed mesh. A cell earns a twin only
+    // when its mirror image is absent from the model.
     const { state } = freshBox(CENTERED_RECT);
     const { twins } = evaluateMirrors(state);
-    // front view: x->Y, so faces -Y/+Y are cells 2/3; the four faces that
-    // straddle Y=0 symmetrically are their own mirrors
-    expect(twins.map((t) => t.id)).toEqual(["cell#2~m", "cell#3~m"]);
+    expect(twins.map((t) => t.id)).toEqual([]);
   });
 
   it("twins are derivation only: mirrored geometry, reversed loops, no stored records", () => {

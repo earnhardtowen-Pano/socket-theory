@@ -260,7 +260,7 @@ export function makeEngineICE(params: EngineICEParams, alloc: IdAllocator): Engi
       : [port(alloc.next("port"), "exhaust-flange-R", "face", { origin: mapPt([blockMidX, rightFaceY, flangeZ]), xAxis: right, zAxis: zUp })]),
     port(alloc.next("port"), "coolant-in", "point", { origin: mapPt([-lengthV, 0, flangeZ]), xAxis: fwd, zAxis: zUp }),
     port(alloc.next("port"), "coolant-out", "point", { origin: mapPt([-lengthV, 0, heightAboveCrank.value]), xAxis: fwd, zAxis: zUp }),
-    port(alloc.next("port"), "intake-mouth", "point", { origin: mapPt([-(lengthV / 2), 0, topZ]), xAxis: zUp, zAxis: zUp }),
+    port(alloc.next("port"), "intake-mouth", "point", { origin: mapPt([-(lengthV / 2), 0, topZ]), xAxis: fwd, zAxis: zUp }),
   ];
 
   // --- demands --------------------------------------------------------------

@@ -61,6 +61,23 @@ export interface MirrorTwin {
   readonly sides: readonly [SideRef, SideRef, SideRef, SideRef];
 }
 
+/** Quantized canonical signature of a sampled boundary point bag. */
+function bagSignature(points: readonly Pt3[]): string {
+  const q = (x: number): number => Math.round(x * 1e6) / 1e6;
+  const sortKey = (a: Pt3, b: Pt3): number => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+  return points
+    .map((p): Pt3 => [q(p[0]), q(p[1]), q(p[2])])
+    .sort(sortKey)
+    .map((p) => `${p[0]},${p[1]},${p[2]}`)
+    .join(";");
+}
+
+function cellBag(state: FrameState, cell: Cell): Pt3[] {
+  const bag: Pt3[] = [];
+  for (const side of cell.sides) bag.push(...sideSamplePoints(state, side));
+  return bag;
+}
+
 export interface MirrorEvaluation {
   readonly twins: readonly MirrorTwin[];
   /** "<curveId>~m" -> mirrored chain, for every curve a twin references. */
@@ -69,16 +86,29 @@ export interface MirrorEvaluation {
   readonly mirroredSource: ReadonlyMap<Id, Id>;
 }
 
-/** Derive the mirror twins. Loop order is reversed so twins stay CCW from outside. */
+/**
+ * Derive the mirror twins. Loop order is reversed so twins stay CCW from
+ * outside. A cell earns a twin only when its mirror image does not already
+ * exist in the model: a self-symmetric cell is its own mirror, and a body
+ * that straddles the centerline already contains the mirror of each of its
+ * side faces — emitting twins there would double panels and open the mesh
+ * (found at first end-to-end integration; the per-cell centered test alone
+ * double-emitted the side faces of centered boxes).
+ */
 export function evaluateMirrors(state: FrameState): MirrorEvaluation {
   const twins: MirrorTwin[] = [];
   const mirroredCurves = new Map<Id, CurveChain>();
   const mirroredSource = new Map<Id, Id>();
   const cellIds = [...state.cells.keys()].sort(idCompare);
+  const existing = new Set<string>();
+  for (const cellId of cellIds) {
+    const cell = state.cells.get(cellId);
+    if (cell) existing.add(bagSignature(cellBag(state, cell)));
+  }
   for (const cellId of cellIds) {
     const cell = state.cells.get(cellId);
     if (!cell || cell.mirror !== "auto") continue;
-    if (isCenteredOnCenterline(state, cell)) continue;
+    if (existing.has(bagSignature(cellBag(state, cell).map(mirrorY)))) continue;
     const flipped = [...cell.sides].reverse().map((s): SideRef => {
       const sourceId = state.resolveCurve(s.curveId);
       const mId = mirrorId(sourceId);
