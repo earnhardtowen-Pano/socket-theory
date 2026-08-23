@@ -6,7 +6,7 @@
  */
 
 import * as THREE from "three";
-import { flowMesh } from "@car/flow";
+import { creaseNormals, DEFAULT_CREASE_ANGLE } from "@car/mesh";
 import type { Id, OrthoView, Pt2, RenderFeed } from "@car/schema";
 import { eyeSign, inPlaneAxes, viewNormal, type CamState, type ScreenSize } from "./view";
 import type { Ghost } from "./tools";
@@ -48,8 +48,15 @@ export class Viewport {
   private smoothMat: THREE.MeshStandardMaterial;
   private readonly handleGroup = new THREE.Group();
   zebra = false;
-  /** Smooth mode: interpolated analytic normals; crude: flat panels. */
+  /**
+   * SMOOTH is a shading switch, not a shape switch. On: smoothing groups —
+   * normals average across a panel and split at anything sharper than the
+   * crease angle, which is how a body reads. Off: flat, every facet visible —
+   * the honest "as blocked" view. Neither moves a vertex, so what the STL
+   * carries is the same either way.
+   */
   smooth = false;
+  creaseAngle = DEFAULT_CREASE_ANGLE;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -99,26 +106,33 @@ export class Viewport {
       this.feedGroup.remove(child);
       (child as THREE.Mesh).geometry?.dispose?.();
     }
-    // SMOOTH means faired AND smooth-shaded: the flow solve runs on the same
-    // derived mesh the print path fairs, so the tool shows what the STL is.
-    const positions = this.smooth
-      ? flowMesh({ positions: feed.surfaces.positions, indices: feed.surfaces.indices },
-                 [], { passes: 12, lambda: 0.45, mu: -0.47 }).positions
-      : feed.surfaces.positions;
+    const shaded = this.smooth
+      ? creaseNormals(
+          { positions: feed.surfaces.positions, indices: feed.surfaces.indices },
+          this.creaseAngle,
+        )
+      : null;
     const sgeo = new THREE.BufferGeometry();
+    const positions = shaded ? shaded.positions : feed.surfaces.positions;
+    const normals = shaded ? shaded.normals : feed.surfaces.normals;
+    const indices = shaded ? shaded.indices : feed.surfaces.indices;
     sgeo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(positions), 3));
-    sgeo.setAttribute("normal", new THREE.Float32BufferAttribute(Float32Array.from(feed.surfaces.normals), 3));
-    if (this.smooth) sgeo.computeVertexNormals();
-    sgeo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(feed.surfaces.indices), 1));
+    sgeo.setAttribute("normal", new THREE.Float32BufferAttribute(Float32Array.from(normals), 3));
+    sgeo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(indices), 1));
     const mesh = new THREE.Mesh(
       sgeo,
-      this.zebra ? this.zebraMat : this.smooth ? this.smoothMat : this.surfaceMat,
+      this.zebra ? this.zebraMat : shaded ? this.smoothMat : this.surfaceMat,
     );
     this.feedGroup.add(mesh);
-    this.feedGroup.add(new THREE.LineSegments(
-      new THREE.EdgesGeometry(sgeo, this.smooth ? 72 : 25),
-      new THREE.LineBasicMaterial({ color: EDGE }),
-    ));
+    // The overlay belongs to the blocked view only. Under smoothing groups the
+    // hard edges already draw themselves in shading, and a wireframe pass on
+    // top of that just re-traces tessellation seams as wrinkles.
+    if (!shaded) {
+      this.feedGroup.add(new THREE.LineSegments(
+        new THREE.EdgesGeometry(sgeo, 25),
+        new THREE.LineBasicMaterial({ color: EDGE }),
+      ));
+    }
 
     const plain: number[] = [];
     const accent: number[] = [];

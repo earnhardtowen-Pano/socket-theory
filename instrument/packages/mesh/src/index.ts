@@ -28,3 +28,9 @@ export {
   type TriangleMesh,
 } from "./closed.js";
 export { writeStlBinary, type StlMesh } from "./stl.js";
+export {
+  creaseNormals,
+  DEFAULT_CREASE_ANGLE,
+  type CreaseNormalResult,
+  type NormalMesh,
+} from "./normals.js";

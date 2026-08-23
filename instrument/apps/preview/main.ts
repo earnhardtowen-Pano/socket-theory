@@ -26,13 +26,19 @@ renderer.setSize(w, h);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
 
-function meshOf(data: { positions: number[]; indices: number[] }, color: number): THREE.Mesh {
+function meshOf(data: { positions: number[]; normals: number[]; indices: number[] }, color: number): THREE.Mesh {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(data.positions), 3));
   geo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(data.indices), 1));
-  geo.computeVertexNormals();
-  // Smooth shading, not flat: flat shading exists to show every facet, which
-  // is the opposite of what a finished body wants.
+  // Smoothing groups, baked by creaseNormals in the render script: normals are
+  // averaged across a panel and split at every hard edge. computeVertexNormals
+  // would average ALL of them and melt the car; flat shading would show every
+  // tessellation facet. Neither is how a body reads.
+  if (data.normals.length === data.positions.length) {
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(Float32Array.from(data.normals), 3));
+  } else {
+    geo.computeVertexNormals();
+  }
   return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, metalness: 0.08, roughness: 0.42, flatShading: false }));
 }
 
@@ -75,9 +81,9 @@ if (view === "side") {
   scene.add(grid);
 
   scene.add(upper, slab);
-  // Only genuinely sharp edges get a line — a 30-degree threshold outlined
-  // every tessellation seam and read as wrinkles.
-  scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(upper.geometry, 78), new THREE.LineBasicMaterial({ color: 0x5c5c63 })));
+  // No edge overlay on the body. With split normals the hard edges draw
+  // themselves in shading, the way they do on a real panel; a wireframe pass
+  // could only re-trace tessellation seams on top of that.
 
   // creased door lines in accent
   for (const c of body.curves.filter((k: { crease: boolean }) => k.crease)) {

@@ -438,8 +438,8 @@ document.getElementById("smooth")!.addEventListener("click", (e) => {
   viewport.smooth = !viewport.smooth;
   (e.currentTarget as HTMLElement).classList.toggle("on", viewport.smooth);
   ledger(viewport.smooth
-    ? "smooth — the quilt with its analytic normals; pinch contact points to shape it"
-    : "crude — the paneled solids as blocked; same evaluator, flat panels");
+    ? `smooth — ${viewport.creaseAngle}\u00b0 smoothing groups: panels read continuous, feature lines stay hard`
+    : "crude — as blocked, every facet flat; same geometry either way, only the shading differs");
   repaintSoon();
 });
 document.getElementById("zebraBtn")!.addEventListener("click", (e) => {

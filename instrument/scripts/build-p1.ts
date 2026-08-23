@@ -13,8 +13,13 @@ import { solve } from "@car/pack";
 import { p1Config, P1_FRONT_OVERHANG, P1_WHEELBASE, P1_FRONT_DIAMETER, P1_REAR_DIAMETER } from "@car/fixtures";
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
-import { meshQuilt, closedMeshCheck, writeStlBinary } from "@car/mesh";
-import { flowMesh } from "@car/flow";
+import {
+  closedMeshCheck,
+  creaseNormals,
+  DEFAULT_CREASE_ANGLE,
+  meshQuilt,
+  writeStlBinary,
+} from "@car/mesh";
 import { massLedger } from "@car/lens";
 import { evalChain } from "@car/num";
 
@@ -290,19 +295,13 @@ s.apply("assign-material", { targetId: "cell#0" as Id, name: "body-in-white", co
 // ---------------------------------------------------------------------------
 const quilt = computeQuilt(s.state);
 const raw = meshQuilt(quilt, { baseDensity: 20 });
-// G3 flow solve: fair the derived mesh, creases pinned. A derivation — the
-// authored history is untouched and still replays byte-identically.
-const creaseSamples: Pt3[] = [];
-for (const id of quilt.creases) {
-  const chain = quilt.curves.get(id);
-  if (!chain) continue;
-  for (let i = 0; i <= 32; i++) creaseSamples.push(evalChain(chain, i / 32));
-}
-const flowed = flowMesh(raw, [], { passes: 30, lambda: 0.48, mu: -0.50 });
-// Seat the car on the road: fairing rounds the tread, so the tires end up a
-// few millimetres clear. The ground plane is a datum — the car meets it —
-// so the faired body drops onto it rather than the tread being held square.
-const seated = Float64Array.from(flowed.positions);
+// The geometry stays as authored. Fairing it (the G3 flow solve, still in the
+// tree and still tested) melted the arch mouths, splitter and roof breaks —
+// the car did not need smoother SHAPE, it needed smoother SHADING. That is
+// creaseNormals, a render-path derivation, and it moves no vertex at all.
+const shaded = creaseNormals(raw, DEFAULT_CREASE_ANGLE);
+// Seat the car on the road: the ground plane is a datum — the car meets it.
+const seated = Float64Array.from(raw.positions);
 let minZ = Infinity;
 for (let i = 2; i < seated.length; i += 3) minZ = Math.min(minZ, seated[i]!);
 for (let i = 2; i < seated.length; i += 3) seated[i] = seated[i]! - minZ;
@@ -350,7 +349,7 @@ console.log(line("cells / curves", `${s.state.cells.size} / ${s.state.curves.siz
 console.log(line("quilt cells (with mirror)", String(quilt.cells.length)));
 console.log(line("triangles", String(mesh.indices.length / 3)));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
-console.log(line("flow solve", `${flowed.report.passes} pass pairs · ${flowed.report.pinned} crease vertices pinned · mean shift ${flowed.report.meanShift.toFixed(1)} mm`));
+console.log(line("shading", `${DEFAULT_CREASE_ANGLE}° smoothing groups · ${shaded.split} vertices split on hard edges`));
 console.log(line("replay round-trip", String(same)));
 console.log(line("lowest body point", `${lowestZ.toFixed(0)} mm (brief asks ${p1Config.brief.groundClearanceMm.value} mm)`));
 console.log("\n--- package ---");
