@@ -323,7 +323,32 @@ export function fieldFromAdjacency(
   const cellsWithField = new Set<Id>();
   for (const key of claims.keys()) cellsWithField.add(key.slice(0, key.lastIndexOf("#")) as Id);
 
-  const rawDefect = (cellId: Id, k: number, s: number): Pt3 => {
+  /**
+   * Memo for the two expensive primitives.
+   *
+   * Not an optimisation bolted on afterwards — without it the second order is
+   * quadratic in disguise. Evaluating Δ² at one station reads the G1-corrected
+   * jets of BOTH patches, and each of those reads all four of that patch's Δ
+   * and Δ′ fields, and each Δ′ is two more Δraw evaluations. One Δ² call was
+   * costing ~380 chain evaluations, nearly all of them repeats of values asked
+   * for a moment earlier by a neighbour.
+   *
+   * Safe because every function here is a pure function of the quilt: caching
+   * cannot change an answer, only how often it is computed. The map grows with
+   * the number of DISTINCT stations a caller asks about, which for a grid
+   * tessellation is bounded by the grid.
+   */
+  const rawCache = new Map<string, Pt3>();
+  const memo = (tag: string, cellId: Id, k: number, s: number, f: () => Pt3): Pt3 => {
+    const key = `${tag}${cellId}#${k}#${s}`;
+    const hit = rawCache.get(key);
+    if (hit) return hit;
+    const v = f();
+    rawCache.set(key, v);
+    return v;
+  };
+
+  const rawDefectUncached = (cellId: Id, k: number, s: number): Pt3 => {
     const list = claims.get(`${cellId}#${k}`);
     if (!list) return ZERO;
     const bA = adj.boundaries.get(cellId);
@@ -368,6 +393,9 @@ export function fieldFromAdjacency(
     return scale3(sub3(dHat, aHat), aLen);
   };
 
+  const rawDefect = (cellId: Id, k: number, s: number): Pt3 =>
+    memo("r", cellId, k, s, () => rawDefectUncached(cellId, k, s));
+
   const defect = (cellId: Id, k: number, s: number): Pt3 => {
     const w = cornerWindow(s, fade);
     if (w === 0) return ZERO;
@@ -382,7 +410,10 @@ export function fieldFromAdjacency(
    * it is differenced centrally, with the step pulled in near the ends so the
    * stencil never leaves the trim.
    */
-  const defectDeriv = (cellId: Id, k: number, s: number): Pt3 => {
+  const defectDeriv = (cellId: Id, k: number, s: number): Pt3 =>
+    memo("d", cellId, k, s, () => defectDerivUncached(cellId, k, s));
+
+  const defectDerivUncached = (cellId: Id, k: number, s: number): Pt3 => {
     if (s <= 0 || s >= 1) return ZERO;
     const w = cornerWindow(s, fade);
     const wp = cornerWindowDeriv(s, fade);
@@ -452,7 +483,7 @@ export function fieldFromAdjacency(
     return { curv, b: bLen, nHat };
   };
 
-  const rawSecond = (cellId: Id, k: number, s: number): Pt3 => {
+  const rawSecondUncached = (cellId: Id, k: number, s: number): Pt3 => {
     if (order < 2) return ZERO;
     const list = claims.get(`${cellId}#${k}`);
     if (!list) return ZERO;
@@ -481,6 +512,9 @@ export function fieldFromAdjacency(
     const target = (A.curv + B.curv) / 2;
     return scale3(A.nHat, A.b * A.b * (target - A.curv));
   };
+
+  const rawSecond = (cellId: Id, k: number, s: number): Pt3 =>
+    memo("s", cellId, k, s, () => rawSecondUncached(cellId, k, s));
 
   const secondDefect = (cellId: Id, k: number, s: number): Pt3 => {
     const w = cornerWindow(s, fade);

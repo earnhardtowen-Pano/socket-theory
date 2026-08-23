@@ -18,10 +18,12 @@ const quilt = computeQuilt(s.state);
 // field plus cross-curvature. It exists so the three can be photographed
 // against each other; the body itself is always built at 2.
 const surfaceOrder = Number(process.env.P1_SURFACE ?? 2);
-const cross = surfaceOrder === 0 ? undefined
+// null, not undefined: both seams DERIVE a field when none is given, so the
+// bare-blend comparison has to ask for nothing on purpose.
+const cross = surfaceOrder === 0 ? null
   : tangentField(quilt, { order: surfaceOrder >= 2 ? 2 : 1 });
 
-const raw = meshQuilt(quilt, cross ? { baseDensity: 20, cross } : { baseDensity: 20 });
+const raw = meshQuilt(quilt, { baseDensity: 20, cross });
 // Authored geometry, shaded in smoothing groups: normals average across a
 // panel and split at anything sharper than the crease angle. The split
 // duplicates vertices, so the render buffer is wider than the print mesh —
@@ -54,7 +56,7 @@ writeFileSync(new URL("../apps/preview/body.json", import.meta.url), JSON.string
   // only that an author asked for a hard edge. Here a broken stripe means the
   // two patches genuinely disagree about which way the surface faces.
   analytic: (() => {
-    const f = tessellateQuilt(quilt, 14, cross);
+    const f = tessellateQuilt(quilt, 14, cross ?? undefined);
     const c = cross ? continuityProbe(quilt, { cross }) : continuityProbe(quilt);
     return {
       positions: Array.from(f.positions),

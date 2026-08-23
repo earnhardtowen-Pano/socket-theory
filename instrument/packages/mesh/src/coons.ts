@@ -36,7 +36,7 @@
 
 import type { FeedRange, Id, Pt3, QuiltSpec } from "@car/schema";
 import { lerp3 } from "@car/num";
-import { gBasis, hBasis, type CrossPrescription } from "@car/surface";
+import { gBasis, hBasis, tangentField, type CrossPrescription } from "@car/surface";
 import { compareId } from "./ids.js";
 import { buildSampleTable, type GlobalSampleTable, type SideSamples } from "./table.js";
 
@@ -44,10 +44,12 @@ export interface MeshOptions {
   /** Uniform base samples per chain segment of every curve. Default 8. */
   readonly baseDensity?: number;
   /**
-   * Tangent-plane prescription. Hand the mesher the SAME field the render and
-   * the probe were handed, or the thing measured is not the thing printed.
+   * Tangent-plane prescription. OMIT and one is derived from the quilt: the
+   * printed body is the model, and the model has a tangent field. Pass `null`
+   * to print the bare G0 blend — which a diagnostic may well want, and which
+   * nobody should get by forgetting.
    */
-  readonly cross?: CrossPrescription;
+  readonly cross?: CrossPrescription | null;
 }
 
 export const DEFAULT_BASE_DENSITY = 8;
@@ -137,7 +139,7 @@ function unionParams(a: GridSide, b: GridSide): number[] {
 
 export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
   const table = buildSampleTable(quilt, opts?.baseDensity ?? DEFAULT_BASE_DENSITY);
-  const cross = opts?.cross;
+  const cross = opts?.cross === undefined ? tangentField(quilt, { order: 2 }) : opts.cross;
 
   const pos: number[] = Array.from(table.positions);
   const posOf = (v: number): Pt3 => [pos[3 * v]!, pos[3 * v + 1]!, pos[3 * v + 2]!];

@@ -19,6 +19,7 @@
 import { writeFileSync } from "node:fs";
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
+import { continuityProbe, tangentField } from "@car/surface";
 import {
   closedMeshCheck, creaseNormals, DEFAULT_CREASE_ANGLE,
   engraveGrooves, meshQuilt, writeStlBinary,
@@ -128,14 +129,33 @@ mark("blocked", `${s.log.length} verbs, ${s.state.cells.size} cells, ${s.state.c
 // 3. Skinned — quilt, conforming mesh, closed check, smoothing groups
 // ---------------------------------------------------------------------------
 const quilt = computeQuilt(s.state);
-const raw = meshQuilt(quilt, { baseDensity: 14 });
+// The surfacing layer, on the path that actually prints. A box turns 90° at
+// every join, so the break angle should leave every one of them alone — a
+// tangent field that rounded off a shoebox would be the failure this stage is
+// here to catch.
+const cross = tangentField(quilt, { order: 2 });
+const raw = meshQuilt(quilt, { baseDensity: 14, cross });
 const report = closedMeshCheck(raw);
+const before = continuityProbe(quilt);
+const cont = continuityProbe(quilt, { cross });
 const shaded = creaseNormals(raw, DEFAULT_CREASE_ANGLE);
 check("skinned", report.closed, `mesh is OPEN with ${report.violations.length} violations`);
+// The blocked-out body is boxes plus a rotate and a taper, so most joins turn
+// a right angle and a few do not. The field must leave the right angles alone
+// — a surfacing pass that rounded off a shoebox would be the failure worth
+// catching here — and must actually fix the ones it does take.
+check("skinned", cross.stats.sharpEdges > 0,
+  "the tangent field found no right angles to hold on a body made of boxes");
+check("skinned", cont.medianDeg < 1e-6,
+  `smooth joins still read ${cont.medianDeg.toFixed(4)}° after the field`);
+check("skinned", cont.medianDeg <= before.medianDeg,
+  `the field made continuity worse: ${before.medianDeg.toFixed(3)}° to ${cont.medianDeg.toFixed(3)}°`);
 check("skinned", raw.indices.length > 0, "mesher produced no triangles");
 check("skinned", shaded.positions.length >= raw.positions.length,
   "crease normals lost vertices, which is impossible if it only splits");
 mark("skinned", `${raw.indices.length / 3} triangles, closed ${report.closed}, ` +
+  `${cont.sharp} joins held as edges at ${cont.breakAngleDeg}°, ` +
+  `${cont.g1Joins}/${cont.joins} smooth joins G1 (was ${before.g1Joins}), ` +
   `${shaded.split} vertices split at ${DEFAULT_CREASE_ANGLE}°`);
 
 // ---------------------------------------------------------------------------

@@ -30,7 +30,9 @@ const SMOOTH_EVERYTHING = { breakAngleDeg: 179 } as const;
 
 /** Worst distance between the two evaluators, over every interior vertex. */
 function worstGap(quilt: QuiltSpec, cross: CrossPrescription | undefined, density: number): number {
-  const mesh = meshQuilt(quilt, cross ? { baseDensity: density, cross } : { baseDensity: density });
+  // `cross: null` rather than omitting it — meshQuilt DERIVES a field when
+  // none is given, so the unfielded comparison has to be asked for.
+  const mesh = meshQuilt(quilt, { baseDensity: density, cross: cross ?? null });
   const boundaries = new Map<Id, ReturnType<typeof cellBoundary>>();
   const bOf = (id: Id): ReturnType<typeof cellBoundary> => {
     let hit = boundaries.get(id);
@@ -114,7 +116,7 @@ describe("the field does not disturb what the print depends on", () => {
   it("leaves every shared table vertex bit-identical", () => {
     const { quilt } = boxQuilt();
     const field = tangentField(quilt, SMOOTH_EVERYTHING);
-    const plain = meshQuilt(quilt, { baseDensity: 8 });
+    const plain = meshQuilt(quilt, { baseDensity: 8, cross: null });
     const fixed = meshQuilt(quilt, { baseDensity: 8, cross: field });
     expect(fixed.interiorBase).toBe(plain.interiorBase);
     for (let i = 0; i < plain.interiorBase * 3; i++) {
@@ -125,7 +127,7 @@ describe("the field does not disturb what the print depends on", () => {
   it("moves interior vertices — otherwise it is not doing anything", () => {
     const { quilt } = boxQuilt();
     const field = tangentField(quilt, SMOOTH_EVERYTHING);
-    const plain = meshQuilt(quilt, { baseDensity: 8 });
+    const plain = meshQuilt(quilt, { baseDensity: 8, cross: null });
     const fixed = meshQuilt(quilt, { baseDensity: 8, cross: field });
     let moved = 0;
     for (let i = plain.interiorBase * 3; i < plain.positions.length; i++) {
@@ -137,11 +139,26 @@ describe("the field does not disturb what the print depends on", () => {
   it("keeps the mesh closed and the triangle count identical", () => {
     const { quilt } = boxQuilt();
     const field = tangentField(quilt, SMOOTH_EVERYTHING);
-    const plain = meshQuilt(quilt, { baseDensity: 8 });
+    const plain = meshQuilt(quilt, { baseDensity: 8, cross: null });
     const fixed = meshQuilt(quilt, { baseDensity: 8, cross: field });
     expect(fixed.indices.length).toBe(plain.indices.length);
     expect([...fixed.indices]).toEqual([...plain.indices]);
     expect(closedMeshCheck(fixed).closed).toBe(true);
+  });
+
+  it("is ON by default — the printed body is the model, not the bare blend", () => {
+    // The whole failure this layer exists to prevent is a probe measuring one
+    // body while the printer makes another. A caller who says nothing gets the
+    // model; the bare blend has to be asked for.
+    const { quilt } = foldedPairQuilt();
+    const derived = meshQuilt(quilt, { baseDensity: 8 });
+    const bare = meshQuilt(quilt, { baseDensity: 8, cross: null });
+    expect(derived.positions.length).toBe(bare.positions.length);
+    let moved = 0;
+    for (let i = 0; i < bare.positions.length; i++) {
+      if (derived.positions[i] !== bare.positions[i]) moved++;
+    }
+    expect(moved).toBeGreaterThan(0);
   });
 
   it("is deterministic: two meshes of the same quilt are byte-identical", () => {

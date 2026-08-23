@@ -245,9 +245,32 @@ SolveResult contract added to @car/schema) are frozen and pushed.
   stripe by construction and looks exactly like a defect. A lens that cannot
   separate the intended from the broken cannot support a claim about either.
   `continuityProbe` measures it properly — the angle between the two patches'
-  normals on the shared curve — and the answer is **G0**: 6 of 102 joins are
-  G1, median defect 10.21°. Correcting my own gate document was the cost of
-  reading an impression as a measurement.
+  normals on the shared curve — and the answer was **G0**: 6 of 64 smooth
+  joins G1, median defect 3.16°. Correcting my own gate document was the cost
+  of reading an impression as a measurement. The fix that followed is in
+  `SURFACING.md`; the probe that made it checkable came first, and that order
+  was not optional.
+- **Two of the three curvature coefficients are free once G1 holds.** Along a
+  shared curve with a shared normal field, `II(T,T)` is the curve's own normal
+  curvature and `II(T,ê)` is only how that normal rotates along it — both
+  properties of objects the two patches already hold in common. So G2 across a
+  join is ONE scalar, not three, and the probe checks the premise rather than
+  assuming it. Finding this turned a hard-looking problem into a small one; not
+  finding it would have produced a much larger and much worse implementation.
+- **`acos` has a resolution floor and it was about to become the answer.** For
+  a perfect join the dot product lands one ulp below 1 and `acos(1-ε)` returns
+  `sqrt(2ε)` ≈ 1.2e-6 degrees. Harmless while the defect was ten degrees;
+  the moment the defect was gone, the instrument's own arithmetic would have
+  been reported as the surface's residual. `atan2(|a×b|, a·b)` has no floor.
+  A metric is only trustworthy over the range you actually use it in, and that
+  range moved.
+- **Two evaluators, no cross-check.** The analytic Coons blend feeds the
+  render and the probes; a separate discrete one feeds the print. Improving
+  one would have measured a body nobody was printing. The test that pins them
+  together should have existed from the day there were two — and writing it
+  needed the mesher to publish which patch parameter each interior vertex came
+  from, which nothing could ask for before. An unaskable question is a missing
+  test in disguise.
 - **Grooves are scaled from the printer, not the car** — retrieved practice
   (every model-maker knows it), constructed here. A 4 mm door gap at 1:24 is
   0.17 mm and does not exist off a 0.4 mm nozzle. Sizing from the nozzle and

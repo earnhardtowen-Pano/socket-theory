@@ -36,6 +36,7 @@ import type {
 import { add3, evalChain, lineChain, scale3, sub3 } from "@car/num";
 import { FrameState, idCompare, viewToWorld } from "@car/frame";
 import { cellBoundary, type CrossPrescription } from "./boundary.js";
+import { tangentField } from "./tangent-field.js";
 import {
   coonsBlend, coonsSu, coonsSv, coonsPhi, coonsPhiU, coonsPhiV,
   type PhiSample,
@@ -55,8 +56,15 @@ export const DATUM_HALF_LENGTH = 2500;
 export interface RenderFeedOptions {
   /** Quads per side per cell; integer >= 1. Default DEFAULT_RESOLUTION. */
   readonly resolution?: number;
-  /** Tangent-plane prescription; omit for the plain G0 blend. */
-  readonly cross?: CrossPrescription;
+  /**
+   * Tangent-plane prescription. OMIT and one is derived from the state's own
+   * quilt — the model has a tangent field and the render seam's job is to
+   * show the model, so a caller has to say `null` to see the bare G0 blend
+   * rather than getting it by forgetting. That default is the whole defence
+   * against the failure that produced this layer: a probe measuring one body
+   * while the render and the printer showed another.
+   */
+  readonly cross?: CrossPrescription | null;
 }
 
 function checkResolution(r: number): number {
@@ -257,8 +265,10 @@ export function buildRenderFeed(state: FrameState, opts: RenderFeedOptions = {})
     if (datum) entries.push({ id, chain: datumChain(datum.kind, datum.line) });
   }
 
+  const cross = opts.cross === undefined ? tangentField(spec, { order: 2 }) : opts.cross;
+
   return {
-    surfaces: tessellateQuilt(spec, resolution, opts.cross),
+    surfaces: tessellateQuilt(spec, resolution, cross ?? undefined),
     lines: buildLineFeed(entries),
     snaps: [],
   };

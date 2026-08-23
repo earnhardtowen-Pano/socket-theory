@@ -116,32 +116,46 @@ and are left out of the display range — and the count is on the render, since
 a lens that quietly drops five per cent of a mesh is worse than one that
 reports nonsense.
 
-**CORRECTED.** An earlier version of this section read the zebra and claimed
-the body was "G1 and not G2 — the Coons patches meet with matching position
-and tangent but not curvature". Both halves were wrong, and one of them
-flatteringly.
+**CORRECTED, THEN FIXED.** An earlier version of this section read the zebra
+and claimed the body was "G1 and not G2 — the Coons patches meet with matching
+position and tangent but not curvature". Both halves were wrong, and one of
+them flatteringly.
 
 The zebra could not have measured it. It runs on the crease-split render
 normals, so at 48° every deliberate smoothing-group split breaks a stripe *by
 construction* and an authored break is indistinguishable from a defect.
+`continuityProbe` asks the surfaces instead — two patches sharing a curve are
+G1 when they share a tangent plane along it, so the measurement is the angle
+between their outward normals at the same point on that curve. **The body was
+G0.**
 
-`continuityProbe` (`packages/surface/src/continuity.ts`) asks the surfaces
-instead: two patches sharing a curve are G1 when they share a tangent plane
-along it, so the measurement is the angle between their outward normals at the
-same point on that curve. On the P1:
+It is not any more. `tangentField` makes the tangent plane a property of the
+shared CURVE rather than of either patch, and a second order matches the one
+free coefficient of the second fundamental form across each join. The full
+account, the mathematics and the limits are in **`SURFACING.md`**; the numbers
+this gate rests on:
 
 ```
-joins 102   creased 104 (excluded — an authored break is not a defect)
-worst 90.00°   p90 90.00°   median 10.21°
-G1 joins (<1°): 6 of 102
+                       G1 joins        median      worst      cross-curvature gap
+G0 · bilinear Coons      6 / 64        3.16°      61.02°       9.4e-6 /mm median
+G1 · tangent field      62 / 64        0.00°       2.07°
+G2 · + curvature        62 / 64        0.00°       2.07°       4.3e-19 /mm median
+
+104 creased joins excluded (authored) · 38 excluded as sharper than 48°
+curve network: 92 of 128 corners coplanar to 1°
 ```
 
-**The body is G0** — position-watertight by construction, which is exactly
-what `@car/surface` has always claimed, and tangent-continuous only where the
-neighbouring geometry happens to agree. A Coons patch's cross-boundary
-derivative is fixed by its *opposite* edge; nothing makes two neighbours
-agree, and nothing in the codebase tried to. That is a representation
-property, not a tuning miss, and closing it is Stage 1 of the surfacing road.
+Where the correction runs at full strength a join reads **exactly 0.0000°** —
+the two patches hold the same tangent plane, not two close ones. The residual
+is confined to a fade band around the 36 corners where the CURVE NETWORK
+itself breaks tangency, which no surfacing pass can fix: a patch has no
+freedom at a corner, its tangent plane there being spanned by the two curves
+that meet at the vertex. That limit is measured by `networkObstruction` and
+reported in the build output rather than absorbed.
+
+The whole of this is invisible to the document: the field is derived from the
+quilt, changes no verb and moves no hash, and the same field reaches the
+render, the lenses, the probe and the printed STL from one call.
 
 ## The print — `npx tsx scripts/build-p1.ts`, `npx tsx scripts/ten-minute.ts`
 
