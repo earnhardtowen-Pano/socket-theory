@@ -26,6 +26,13 @@ export {
 } from "./boundary.js";
 export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 export {
+  curveComb,
+  curveQuality,
+  STRAIGHT_TURN,
+  type CombSample,
+  type CurveQuality,
+} from "./curve-quality.js";
+export {
   edgeDefectProfile,
   medianOf,
   quiltAdjacency,
