@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { curvatureMap } from "@car/lens";
+import { curvatureMap } from "@car/skin";
 
 /** An icosphere-ish sphere: subdivided octahedron, projected onto radius r. */
 function sphere(r: number, subdiv: number) {

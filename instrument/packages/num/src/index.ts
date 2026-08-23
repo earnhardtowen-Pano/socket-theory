@@ -17,6 +17,8 @@ export const nsin = (x: number): number => Math.sin(x);
 export const ncos = (x: number): number => Math.cos(x);
 export const ntan = (x: number): number => Math.tan(x);
 export const natan2 = (y: number, x: number): number => Math.atan2(y, x);
+export const nacos = (x: number): number => Math.acos(x);
+export const nasin = (x: number): number => Math.asin(x);
 export const npow = (b: number, e: number): number => Math.pow(b, e);
 export const nexp = (x: number): number => Math.exp(x);
 export const nlog = (x: number): number => Math.log(x);

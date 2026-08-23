@@ -1,5 +1,9 @@
 /**
- * Curvature lens — surface quality, read off the derived mesh.
+ * Curvature over a derived skin — the numerics.
+ *
+ * Arithmetic, like the mesher and the flow solve: no licensed quantities, no
+ * design claims, nothing to cite. @car/lens is the licensed façade that puts
+ * a reading in front of a person; this is the operator underneath it.
  *
  * Two numbers per vertex, both standard discrete operators:
  *
@@ -22,7 +26,7 @@
  * Deterministic: index-ordered traversal, no wall clock, no randomness.
  */
 
-import { nsqrt } from "@car/num";
+import { nacos, nsqrt } from "@car/num";
 
 export interface CurvatureMesh {
   readonly positions: Float64Array;
@@ -89,7 +93,7 @@ export function curvatureMap(mesh: CurvatureMesh): CurvatureResult {
       const l2 = nsqrt(e2x * e2x + e2y * e2y + e2z * e2z);
       if (l1 > 0 && l2 > 0) {
         const cosA = Math.max(-1, Math.min(1, (e1x * e2x + e1y * e2y + e1z * e2z) / (l1 * l2)));
-        angle[a] = angle[a]! + Math.acos(cosA);
+        angle[a] = angle[a]! + nacos(cosA);
       }
       area[a] = area[a]! + faceArea / 3;
       normal[a * 3] = normal[a * 3]! + nx;

@@ -22,6 +22,7 @@
       "@car/constrain": ["packages/constrain/src/index.ts"],
       "@car/surface": ["packages/surface/src/index.ts"],
       "@car/mesh": ["packages/mesh/src/index.ts"],
+      "@car/skin": ["packages/skin/src/index.ts"],
       "@car/flow": ["packages/flow/src/index.ts"],
       "@car/demand": ["packages/demand/src/index.ts"],
       "@car/types": ["packages/types/src/index.ts"],

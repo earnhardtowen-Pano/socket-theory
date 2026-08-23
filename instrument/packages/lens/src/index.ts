@@ -39,8 +39,3 @@ export {
   type DragEstimate,
   type InletCheck,
 } from "./aero.js";
-export {
-  curvatureMap,
-  type CurvatureMesh,
-  type CurvatureResult,
-} from "./curvature.js";

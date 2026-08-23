@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import { creaseNormals, DEFAULT_CREASE_ANGLE, meshQuilt } from "@car/mesh";
-import { curvatureMap } from "@car/lens";
+import { curvatureMap } from "@car/skin";
 import { evalChain, PI, ncos, nsin } from "@car/num";
 import { initEngineNode } from "@car/occt";
 import type { Pt3, QuiltSpec } from "@car/schema";

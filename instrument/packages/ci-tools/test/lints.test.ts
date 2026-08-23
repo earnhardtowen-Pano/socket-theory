@@ -25,7 +25,7 @@ describe("honesty police", () => {
   it("no wall clock, randomness, or raw transcendentals in the model cone", () => {
     const cone = [
       "schema", "num", "history", "frame", "constrain", "surface",
-      "mesh", "demand", "types", "pack", "lens", "occt", "fixtures",
+      "mesh", "skin", "demand", "types", "pack", "lens", "occt", "fixtures",
     ].map(pkg);
     const violations = scanDeterminism(cone, pkg("num"));
     expect(violations).toEqual([]);
