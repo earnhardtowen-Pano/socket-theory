@@ -75,6 +75,34 @@ describe("the analytic and discrete Coons evaluators agree", () => {
     expect(worstGap(quilt, field, 8)).toBeLessThan(1e-9);
   });
 
+  /**
+   * ORDER 2, and it is the case this whole file exists for.
+   *
+   * For as long as the G2 layer existed, `meshQuilt` read `cross.defect` and
+   * never `cross.secondDefect`: it carried Φ into the print and left Ψ behind.
+   * Every continuity probe reads the ANALYTIC surface, so the curvature match
+   * was measured on a body the printer was never given — on the P1 the two
+   * differed by 85 mm at the tail. The tests above could not catch it because
+   * `tangentField` defaults to order 1 and none of them asked for order 2.
+   */
+  it("exactly, WITH the curvature term as well", () => {
+    const { quilt } = boxQuilt();
+    const field = tangentField(quilt, { ...SMOOTH_EVERYTHING, order: 2 });
+    expect(field.stats.order).toBe(2);
+    // The G2 term has to be doing something, or this proves nothing either.
+    let moved = false;
+    for (const cell of quilt.cells) {
+      for (let k = 0; k < 4 && !moved; k++) {
+        for (let m = 1; m < 8; m++) {
+          const d = field.secondDefect(cell.id, k, m / 8);
+          if (d[0] !== 0 || d[1] !== 0 || d[2] !== 0) { moved = true; break; }
+        }
+      }
+    }
+    expect(moved).toBe(true);
+    expect(worstGap(quilt, field, 8)).toBeLessThan(1e-9);
+  });
+
   it("exactly, across a T-junction, with the field", () => {
     const { quilt } = splitTopBoxQuilt();
     const field = tangentField(quilt, SMOOTH_EVERYTHING);
@@ -89,8 +117,10 @@ describe("the analytic and discrete Coons evaluators agree", () => {
     // lands on a table vertex on both sides, nothing is interpolated, and the
     // discrete blend is the analytic blend arithmetic for arithmetic.
     const { quilt } = foldedPairQuilt();
-    const field = tangentField(quilt, SMOOTH_EVERYTHING);
-    expect(worstGap(quilt, field, 4)).toBeLessThan(1e-9);
+    for (const order of [1, 2] as const) {
+      const field = tangentField(quilt, { ...SMOOTH_EVERYTHING, order });
+      expect(worstGap(quilt, field, 4)).toBeLessThan(1e-9);
+    }
   });
 
   it("to a gap that shrinks with density where a side must be interpolated", () => {

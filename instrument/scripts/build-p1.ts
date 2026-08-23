@@ -698,6 +698,33 @@ console.log(line("  field form", `cubic spline, ${cross.stats.edges} edges, ` +
   `up to ${cross.stats.worstSpans} pieces each · worst residual ` +
   `${cross.stats.fitWorstAbs.toExponential(1)} mm of cross-derivative · ` +
   `${cross.stats.unconverged} short of tolerance`));
+// The overall dimensions, bare and corrected. A Coons patch is pinned at its
+// boundary and free in its interior, so a tangent-plane correction has nowhere
+// to go BUT the interior — and where the network breaks hard at a cell's
+// corners, the middle of that cell balloons. On the P1 that is the tail panel,
+// whose four corners break by 72–74°, and it costs the car 75 mm of length.
+// Nothing measured this until the displacement report existed.
+const bareMesh = meshQuilt(quilt, { baseDensity: 20, cross: null });
+const boxOf = (positions: Float64Array): [Pt3, Pt3] => {
+  const lo: Pt3 = [Infinity, Infinity, Infinity];
+  const hi: Pt3 = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < positions.length; i += 3) {
+    for (let c = 0; c < 3; c++) {
+      const v = positions[i + c]!;
+      if (v < lo[c]!) lo[c] = v;
+      if (v > hi[c]!) hi[c] = v;
+    }
+  }
+  return [lo, hi];
+};
+const [bLo, bHi] = boxOf(bareMesh.positions);
+const [fLo, fHi] = boxOf(raw.positions);
+const dim = (i: number): string => `${(fHi[i]! - fLo[i]!).toFixed(0)}`;
+const grew = (i: number): number => (fHi[i]! - fLo[i]!) - (bHi[i]! - bLo[i]!);
+console.log(line("overall L·W·H", `${dim(0)} × ${dim(1)} × ${dim(2)} mm — the surfacing added ` +
+  `${grew(0) >= 0 ? "+" : ""}${grew(0).toFixed(0)} × ${grew(1) >= 0 ? "+" : ""}${grew(1).toFixed(0)} × ` +
+  `${grew(2) >= 0 ? "+" : ""}${grew(2).toFixed(0)} to the bare blend's ` +
+  `${(bHi[0]! - bLo[0]!).toFixed(0)} × ${(bHi[1]! - bLo[1]!).toFixed(0)} × ${(bHi[2]! - bLo[2]!).toFixed(0)}`));
 // What the surfacing pass is NOT allowed to fix. A patch has no freedom at a
 // corner — its tangent plane there is spanned by the two curves meeting at the
 // vertex — so a corner where the network breaks tangency pins a defect no

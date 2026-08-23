@@ -36,7 +36,7 @@
 
 import type { FeedRange, Id, Pt3, QuiltSpec } from "@car/schema";
 import { lerp3 } from "@car/num";
-import { gBasis, hBasis, tangentField, type CrossPrescription } from "@car/surface";
+import { gBasis, hBasis, qBasis, rBasis, tangentField, type CrossPrescription } from "@car/surface";
 import { compareId } from "./ids.js";
 import { buildSampleTable, type GlobalSampleTable, type SideSamples } from "./table.js";
 
@@ -212,14 +212,24 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
     // read at 1-u and 1-v — the same convention the analytic evaluator uses,
     // which is what lets the two agree.
     const D0: Pt3[] = [], D1: Pt3[] = [], D2: Pt3[] = [], D3: Pt3[] = [];
+    // The G2 tables, read from the SAME prescription. A field at order 1
+    // returns zero here, so this costs nothing when there is no curvature
+    // correction and is not a second code path.
+    const S0: Pt3[] = [], S1: Pt3[] = [], S2: Pt3[] = [], S3: Pt3[] = [];
+    const second = cross?.secondDefect;
+    const ZERO: Pt3 = [0, 0, 0];
     if (cross) {
       for (const u of U) {
         D0.push(cross.defect(cell.id, 0, u));
         D2.push(cross.defect(cell.id, 2, 1 - u));
+        S0.push(second ? second(cell.id, 0, u) : ZERO);
+        S2.push(second ? second(cell.id, 2, 1 - u) : ZERO);
       }
       for (const v of V) {
         D1.push(cross.defect(cell.id, 1, v));
         D3.push(cross.defect(cell.id, 3, 1 - v));
+        S1.push(second ? second(cell.id, 1, v) : ZERO);
+        S3.push(second ? second(cell.id, 3, 1 - v) : ZERO);
       }
     }
 
@@ -256,9 +266,13 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
           }
           if (cross) {
             const gv = gBasis(v), hu = hBasis(u), hv = hBasis(v), gu = gBasis(u);
+            const qv = qBasis(v), ru = rBasis(u), rv = rBasis(v), qu = qBasis(u);
             const d0 = D0[i]!, d1 = D1[j]!, d2 = D2[i]!, d3 = D3[j]!;
+            const s0 = S0[i]!, s1 = S1[j]!, s2 = S2[i]!, s3 = S3[j]!;
             for (let c = 0; c < 3; c++) {
-              q[c]! += gv * d0[c]! + hu * d1[c]! + hv * d2[c]! + gu * d3[c]!;
+              q[c]! +=
+                gv * d0[c]! + hu * d1[c]! + hv * d2[c]! + gu * d3[c]! +
+                qv * s0[c]! + ru * s1[c]! + rv * s2[c]! + qu * s3[c]!;
             }
           }
           vert = pushVert([q[0]!, q[1]!, q[2]!]);

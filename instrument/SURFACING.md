@@ -169,9 +169,40 @@ one since the field landed.
 SQUARED times the curvature disagreement, so a join the network cannot close
 buys a correction of thousands. `cell#1` is the tail panel carrying the four
 72–74° corners of the previous section — the same four exceptions, showing up a
-third time, now as a visible deformation rather than a residual. Nothing here
-caps it; deciding where the line is means choosing a threshold, and that is a
-design decision for whoever owns the car.
+third time.
+
+And it is not an interior detail. A Coons patch is pinned at its boundary and
+free in its interior, so a correction has nowhere to go BUT the interior, and
+where the network breaks hard at all four of a cell's corners the middle of
+that cell balloons outward:
+
+```
+overall L·W·H   bare blend  4400 × 2003 × 1289 mm
+                as built    4475 × 2004 × 1302 mm     +75 × +1 × +13
+```
+
+**The surfacing pass has been making the car 75 mm longer than it is authored**,
+and nothing measured it until the displacement report existed. That number is
+now on every build line. The cause is a design question, not a tool one: the
+quarters meet the tail panel at 72–74°, which on a real car is a crease and not
+a blend. Creasing `curve#10` and `curve#11` would stop the correction on those
+two joins and put the tail back at 4400 — at the cost of a hard edge along the
+whole quarter-to-tail seam, which is authoring, and belongs to whoever owns the
+car.
+
+### And the print was not getting Ψ at all
+
+Found while drawing the picture above: `meshQuilt` read `cross.defect` and never
+`cross.secondDefect`. It carried Φ into the print and left the curvature term
+behind — so from the day the G2 layer landed until this commit, every G2 number
+in this document was measured on the ANALYTIC surface while the STL, the aero
+map and the curvature lens described a body that differed from it by up to
+85 mm at the tail.
+
+`coons-agreement.test.ts` exists to catch exactly this, and says so in its own
+header. It could not: every one of its cases called `tangentField(quilt, …)`,
+which defaults to **order 1**, so the term that was missing was never asked for.
+It now runs at both orders.
 
 ---
 
