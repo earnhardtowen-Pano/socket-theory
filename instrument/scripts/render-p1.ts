@@ -12,14 +12,19 @@ const doc = JSON.parse(readFileSync(new URL("../cars/panoramic-p1.car.json", imp
 const s = load(doc);
 const quilt = computeQuilt(s.state);
 
-const raw = meshQuilt(quilt, {});
+const raw = meshQuilt(quilt, { baseDensity: 20 });
 const creaseSamples: Pt3[] = [];
 for (const id of quilt.creases) {
   const chain = quilt.curves.get(id);
   if (!chain) continue;
   for (let i = 0; i <= 32; i++) creaseSamples.push(evalChain(chain, i / 32));
 }
-const mesh = { positions: flowMesh(raw, creaseSamples, { pinPlaneZ: 0, passes: 2, lambda: 0.28, mu: -0.30 }).positions, indices: raw.indices };
+const faired = flowMesh(raw, [], { passes: 30, lambda: 0.48, mu: -0.50 }).positions;
+const seated = Float64Array.from(faired);
+let minZ = Infinity;
+for (let i = 2; i < seated.length; i += 3) minZ = Math.min(minZ, seated[i]!);
+for (let i = 2; i < seated.length; i += 3) seated[i] = seated[i]! - minZ;
+const mesh = { positions: seated, indices: raw.indices };
 const core = { positions: new Float64Array(0), indices: new Uint32Array(0) };
 
 const SAMPLES = 21;

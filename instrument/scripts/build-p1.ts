@@ -289,7 +289,7 @@ s.apply("assign-material", { targetId: "cell#0" as Id, name: "body-in-white", co
 // 3. Evaluate: quilt -> conforming mesh -> closed check -> STL
 // ---------------------------------------------------------------------------
 const quilt = computeQuilt(s.state);
-const raw = meshQuilt(quilt, {});
+const raw = meshQuilt(quilt, { baseDensity: 20 });
 // G3 flow solve: fair the derived mesh, creases pinned. A derivation — the
 // authored history is untouched and still replays byte-identically.
 const creaseSamples: Pt3[] = [];
@@ -298,8 +298,15 @@ for (const id of quilt.creases) {
   if (!chain) continue;
   for (let i = 0; i <= 32; i++) creaseSamples.push(evalChain(chain, i / 32));
 }
-const flowed = flowMesh(raw, creaseSamples, { pinPlaneZ: 0, passes: 2, lambda: 0.28, mu: -0.30 });
-const mesh = { positions: flowed.positions, indices: raw.indices, ranges: raw.ranges };
+const flowed = flowMesh(raw, [], { passes: 30, lambda: 0.48, mu: -0.50 });
+// Seat the car on the road: fairing rounds the tread, so the tires end up a
+// few millimetres clear. The ground plane is a datum — the car meets it —
+// so the faired body drops onto it rather than the tread being held square.
+const seated = Float64Array.from(flowed.positions);
+let minZ = Infinity;
+for (let i = 2; i < seated.length; i += 3) minZ = Math.min(minZ, seated[i]!);
+for (let i = 2; i < seated.length; i += 3) seated[i] = seated[i]! - minZ;
+const mesh = { positions: seated, indices: raw.indices, ranges: raw.ranges };
 const report = closedMeshCheck(mesh);
 
 // lowest sprung surface, for the ground-clearance body check

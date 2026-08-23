@@ -6,6 +6,7 @@
  */
 
 import * as THREE from "three";
+import { flowMesh } from "@car/flow";
 import type { Id, OrthoView, Pt2, RenderFeed } from "@car/schema";
 import { eyeSign, inPlaneAxes, viewNormal, type CamState, type ScreenSize } from "./view";
 import type { Ghost } from "./tools";
@@ -69,7 +70,7 @@ export class Viewport {
       color: SURFACE, metalness: 0.05, roughness: 0.62, flatShading: true,
     });
     this.smoothMat = new THREE.MeshStandardMaterial({
-      color: SURFACE, metalness: 0.05, roughness: 0.55, flatShading: false,
+      color: SURFACE, metalness: 0.08, roughness: 0.42, flatShading: false,
     });
     this.scene.add(this.handleGroup);
   }
@@ -98,9 +99,16 @@ export class Viewport {
       this.feedGroup.remove(child);
       (child as THREE.Mesh).geometry?.dispose?.();
     }
+    // SMOOTH means faired AND smooth-shaded: the flow solve runs on the same
+    // derived mesh the print path fairs, so the tool shows what the STL is.
+    const positions = this.smooth
+      ? flowMesh({ positions: feed.surfaces.positions, indices: feed.surfaces.indices },
+                 [], { passes: 12, lambda: 0.45, mu: -0.47 }).positions
+      : feed.surfaces.positions;
     const sgeo = new THREE.BufferGeometry();
-    sgeo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(feed.surfaces.positions), 3));
+    sgeo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(positions), 3));
     sgeo.setAttribute("normal", new THREE.Float32BufferAttribute(Float32Array.from(feed.surfaces.normals), 3));
+    if (this.smooth) sgeo.computeVertexNormals();
     sgeo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(feed.surfaces.indices), 1));
     const mesh = new THREE.Mesh(
       sgeo,
@@ -108,7 +116,7 @@ export class Viewport {
     );
     this.feedGroup.add(mesh);
     this.feedGroup.add(new THREE.LineSegments(
-      new THREE.EdgesGeometry(sgeo, 25),
+      new THREE.EdgesGeometry(sgeo, this.smooth ? 72 : 25),
       new THREE.LineBasicMaterial({ color: EDGE }),
     ));
 

@@ -31,7 +31,9 @@ function meshOf(data: { positions: number[]; indices: number[] }, color: number)
   geo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(data.positions), 3));
   geo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(data.indices), 1));
   geo.computeVertexNormals();
-  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.62, flatShading: true }));
+  // Smooth shading, not flat: flat shading exists to show every facet, which
+  // is the opposite of what a finished body wants.
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, metalness: 0.08, roughness: 0.42, flatShading: false }));
 }
 
 const upper = meshOf(body.upper, 0xd8d8d2);
@@ -73,8 +75,9 @@ if (view === "side") {
   scene.add(grid);
 
   scene.add(upper, slab);
-  scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(upper.geometry, 30), new THREE.LineBasicMaterial({ color: 0x55555c })));
-  scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(slab.geometry, 30), new THREE.LineBasicMaterial({ color: 0x4c4c52 })));
+  // Only genuinely sharp edges get a line — a 30-degree threshold outlined
+  // every tessellation seam and read as wrinkles.
+  scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(upper.geometry, 78), new THREE.LineBasicMaterial({ color: 0x5c5c63 })));
 
   // creased door lines in accent
   for (const c of body.curves.filter((k: { crease: boolean }) => k.crease)) {
