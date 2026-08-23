@@ -26,6 +26,12 @@ export {
 } from "./boundary.js";
 export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 export {
+  cornerFairing,
+  type FairingOptions,
+  type FairingPlan,
+  type TangentMove,
+} from "./fair.js";
+export {
   curveComb,
   curveQuality,
   STRAIGHT_TURN,

@@ -130,6 +130,7 @@ export type VerbName =
   | "mirror-detach"   // Article VIII asymmetry
   | "crease"          // mark an edge as a deliberate crease / character line
   | "gap"             // mark a curve as a panel gap — a shutline (amendment A10)
+  | "fair-corners"    // bring crossing curves coplanar at vertices (amendment A11)
   | "apply-entry";    // splice a catalog entry (itself a verb document) — one grammar
 
 export type JsonPrimitive = string | number | boolean | null;

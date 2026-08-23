@@ -25,6 +25,19 @@ export interface EvaluatedObject {
 const MIRROR_SUFFIX = "~m";
 export const mirrorId = (id: Id): Id => `${id}${MIRROR_SUFFIX}` as Id;
 
+/**
+ * True for a derived mirror twin. A twin is a function of its source and is
+ * regenerated on every evaluation, so nothing may author against one — an edit
+ * belongs on the master, and the twin follows. Anything walking a QuiltSpec and
+ * proposing to CHANGE geometry has to ask this; the mirror law is otherwise
+ * invisible at that seam, because a twin looks exactly like a curve.
+ */
+export const isMirrorId = (id: Id): boolean => id.endsWith(MIRROR_SUFFIX);
+
+/** The master an id refers to — itself, unless it is a twin. */
+export const masterId = (id: Id): Id =>
+  isMirrorId(id) ? (id.slice(0, -MIRROR_SUFFIX.length) as Id) : id;
+
 /** Fixed side sampling for the centered-on-centerline test. */
 const CENTER_SAMPLES = [0, 0.25, 0.5, 0.75, 1] as const;
 

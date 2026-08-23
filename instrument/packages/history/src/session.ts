@@ -16,7 +16,11 @@
 
 import type { CarDocument, Id, IdKind, JsonValue, VerbName, VerbRecord } from "@car/schema";
 import { DOCUMENT_VERSION, makeAllocator, type IdAllocator } from "@car/schema";
-import { FrameState } from "@car/frame";
+import { computeQuilt, FrameState } from "@car/frame";
+import { cornerFairing } from "@car/surface";
+
+/** Fairing passes per `fair-corners`. See the verb's note on why it is fixed. */
+const FAIR_PASSES = 2;
 import {
   ID_PATTERN,
   validateDocumentShape,
@@ -206,6 +210,21 @@ class SessionImpl implements Session {
       case "gap": {
         const a = args as VerbArgs["gap"];
         state.markGap(a.curveId);
+        return;
+      }
+      case "fair-corners": {
+        const a = args as VerbArgs["fair-corners"];
+        // TWO passes, and not more. Moving a control point moves any trim
+        // endpoint at an interior parameter, which moves other cells' corners
+        // — so the second pass is measuring a network the first one changed.
+        // A fixed count keeps the verb a deterministic function of the state;
+        // iterating to convergence would make the result depend on a
+        // tolerance, and the residual is reported instead of chased.
+        for (let pass = 0; pass < FAIR_PASSES; pass++) {
+          const plan = cornerFairing(computeQuilt(state), { breakAngleDeg: a.maxBreakDeg });
+          if (plan.moves.length === 0) break;
+          for (const m of plan.moves) state.setEndTangent(m.curveId, m.chainEnd, m.direction);
+        }
         return;
       }
       case "apply-entry": {

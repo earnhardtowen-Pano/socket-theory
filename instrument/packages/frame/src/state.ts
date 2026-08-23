@@ -32,9 +32,11 @@ import {
   add3,
   chainEnd,
   chainStart,
+  dist3,
   evalChain,
   fitLineOrtho,
   lerp,
+  len3,
   lineChain,
   mapChain,
   norm3,
@@ -677,6 +679,45 @@ export class FrameState {
 
   markGap(curveId: Id): void {
     this.mustCurve(curveId).gap = true;
+  }
+
+  /**
+   * Point one end of a curve's tangent in a new direction, by moving ONE
+   * control point.
+   *
+   * `dir` is the outgoing direction from that endpoint into the chain. The
+   * ENDPOINT ITSELF NEVER MOVES, which is the whole safety of this operation:
+   * every weld still meets at the same point, every trim endpoint at t=0 or
+   * t=1 is unchanged, and the quilt stays watertight by exactly the mechanism
+   * it always used. What does move is the curve between — and any trim
+   * endpoint at an INTERIOR parameter, which is a real consequence and the
+   * reason a caller has to re-measure rather than assume.
+   *
+   * The control point keeps its distance from the endpoint, so this changes
+   * the tangent's direction and not its weight.
+   */
+  setEndTangent(curveId: Id, end: 0 | 1, dir: Pt3): void {
+    if (!dir.every((c) => Number.isFinite(c))) {
+      throw new Error("setEndTangent: direction must be finite");
+    }
+    if (len3(dir) === 0) throw new Error("setEndTangent: direction must be non-zero");
+    const curve = this.mustCurve(this.resolveCurve(curveId));
+    const segs = [...curve.chain.segs];
+    if (segs.length === 0) return;
+    const unit = norm3(dir);
+    if (end === 0) {
+      const seg = segs[0]!;
+      const reach = dist3(seg.p0, seg.p1);
+      if (reach === 0) return;      // no tangent to point; a degenerate handle
+      segs[0] = { ...seg, p1: add3(seg.p0, scale3(unit, reach)) };
+    } else {
+      const i = segs.length - 1;
+      const seg = segs[i]!;
+      const reach = dist3(seg.p3, seg.p2);
+      if (reach === 0) return;
+      segs[i] = { ...seg, p2: add3(seg.p3, scale3(unit, reach)) };
+    }
+    curve.chain = { segs };
   }
 
   group(cellIds: readonly Id[], name: string, alloc: IdAllocator): Id {

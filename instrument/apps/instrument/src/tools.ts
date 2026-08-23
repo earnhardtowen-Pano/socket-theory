@@ -12,7 +12,7 @@ import type { PushPullTarget } from "./port";
 import { inPlaneAxes, viewNormal } from "./view";
 
 export type ToolName =
-  | "select" | "tape-box" | "tape-line" | "push-pull" | "pinch" | "crease" | "gap";
+  | "select" | "tape-box" | "tape-line" | "push-pull" | "pinch" | "crease" | "gap" | "fair";
 
 export interface Ghost {
   readonly kind: "rect" | "line";
@@ -231,4 +231,18 @@ export function creaseAt(hit: PickHit | null): ToolResult {
 export function gapAt(hit: PickHit | null): ToolResult {
   if (!hit || hit.kind !== "curve") return { status: "gap: pick a curve" };
   return { proposal: { verb: "gap", args: { curveId: hit.id } }, selection: hit.id };
+}
+
+/**
+ * Bring crossing curves coplanar at every vertex the network turns badly.
+ *
+ * Whole-network, not a pick: a corner belongs to two curves and four cells,
+ * and closing one moves the trims of others, so there is no sensible "this
+ * one" to click. It is the one gesture in the set that fixes a property of the
+ * model rather than a place in it — which is also why it takes the break angle
+ * as its argument, and why what it leaves alone is worth as much as what it
+ * moves.
+ */
+export function fairCorners(maxBreakDeg: number): ToolResult {
+  return { proposal: { verb: "fair-corners", args: { maxBreakDeg } } };
 }

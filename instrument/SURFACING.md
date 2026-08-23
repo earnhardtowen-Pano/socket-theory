@@ -258,9 +258,17 @@ correcting across a gap (A2 says a shutline does not break flow) while
 continuing to leave creases alone. Adding a verb amends a ratified closed set,
 so it is not taken here.
 
-**A11 (extends the verb set — corner fairing).** Not proposed as strongly as
-A10; put here because the measurement now says exactly what it would buy and
-what it would cost, which it did not before.
+**A11 — RATIFIED and shipped as capability.** (Owner approval of the Class-A
+road plan; recorded in `AUTHORING-SPEC.md`.) `VerbName` gains `fair-corners`,
+`FrameState.setEndTangent` moves one control point, `cornerFairing` plans the
+moves, and the instrument has a FAIR tool. On the `welded-push` fixture the
+worst corner obstruction goes **10.285° → 0.000°** and the joins through it go
+**0 of 2 → 2 of 2 G1, worst 0.000°**.
+
+**Not run on the P1.** Whether this car's 32 fairable corners get faired is one
+verb the owner drives, in his own history, where he can see it and undo it.
+
+The measurement it was ratified on, kept for the record:
 
 The 36 open corners are the entire remaining defect, and they split cleanly
 in two:

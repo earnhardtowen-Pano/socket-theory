@@ -30,6 +30,8 @@ export {
   computeQuilt,
   evaluateMirrors,
   isCenteredOnCenterline,
+  isMirrorId,
+  masterId,
   mirrorId,
   type EvaluatedObject,
   type MirrorTwin,

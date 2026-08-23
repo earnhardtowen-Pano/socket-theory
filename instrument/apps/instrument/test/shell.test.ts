@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeSessionPort } from "../src/sessionPort";
-import { gapAt, pushPullDelta, TapeBoxTool } from "../src/tools";
+import { fairCorners, gapAt, pushPullDelta, TapeBoxTool } from "../src/tools";
 import { gridCandidate, snapResolve } from "../src/snap";
 
 describe("session port (the real model behind the seam)", () => {
@@ -43,6 +43,22 @@ describe("session port (the real model behind the seam)", () => {
     // ...and it is a different mark from a crease, all the way to the viewport.
     expect(port.creaseIds().has(curveId)).toBe(false);
     expect(port.describe(curveId)).toContain("gap curve");
+  });
+
+  it("a designer can reach the fairing, and it reports what it left alone", () => {
+    const port = makeSessionPort(false);
+    port.propose("tape", { kind: "box", rect: { view: { kind: "side" }, a: [0, 0], b: [100, 80], depth: 60, at: -30 } });
+    const before = port.session.log.length;
+
+    // A box turns 90° at every corner. At the render's own crease angle those
+    // are features, so the verb records and does nothing — which is the
+    // behaviour worth pinning: a fairing tool that rounds off a shoebox is
+    // worse than no fairing tool.
+    const result = fairCorners(48);
+    expect(result.proposal).toEqual({ verb: "fair-corners", args: { maxBreakDeg: 48 } });
+    port.propose(result.proposal!.verb, result.proposal!.args);
+    expect(port.lastError()).toBeNull();
+    expect(port.session.log.length).toBe(before + 1);
   });
 
   it("describe never throws, selection or not", () => {

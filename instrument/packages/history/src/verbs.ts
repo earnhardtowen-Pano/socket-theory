@@ -121,6 +121,28 @@ export interface GapArgs {
   curveId: Id;
 }
 
+/**
+ * Bring the curve network coplanar where two curves cross.
+ *
+ * A patch has no freedom at a corner — its tangent plane there is spanned by
+ * the two curves meeting at the vertex — so a corner the network turns badly
+ * pins a tangent break no surfacing pass can remove. This rotates each
+ * adjacent curve's END tangent just far enough to bring the two planes into
+ * one, by moving a single control point. The endpoint never moves, so every
+ * weld holds.
+ *
+ * MINIMAL, NOT TIDY. It does not make the crossing curves tangent to each
+ * other, which would be a restyle: coplanarity is what the surfacing needs and
+ * it costs a fraction of the swing that tangency would.
+ *
+ * `maxBreakDeg` is the line between a fault and a feature — corners turning
+ * sharper than this are left exactly as authored. It is the same judgment the
+ * render's crease angle makes, and defaults to the same number.
+ */
+export interface FairCornersArgs {
+  maxBreakDeg: number;
+}
+
 export interface ApplyEntryArgs {
   entry: CarDocument;
 }
@@ -142,6 +164,7 @@ export interface VerbArgs {
   "mirror-detach": MirrorDetachArgs;
   crease: CreaseArgs;
   gap: GapArgs;
+  "fair-corners": FairCornersArgs;
   "apply-entry": ApplyEntryArgs;
 }
 
@@ -392,6 +415,13 @@ export function validateVerbArgs<V extends VerbName>(verb: V, raw: unknown): Ver
     case "crease":
     case "gap":
       return done({ curveId: checkId(verb, a["curveId"], "curve", "curveId") });
+    case "fair-corners": {
+      const maxBreakDeg = checkNum(verb, a["maxBreakDeg"], "maxBreakDeg");
+      if (maxBreakDeg <= 0 || maxBreakDeg >= 180) {
+        fail(verb, "maxBreakDeg must be in (0,180)");
+      }
+      return done({ maxBreakDeg });
+    }
     case "apply-entry":
       return done({ entry: validateDocumentShape(a["entry"], "apply-entry") });
     default:
