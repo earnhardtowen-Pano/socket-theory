@@ -11,7 +11,7 @@ import type { PickHit } from "./pick";
 import type { PushPullTarget } from "./port";
 import { inPlaneAxes, viewNormal } from "./view";
 
-export type ToolName = "select" | "tape-box" | "tape-line" | "push-pull" | "crease";
+export type ToolName = "select" | "tape-box" | "tape-line" | "push-pull" | "pinch" | "crease";
 
 export interface Ghost {
   readonly kind: "rect" | "line";
@@ -143,6 +143,65 @@ export class PushPullTool {
       return { status: "push-pull: drag too small, discarded" };
     }
     return { proposal: { verb: "push-pull", args: { target, delta } } };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// pinch: smooth mode's hand — grab the nearest control point of a picked
+// curve and move it (statute clause 20: surfaces are controlled by pinching
+// and moving contact points). The drag maps in-plane; N locks to the normal.
+// ---------------------------------------------------------------------------
+
+export interface ControlRef {
+  readonly curveId: Id;
+  readonly seg: number;
+  readonly idx: 0 | 1 | 2 | 3;
+}
+
+export class PinchTool {
+  private start: Pt2 | null = null;
+  private ctrl: ControlRef | null = null;
+
+  down(
+    p: Pt2,
+    hit: PickHit | null,
+    controlsOf: (curveId: Id) => { seg: number; idx: 0 | 1 | 2 | 3; at: Pt3 }[],
+    toView: (w: Pt3) => Pt2,
+  ): ToolResult {
+    if (!hit || hit.kind !== "curve") return { status: "pinch: pick a curve" };
+    const controls = controlsOf(hit.id);
+    if (controls.length === 0) return { status: "pinch: curve has no control points" };
+    let best: { ref: ControlRef; d: number } | null = null;
+    for (const c of controls) {
+      const v = toView(c.at);
+      const d = Math.hypot(v[0] - p[0], v[1] - p[1]);
+      if (!best || d < best.d) best = { ref: { curveId: hit.id, seg: c.seg, idx: c.idx }, d };
+    }
+    this.start = p;
+    this.ctrl = best!.ref;
+    return { selection: hit.id, status: `pinch: ${hit.id} seg ${best!.ref.seg} point ${best!.ref.idx}` };
+  }
+
+  move(p: Pt2): ToolResult {
+    return this.start ? { ghost: { kind: "line", a: this.start, b: p } } : {};
+  }
+
+  up(p: Pt2, view: OrthoView, alongNormal: boolean): ToolResult {
+    const start = this.start;
+    const ctrl = this.ctrl;
+    this.start = null;
+    this.ctrl = null;
+    if (!start || !ctrl) return {};
+    const delta = pushPullDelta(view, start, p, alongNormal);
+    if (Math.abs(delta[0]) + Math.abs(delta[1]) + Math.abs(delta[2]) < DRAG_MIN_MM) {
+      return { status: "pinch: drag too small, discarded" };
+    }
+    return {
+      proposal: {
+        verb: "push-pull",
+        args: { target: { kind: "ctrl", id: ctrl.curveId, seg: ctrl.seg, idx: ctrl.idx }, delta },
+      },
+    };
   }
 }
 

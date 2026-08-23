@@ -12,7 +12,7 @@ import { pickAt } from "./pick";
 import { gridCandidate, snapResolve, type SnapCandidate } from "./snap";
 import { gridPitchFor, orthoViewOf, screenToView, worldToView, type CamState, type OrthoName, type ViewName } from "./view";
 import {
-  creaseAt, selectAt, PushPullTool, TapeBoxTool, TapeLineTool,
+  creaseAt, selectAt, PinchTool, PushPullTool, TapeBoxTool, TapeLineTool,
   type DepthSetting, type ToolName, type ToolResult,
 } from "./tools";
 
@@ -43,7 +43,7 @@ const ledgerLine = document.getElementById("ledgerline")!;
 const pitchEl = document.getElementById("pitch")!;
 
 const VIEWS: ViewName[] = ["side", "plan", "front", "section", "inspect"];
-const TOOLS: ToolName[] = ["select", "tape-box", "tape-line", "push-pull", "crease"];
+const TOOLS: ToolName[] = ["select", "tape-box", "tape-line", "push-pull", "pinch", "crease"];
 
 const startView = new URLSearchParams(location.search).get("view") as ViewName | null;
 let currentView: ViewName = startView && (VIEWS as string[]).includes(startView) ? startView : "side";
@@ -63,6 +63,7 @@ const cams: Record<OrthoName, MutableCam> = {
 const tapeBox = new TapeBoxTool();
 const tapeLine = new TapeLineTool();
 const pushPull = new PushPullTool();
+const pinch = new PinchTool();
 
 function orthoView(): OrthoView {
   return orthoViewOf(currentView === "inspect" ? "side" : (currentView as OrthoName), sectionX);
@@ -173,7 +174,12 @@ for (const t of TOOLS) {
     tool = t;
     tapeLine.cancel();
     for (const el of verbsEl.children) el.classList.toggle("on", (el as HTMLElement).dataset["tool"] === t);
-    ledger(`${t} — ${t === "tape-line" ? "two clicks; hold S for sketch class" : t === "push-pull" ? "drag a face or curve; hold N for the view normal" : "ready"}`);
+    const hints: Partial<Record<ToolName, string>> = {
+      "tape-line": "two clicks; hold S for sketch class",
+      "push-pull": "drag a face or curve; hold N for the view normal",
+      "pinch": "grab a curve near a contact point and move it; hold N for the view normal",
+    };
+    ledger(`${t} — ${hints[t] ?? "ready"}`);
   };
   verbsEl.appendChild(b);
 }
@@ -225,6 +231,13 @@ canvas.addEventListener("pointerdown", (e) => {
   else if (tool === "push-pull") {
     const hit = pickAt(port.feed(), orthoView(), pv, 6 * cam.mmPerPx);
     applyResult(pushPull.down(pv, hit));
+  } else if (tool === "pinch") {
+    const hit = pickAt(port.feed(), orthoView(), pv, 8 * cam.mmPerPx);
+    const view = orthoView();
+    applyResult(pinch.down(pv, hit, (id) => port.curveControls?.(id) ?? [], (w) => worldToView(view, w)));
+    if (hit?.kind === "curve") {
+      viewport.setHandles((port.curveControls?.(hit.id) ?? []).map((c) => c.at));
+    }
   }
 });
 
@@ -253,6 +266,7 @@ canvas.addEventListener("pointermove", (e) => {
   if (tool === "tape-box") applyResult(tapeBox.move(pv));
   else if (tool === "tape-line") applyResult(tapeLine.move(pv));
   else if (tool === "push-pull") applyResult(pushPull.move(pv));
+  else if (tool === "pinch") applyResult(pinch.move(pv));
 });
 
 canvas.addEventListener("pointerup", (e) => {
@@ -264,6 +278,10 @@ canvas.addEventListener("pointerup", (e) => {
   if (tool === "tape-box") applyResult(tapeBox.up(pv, view, depthSetting()));
   else if (tool === "tape-line") applyResult(tapeLine.click(pv, view, sHeld ? "sketch" : "tape", targetsCrossed));
   else if (tool === "push-pull") applyResult(pushPull.up(pv, view, nHeld));
+  else if (tool === "pinch") {
+    applyResult(pinch.up(pv, view, nHeld));
+    if (selection) viewport.setHandles((port.curveControls?.(selection) ?? []).map((c) => c.at));
+  }
   else if (tool === "select") applyResult(selectAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
   else if (tool === "crease") applyResult(creaseAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
 });
@@ -280,8 +298,12 @@ canvas.addEventListener("wheel", (e) => {
 }, { passive: false });
 
 document.getElementById("smooth")!.addEventListener("click", (e) => {
-  (e.currentTarget as HTMLElement).classList.toggle("on");
-  ledger("smooth mode is the same evaluator — the quilt already passes through every shared curve");
+  viewport.smooth = !viewport.smooth;
+  (e.currentTarget as HTMLElement).classList.toggle("on", viewport.smooth);
+  ledger(viewport.smooth
+    ? "smooth — the quilt with its analytic normals; pinch contact points to shape it"
+    : "crude — the paneled solids as blocked; same evaluator, flat panels");
+  repaintSoon();
 });
 document.getElementById("zebraBtn")!.addEventListener("click", (e) => {
   viewport.zebra = !viewport.zebra;

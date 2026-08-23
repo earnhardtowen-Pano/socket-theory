@@ -44,7 +44,11 @@ export class Viewport {
   private orbit = { theta: -2.3, phi: 1.15, dist: 9000, target: new THREE.Vector3(2100, 0, 500) };
   private zebraMat: THREE.ShaderMaterial;
   private surfaceMat: THREE.MeshStandardMaterial;
+  private smoothMat: THREE.MeshStandardMaterial;
+  private readonly handleGroup = new THREE.Group();
   zebra = false;
+  /** Smooth mode: interpolated analytic normals; crude: flat panels. */
+  smooth = false;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -64,6 +68,28 @@ export class Viewport {
     this.surfaceMat = new THREE.MeshStandardMaterial({
       color: SURFACE, metalness: 0.05, roughness: 0.62, flatShading: true,
     });
+    this.smoothMat = new THREE.MeshStandardMaterial({
+      color: SURFACE, metalness: 0.05, roughness: 0.55, flatShading: false,
+    });
+    this.scene.add(this.handleGroup);
+  }
+
+  /** Accent handles for the pinch gesture — the selected curve's control net. */
+  setHandles(points: readonly (readonly [number, number, number])[]): void {
+    for (const child of [...this.handleGroup.children]) {
+      this.handleGroup.remove(child);
+      (child as THREE.Points).geometry?.dispose?.();
+    }
+    if (points.length === 0) return;
+    const flat = new Float32Array(points.length * 3);
+    points.forEach((p, i) => {
+      flat[i * 3] = p[0]; flat[i * 3 + 1] = p[1]; flat[i * 3 + 2] = p[2];
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(flat, 3));
+    this.handleGroup.add(new THREE.Points(g, new THREE.PointsMaterial({
+      color: ACCENT, size: 9, sizeAttenuation: false,
+    })));
   }
 
   /** Rebuild scene content from the feed. Creased ranges draw in accent. */
@@ -76,7 +102,10 @@ export class Viewport {
     sgeo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(feed.surfaces.positions), 3));
     sgeo.setAttribute("normal", new THREE.Float32BufferAttribute(Float32Array.from(feed.surfaces.normals), 3));
     sgeo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(feed.surfaces.indices), 1));
-    const mesh = new THREE.Mesh(sgeo, this.zebra ? this.zebraMat : this.surfaceMat);
+    const mesh = new THREE.Mesh(
+      sgeo,
+      this.zebra ? this.zebraMat : this.smooth ? this.smoothMat : this.surfaceMat,
+    );
     this.feedGroup.add(mesh);
     this.feedGroup.add(new THREE.LineSegments(
       new THREE.EdgesGeometry(sgeo, 25),

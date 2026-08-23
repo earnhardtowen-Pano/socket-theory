@@ -29,6 +29,12 @@ export interface ModelPort {
   tree(): { cells: string[]; groups: string[]; datums: string[] };
   /** One provenance line for the ledger strip. Never throws. */
   describe(id: string): string;
+  /**
+   * Control points of a curve for the pinch gesture (smooth mode is
+   * "controlled by pinching and moving contact points" — statute clause 20).
+   * Optional so a display-only port can omit it.
+   */
+  curveControls?(curveId: Id): { seg: number; idx: 0 | 1 | 2 | 3; at: Pt3 }[];
 }
 
 // ---------------------------------------------------------------------------

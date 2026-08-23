@@ -67,6 +67,26 @@ describe("tools", () => {
     expect(pushPullDelta({ kind: "plan" }, [0, 0], [10, 20], false)).toEqual([10, 20, 0]);
   });
 
+  it("pinch grabs the nearest contact point and emits a ctrl push-pull", async () => {
+    const { PinchTool } = await import("../src/tools");
+    const t = new PinchTool();
+    const controls = [
+      { seg: 0, idx: 0 as const, at: [0, 0, 0] as const },
+      { seg: 0, idx: 1 as const, at: [100, 0, 0] as const },
+    ];
+    const down = t.down(
+      [95, 5],
+      { id: "curve#7", kind: "curve", at: [95, 0, 5], along: 0 },
+      () => controls as never,
+      (w) => [w[0], w[2]],
+    );
+    expect(down.selection).toBe("curve#7");
+    const up = t.up([120, 30], { kind: "side" }, false);
+    const args = up.proposal!.args as { target: { kind: string; id: string; seg: number; idx: number }; delta: number[] };
+    expect(args.target).toEqual({ kind: "ctrl", id: "curve#7", seg: 0, idx: 1 });
+    expect(args.delta).toEqual([25, 0, 25]);
+  });
+
   it("snap priority: vertex beats curve beats grid inside tolerance", () => {
     const winner = snapResolve(
       [10, 10],

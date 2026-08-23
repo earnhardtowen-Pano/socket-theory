@@ -112,6 +112,19 @@ export function makeSessionPort(seedChassis = true): SessionPort {
     lastError(): string | null {
       return error;
     },
+    curveControls(curveId: Id): { seg: number; idx: 0 | 1 | 2 | 3; at: [number, number, number] }[] {
+      const curve = session.state.curves.get(session.state.resolveCurve(curveId));
+      if (!curve) return [];
+      const out: { seg: number; idx: 0 | 1 | 2 | 3; at: [number, number, number] }[] = [];
+      curve.chain.segs.forEach((s, seg) => {
+        ([s.p0, s.p1, s.p2, s.p3] as const).forEach((p, idx) => {
+          // Interior seam points appear once: skip p0 of every segment but the first.
+          if (idx === 0 && seg > 0) return;
+          out.push({ seg, idx: idx as 0 | 1 | 2 | 3, at: [p[0], p[1], p[2]] });
+        });
+      });
+      return out;
+    },
   };
 }
 
