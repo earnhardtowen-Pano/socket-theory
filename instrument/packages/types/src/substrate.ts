@@ -274,13 +274,15 @@ export function makeSubstrate(params: SubstrateParams, alloc: IdAllocator): Subs
       reason:
         "front crush stroke: crash energy is absorbed over fold length AHEAD of the front hard points — " +
         "no rigid part may claim this band (the band value is a planning figure pending the owner's crash-band table; see its ASSUMED note)",
-      kind: "clearance",
+      // A crush band is a keep-out REGION at a stated place, not a halo around
+      // the rails: "clearance" inflates the part envelope by the magnitude in
+      // every direction and ignores this box. (Found at the P1's first solve.)
+      kind: "protected-zone",
       shape: {
         kind: "box",
         size: [crushF, frameWidth, crushPadZ],
         offset: [x0 - crushF.value / 2, 0, 0],
       },
-      magnitude: crushF,
     }),
     demand({
       id: alloc.next("demand"),
@@ -288,13 +290,12 @@ export function makeSubstrate(params: SubstrateParams, alloc: IdAllocator): Subs
       reason:
         "rear crush stroke: crash energy is absorbed over fold length BEHIND the rear hard points — " +
         "no rigid part may claim this band (the band value is a planning figure pending the owner's crash-band table; see its ASSUMED note)",
-      kind: "clearance",
+      kind: "protected-zone",
       shape: {
         kind: "box",
         size: [crushR, frameWidth, crushPadZ],
         offset: [x1 + crushR.value / 2, 0, 0],
       },
-      magnitude: crushR,
     }),
     demand({
       id: alloc.next("demand"),

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Quantity } from "@car/schema";
 import { makeAllocator } from "@car/schema";
 import { assumed, derived } from "@car/demand";
 import {
@@ -84,16 +85,24 @@ describe("makeSubstrate — members", () => {
   });
 });
 
+// Crush bands are KEEP-OUT regions at a stated place, not halos around the
+// rails: "clearance" made the solver inflate the rail envelope isotropically
+// and ignore the (correctly placed) box. Corrected at the P1's first solve.
 describe("makeSubstrate — crush strokes (the pending planning bands)", () => {
   it("publishes front and rear crush demands with the PENDING note, exactly as the charge requires", () => {
     const s = frame();
     const crush = s.demands.filter((d) => d.reason.includes("crush stroke"));
     expect(crush).toHaveLength(2);
     for (const c of crush) {
-      expect(c.kind).toBe("clearance");
-      expect(c.magnitude).toBeDefined();
-      expect(c.magnitude!.license.tag).toBe("ASSUMED");
-      const note = c.magnitude!.license.tag === "ASSUMED" ? c.magnitude!.license.note : "";
+      expect(c.kind).toBe("protected-zone");
+      // No magnitude: a protected zone inflates by its magnitude when present,
+      // and the band is already the box's own X extent — carrying it twice
+      // would double the crush stroke. The licensed value lives in the shape.
+      expect(c.magnitude).toBeUndefined();
+      const shape = c.shape as { kind: "box"; size: readonly Quantity<"mm">[] };
+      const band = shape.size[0]!;
+      expect(band.license.tag).toBe("ASSUMED");
+      const note = band.license.tag === "ASSUMED" ? band.license.note : "";
       expect(note).toMatch(/NON-DERIVABLE HERE/i);
       expect(note).toMatch(/the tool says so/);
       expect(note).toMatch(/pending the owner's crash-band source table/);
@@ -115,8 +124,9 @@ describe("makeSubstrate — crush strokes (the pending planning bands)", () => {
   it("an owner-supplied band replaces the placeholder but the demand still carries its license", () => {
     const s = frame({ crushStrokeFront: assumed(700, "mm", "owner's class table pending — trial value") });
     const front = s.demands.find((d) => d.reason.startsWith("front crush"))!;
-    expect(front.magnitude!.value).toBe(700);
-    expect(front.magnitude!.license.tag).toBe("ASSUMED");
+    const shape = front.shape as { kind: "box"; size: readonly Quantity<"mm">[] };
+    expect(shape.size[0]!.value).toBe(700);
+    expect(shape.size[0]!.license.tag).toBe("ASSUMED");
   });
 });
 

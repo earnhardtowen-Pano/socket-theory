@@ -25,3 +25,4 @@ export { makeWheelTire, type WheelTireParams, type WheelTireInstance } from "./w
 export { makeSubstrate, type SubstrateParams, type SubstrateInstance } from "./substrate.js";
 export { allRegulatory } from "./regulatory.js";
 export { makeBrief, type BriefParams } from "./brief.js";
+export { assembleCar, type CarConfig, type AssembledCar, type PlacementChoices } from "./assemble.js";

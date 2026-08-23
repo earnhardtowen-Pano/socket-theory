@@ -9,6 +9,7 @@ import type { CarDocument, Id, OrthoView, Pt2 } from "@car/schema";
 import { computeQuilt } from "@car/frame";
 import { closedMeshCheck, meshQuilt, writeStlBinary } from "@car/mesh";
 import { makeSessionPort, openSessionPort, type SessionPort } from "./sessionPort";
+import p1Doc from "./cars/panoramic-p1.json";
 import { Viewport } from "./viewport";
 import { pickAt } from "./pick";
 import { gridCandidate, snapResolve, type SnapCandidate } from "./snap";
@@ -47,6 +48,7 @@ app.innerHTML = `
       <button id="saveBtn" class="toggle">SAVE</button>
       <button id="openBtn" class="toggle">OPEN</button>
       <button id="newBtn" class="toggle">NEW</button>
+      <button id="p1Btn" class="toggle">P1</button>
       <button id="printBtn" class="toggle">PRINT</button>
       <button id="smooth" class="toggle">SMOOTH</button>
       <button id="zebraBtn" class="toggle">ZEBRA</button>
@@ -395,6 +397,17 @@ document.getElementById("openBtn")!.addEventListener("click", () => {
 document.getElementById("newBtn")!.addEventListener("click", () => {
   try { localStorage.removeItem(LOAD_FLAG); } catch { /* fine */ }
   location.reload();
+});
+
+document.getElementById("p1Btn")!.addEventListener("click", () => {
+  // The P1 is a document like any other: 46 verbs of history, replayed live.
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(p1Doc));
+    localStorage.setItem(LOAD_FLAG, "1");
+    location.reload();
+  } catch {
+    ledger("P1 — storage unavailable here; run locally to open the car");
+  }
 });
 
 document.getElementById("printBtn")!.addEventListener("click", () => {

@@ -32,7 +32,7 @@
  */
 
 import type { BandShape, BoxShape, DemandRecord, IdAllocator, Quantity } from "@car/schema";
-import { assumed, demand, derived } from "@car/demand";
+import { assumed, demand, derived, qDiv } from "@car/demand";
 import { DEG, natan2, nround } from "@car/num";
 
 // ---------------------------------------------------------------------------
@@ -181,21 +181,38 @@ export function makeBrief(params: BriefParams, alloc: IdAllocator): DemandRecord
     "ground plane datum: Z = 0 at the tire contact line by the fixed car-axes convention (Z up) — " +
       "a datum of the frame, not an assumption",
   );
-  const clearanceShape: BandShape = {
-    kind: "band",
-    zMin: groundDatum,
-    zMax: groundClearanceMm,
+  // The slab is a KEEP-OUT, not a keep-in: a "band" demand clamps a part INTO
+  // its range, which would drag the whole car down to the clearance line. The
+  // requirement is that nothing reaches DOWN into the slab, which is exactly
+  // what a protected zone means to the solver. (Found at the P1's first solve:
+  // the shape and the reason disagreed; the reason was right.)
+  const slabLength = assumed(
+    6000, "mm",
+    "planning extent of the ground-clearance slab along the car — long enough to " +
+      "swallow any v1 body; the brief carries no footprint of its own",
+  );
+  const slabWidth = assumed(
+    2600, "mm",
+    "planning extent of the ground-clearance slab across the car — wide enough to " +
+      "swallow any v1 body; the brief carries no footprint of its own",
+  );
+  const slabCenterZ = qDiv(groundClearanceMm, derived(2, "ratio", "slab center is half its height"), "mm");
+  const clearanceShape: BoxShape = {
+    kind: "box",
+    size: [slabLength, slabWidth, groundClearanceMm],
+    offset: [0, 0, slabCenterZ.value],
   };
   const groundClearance = demand({
     id: alloc.next("demand"),
     principal: "brief",
     reason:
-      "owner's brief: air under the whole body — the band is the protected slab from the ground datum " +
+      "owner's brief: air under the whole body — the protected slab runs from the ground datum " +
       "up to the clearance line; no sprung part (exhaust, pack, sills) may reach into it",
-    kind: "band",
+    kind: "protected-zone",
     shape: clearanceShape,
     magnitude: groundClearanceMm,
   });
+  void groundDatum;
 
   // -- approach / departure: target angles; derived checks live below --------
   const approach = demand({

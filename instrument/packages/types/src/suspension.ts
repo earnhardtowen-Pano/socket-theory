@@ -353,15 +353,21 @@ export function makeSuspension(params: SuspensionParams, alloc: IdAllocator): Su
     `axle envelope width = track + swept wheel Y (each hub carries half a swept box outboard); ` +
       `track = ${trackWidth.value} mm [${trackWidth.license.tag}], swept Y = ${swept.y.value.toFixed(1)} mm [${swept.y.license.tag}]`,
   );
+  // The axle part claims its HARDWARE, not its wheels: the wheels are their own
+  // parts with their own envelopes, and each wheel's sweep is published as a
+  // per-side swept-envelope demand above. Claiming tire radius + travel here
+  // double-counted the wheels and made the axle a solid slab across the track,
+  // which nothing mounted between the wheels — an engine, a rack — could clear.
+  // (Found at the P1's first solve.)
   const envTop = derived(
-    nmax(tireRadius + jounceTravel.value, arch.heightAboveWheelCenter.value),
+    arch.heightAboveWheelCenter.value,
     "mm",
-    `envelope top above wheel center = max(tire radius + jounce, hardware height ${arch.heightAboveWheelCenter.value} mm [${arch.heightAboveWheelCenter.license.tag}])`,
+    `envelope top above wheel center = hardware height ${arch.heightAboveWheelCenter.value} mm [${arch.heightAboveWheelCenter.license.tag}] — the wheels claim their own sweep`,
   );
   const envBottom = derived(
-    tireRadius + reboundTravel.value,
+    jounceTravel.value + reboundTravel.value,
     "mm",
-    `envelope bottom below wheel center = tire radius + rebound (tire hangs at full droop)`,
+    `envelope bottom below wheel center = total travel ${totalTravel.value} mm [${totalTravel.license.tag}]: the arms swing through it`,
   );
   const envHeight = qAdd(envTop, envBottom);
   const envelope: BoxShape = {
