@@ -22,6 +22,8 @@ export {
   type ChainSource,
   type CrossDefects,
   type CrossPrescription,
+  type FieldPiece,
+  type SideField,
   type SideRange,
 } from "./boundary.js";
 export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
@@ -138,3 +140,12 @@ export {
   type NetworkOptions,
   type NetworkReport,
 } from "./continuity.js";
+export {
+  cellBezier,
+  netAt,
+  tileAt,
+  NotPolynomial,
+  type BezierTile,
+  type CellNet,
+  type CellNetOptions,
+} from "./bezier-patch.js";

@@ -98,6 +98,41 @@ export interface BoundarySide {
 }
 
 /**
+ * One claim's field, as coefficients rather than as a sampler.
+ *
+ * `defect` and friends answer "what is Δ at this station". This answers "what
+ * IS Δ" — the same numbers the sampler reads, handed over so a caller can do
+ * exact algebra with them instead of sampling. Nothing here is computed on
+ * demand; it is a view of what the fit already produced.
+ */
+export interface FieldPiece {
+  /** The stretch of the side's loop parameter this claim covers. */
+  readonly s0: number;
+  readonly s1: number;
+  /** The claim's own range in the shared curve's global parameter. τ = (t−lo)/(hi−lo). */
+  readonly lo: number;
+  readonly hi: number;
+  readonly degree: number;
+  readonly knots: readonly number[];
+  /** Shared with the neighbour BY REFERENCE — that is the G1 mechanism. */
+  readonly dStar: readonly Pt3[];
+  /** a(τ): the C′ component. Reparameterisation; invisible to the plane. */
+  readonly along: readonly number[];
+  /** λ(τ): the D* component. */
+  readonly across: readonly number[];
+  /** μ(τ) for the G2 magnitude; empty at order 1. */
+  readonly second: readonly number[];
+}
+
+/** Everything needed to write one side's correction down as a polynomial. */
+export interface SideField {
+  /** The two corner-fade widths, in the side's own loop parameter. */
+  readonly fade: readonly [number, number];
+  /** Empty in bisector form — there the field is not polynomial at all. */
+  readonly pieces: readonly FieldPiece[];
+}
+
+/**
  * A prescribed cross-boundary derivative correction, keyed by cell and side.
  * Structural on purpose: `tangentField` in `tangent-field.ts` satisfies this,
  * and stating it here rather than importing it keeps the dependency running
@@ -111,6 +146,9 @@ export interface CrossPrescription {
   defectDeriv(cellId: Id, k: number, s: number): Pt3;
   /** Δ²_k(s): the curvature correction. Absent for a G1-only prescription. */
   secondDefect?(cellId: Id, k: number, s: number): Pt3;
+  /** The same field as coefficients, for callers doing exact algebra. Absent
+   *  when the prescription was not built in polynomial form. */
+  sideField?(cellId: Id, k: number): SideField | null;
 }
 
 /** The same thing, already bound to one cell. */

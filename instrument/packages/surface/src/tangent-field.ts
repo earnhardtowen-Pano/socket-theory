@@ -144,6 +144,7 @@ import {
 } from "@car/num";
 import {
   cellBoundary, type BoundarySide, type CellBoundary, type CrossPrescription,
+  type FieldPiece, type SideField,
 } from "./boundary.js";
 import {
   boundaryCoonsEdgeJet, boundaryCoonsMixedNatural, boundaryCoonsNormal,
@@ -339,6 +340,13 @@ export interface CrossField {
    * Present only at order 2; a G1 field returns zero.
    */
   secondDefect(cellId: Id, k: number, s: number): Pt3;
+  /**
+   * The same field as coefficients rather than as a sampler, so a caller can
+   * do exact algebra with it — `cellBezier` is the one that needs this. Null
+   * where the side carries no field; `pieces` empty in bisector form, which is
+   * not polynomial and so has nothing honest to hand over.
+   */
+  sideField(cellId: Id, k: number): SideField | null;
   /** True if any of this cell's four sides carries a prescription. */
   has(cellId: Id): boolean;
   readonly stats: CrossFieldStats;
@@ -1024,11 +1032,43 @@ export function fieldFromAdjacency(
     return scale3(rawSecond(cellId, k, s), w);
   };
 
+  /**
+   * One side's field as coefficients rather than as a sampler.
+   *
+   * Every number here is already in `claims`; this hands them over so a caller
+   * can do exact algebra instead of sampling. Null when the side has no field
+   * at all, and `pieces` empty when it has one in bisector form — which is not
+   * polynomial, so there is nothing honest to hand over.
+   */
+  const sideField = (cellId: Id, k: number): SideField | null => {
+    const list = claims.get(`${cellId}#${k}`);
+    if (!list) return null;
+    const b = adj.boundaries.get(cellId);
+    if (!b) return null;
+    const side = b.sides[k]!;
+    const pieces: FieldPiece[] = [];
+    for (const c of list) {
+      if (!c.poly) return { fade: fadesOf(cellId, k), pieces: [] };
+      const sA = sideParamOf(side, c.lo);
+      const sB = sideParamOf(side, c.hi);
+      pieces.push({
+        s0: Math.min(sA, sB), s1: Math.max(sA, sB),
+        lo: c.poly.lo, hi: c.poly.hi,
+        degree: c.poly.degree, knots: c.poly.knots, dStar: c.poly.dStar,
+        along: c.poly.coeffs.along, across: c.poly.coeffs.across,
+        second: c.poly.second,
+      });
+    }
+    pieces.sort((x, y) => x.s0 - y.s0);
+    return { fade: fadesOf(cellId, k), pieces };
+  };
+
   const sortedFits = [...fitRelatives].sort((a, b) => a - b);
   return {
     defect,
     defectDeriv,
     secondDefect,
+    sideField,
     rawDefect,
     has: (cellId: Id): boolean => cellsWithField.has(cellId),
     stats: {
