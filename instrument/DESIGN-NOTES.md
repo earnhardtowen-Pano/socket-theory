@@ -136,3 +136,64 @@ SolveResult contract added to @car/schema) are frozen and pushed.
   is a spec question for G3, and clause 25 still stands: it is authored, not
   cut. This frame simply cannot author THIS opening yet, and saying so is the
   point.
+
+## The body, rebuilt around master lines
+
+- **A car body is two master lines and a family of sections** — constructed
+  here, retrieved as practice (it is how a body has been drawn since the
+  loft floor). The rocker at the sill and the shoulder at the beltline run the
+  length of the car; every station only says what its section does BETWEEN
+  them. A taped box already IS that, once read right: its four long edges are
+  the two rockers and the two shoulders, its top face is the deck between the
+  shoulders, its flanks run rocker to shoulder, its bottom is the underbody.
+  Nothing needed inventing. The earlier body ignored the reading — it left the
+  long edges near the centreline and pushed each station's flank curve 480 mm
+  outboard of its own two endpoints, so every "section" was a bulge hung off a
+  line that was nowhere near the side of the car. It read as a car in
+  silhouette and was incoherent as a surface.
+- **The trim rule and the craft agree.** A long edge stays one curve for the
+  life of the body (tape splits subdivide trims, not curves), and a rocker and
+  a beltline ARE single sweeping curves on a real car. What looked like the
+  frame's limitation is the frame telling you which lines are master lines.
+  The four-point cubic fit makes them exact at t = 0, 1/3, 2/3, 1, and because
+  the tables are read at those same params, x(t) comes out linear and station
+  x maps to curve parameter x/LEN. Every section hangs off that.
+- **Say it in absolutes, not offsets.** The section's width started as a
+  "flare" over the master line and the tires came through the bodywork twice,
+  because a bulge over a line nobody could see could not be checked against
+  anything. Restated as `hip` — the widest half-width the section reaches —
+  it reads directly against the numbers that decide it: tire faces at 932 and
+  957 from the solve. `hipAt` then says how far UP the flank that widest point
+  sits, which is not a nicety: a fender's widest point is level with the crown
+  of the tire, and with the fullness fixed low the section had already
+  narrowed by the time it reached the wheel. The build prints the tire crown
+  against the fender every run, because that number was guessed wrong three
+  times in a row and is free to measure.
+- **The wheels were authored against invented hardpoints.** Track and tire
+  width were typed in by hand — 32 mm inboard of where the solve had actually
+  placed the wheel, and 9 mm narrow. They now come from the placement and the
+  chassis fixture. A body authored against invented hardpoints is a drawing.
+- **A cubic is a wheel.** Third construction and the first that is round. The
+  silhouette of a wheel lives on the four long edges of its flanks, so cutting
+  the faces finer never touched it — the projected curves just stood proud of
+  a rectangle and threw shards. Fitting those eight edges to their quarter-arcs
+  instead gives a true circle (a cubic fits 90 degrees to ~0.1 mm at this
+  radius), needs no cuts at all, and drops the car from 101,524 triangles to
+  32,612, because the tread bands fall out as exact cylindrical strips: a
+  Coons patch spanned between two identical arcs IS the band between them.
+- **A tie-break decided whether two panels existed** (fixed, `@car/frame`).
+  Two deck cells out of thirteen on the windshield were handed phantom mirror
+  twins that double-covered them and opened the mesh in 100 places. The cells
+  were symmetric to the bit; the SIGNATURE was not. 553.9453125 is dyadic, so
+  it lands exactly on a half-step of the 1e-6 quantization grid, the same
+  coordinate came back one ULP lower on the other flank, and `Math.round`
+  breaks ties toward +Infinity — so the two sides of the car quantized a whole
+  step apart. Magnitudes are now snapped to 12 significant digits before the
+  grid round (bit-equal by the time ties are broken) and the tie is broken on
+  the magnitude with the sign restored after (so the sign cannot change the
+  answer). Regression test in `mirror-quilt.test.ts`, verified to fail against
+  the old quantizer. Rare, geometry-dependent, and nothing to do with the
+  cells that failed — which is exactly how a tie-break bug presents.
+- **`MESHDEBUG=1`.** An open mesh was a count, and a count cannot be debugged.
+  The build now reports violation kinds, open-vertex count, and a histogram of
+  open vertices by station. It located the windshield in one run.

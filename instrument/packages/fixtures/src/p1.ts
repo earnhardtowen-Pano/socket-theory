@@ -21,6 +21,8 @@ const tireDiameter = (widthMm: number, aspectPct: number, rimIn: number): number
 const FRONT_TIRE = { width: 245, aspect: 40, rim: 19, load: 98 };
 const REAR_TIRE = { width: 275, aspect: 35, rim: 19, load: 100 };
 
+export const P1_FRONT_TIRE_WIDTH = FRONT_TIRE.width;
+export const P1_REAR_TIRE_WIDTH = REAR_TIRE.width;
 export const P1_FRONT_DIAMETER = tireDiameter(FRONT_TIRE.width, FRONT_TIRE.aspect, FRONT_TIRE.rim);
 export const P1_REAR_DIAMETER = tireDiameter(REAR_TIRE.width, REAR_TIRE.aspect, REAR_TIRE.rim);
 

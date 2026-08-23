@@ -35,6 +35,27 @@ describe("mirror evaluation (symmetry law)", () => {
     expect(twins.map((t) => t.id)).toEqual([]);
   });
 
+  it("a one-ULP difference between the two sides is not an asymmetry", () => {
+    // Found on the P1 windshield: two deck cells out of thirteen were handed
+    // phantom twins that double-covered them and opened the mesh. The cells
+    // were symmetric to the bit; the SIGNATURE was not. 553.9453125 is dyadic,
+    // so 553.9453125 * 1e6 is 553945312.5 exactly — a tie — and the same
+    // coordinate came back 553.94531249999994 on the other flank, because the
+    // two sides are reached by different arithmetic sequences. One ULP is
+    // invisible on its own; landing on a tie it decides the rounding, and the
+    // two sides quantize a whole step apart. The signature now snaps
+    // magnitudes to 12 significant digits before the grid round, so the two
+    // sides are bit-equal by the time ties are broken, and breaks the tie on
+    // the magnitude so the sign cannot change the answer either.
+    const { state } = freshBox(CENTERED_RECT);
+    const onTie = 553.9453125;
+    const oneUlpLess = onTie * (1 - Number.EPSILON);
+    expect(oneUlpLess).not.toBe(onTie);
+    state.pushPull({ kind: "curve", id: "curve#0" }, [0, -onTie + 30, 0]);
+    state.pushPull({ kind: "curve", id: "curve#2" }, [0, oneUlpLess - 30, 0]);
+    expect(evaluateMirrors(state).twins.map((t) => t.id)).toEqual([]);
+  });
+
   it("twins are derivation only: mirrored geometry, reversed loops, no stored records", () => {
     const { state } = freshBox();
     const { twins, mirroredCurves } = evaluateMirrors(state);

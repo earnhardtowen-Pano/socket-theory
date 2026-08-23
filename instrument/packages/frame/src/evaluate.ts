@@ -61,9 +61,35 @@ export interface MirrorTwin {
   readonly sides: readonly [SideRef, SideRef, SideRef, SideRef];
 }
 
-/** Quantized canonical signature of a sampled boundary point bag. */
+/**
+ * Quantized canonical signature of a sampled boundary point bag.
+ *
+ * The quantizer has to be SIGN-SYMMETRIC, because the only thing this
+ * signature is ever asked is whether a bag equals its own y-mirror.
+ * Math.round breaks ties toward +Infinity, so a coordinate landing exactly on
+ * a half-step rounds to a different magnitude on the two sides of the car:
+ * +928.4285715 and -928.4285715 come back 928.428572 and -928.428571, the
+ * signatures miss, and a self-symmetric cell is handed a phantom twin that
+ * double-covers it and opens the mesh. Two deck cells out of thirteen hit it
+ * on the P1 windshield, which is exactly how a tie-break bug presents: rare,
+ * geometry-dependent, and nothing to do with the cells that fail.
+ * Rounding the magnitude and restoring the sign is symmetric by construction.
+ */
 function bagSignature(points: readonly Pt3[]): string {
-  const q = (x: number): number => Math.round(x * 1e6) / 1e6;
+  const q = (x: number): number => {
+    const a = Math.abs(x);
+    if (a === 0) return 0;
+    // Two rounds, and both are load-bearing. toPrecision(12) collapses the
+    // 1-ULP difference between the two sides — 553.9453125 on one flank came
+    // back 553.94531249999994 on the other — so the magnitudes are BIT-EQUAL
+    // before the grid round, which makes every step after this identical for
+    // +y and -y. Rounding the magnitude and restoring the sign then breaks
+    // ties the same way on both sides, where Math.round(x * 1e6) breaks them
+    // toward +Infinity and hands the two sides different buckets.
+    const snapped = Number(a.toPrecision(12));
+    const r = Math.round(snapped * 1e6) / 1e6;
+    return r === 0 ? 0 : x < 0 ? -r : r;   // never -0: it stringifies apart from 0
+  };
   const sortKey = (a: Pt3, b: Pt3): number => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
   return points
     .map((p): Pt3 => [q(p[0]), q(p[1]), q(p[2])])
