@@ -8,14 +8,14 @@ looking like a model and starts looking like a fact.
 
 THE RUN
 ------------------------------------------------------------
-  verbs in history               202
+  verbs in history               206
   cells / curves                 68 / 86
   quilt cells with mirror        80
   triangles printed              32612
   closed mesh                    true (0 violations)
   STL bytes                      1630684
   print scale                    1:24 on a 0.4 mm nozzle
-  shutline grooves               342 vertices sunk, 0.80 mm wide printed
+  shutline grooves               164 vertices sunk, 0.80 mm wide printed
   packaging solve closed         false
   packaging violations           44
 

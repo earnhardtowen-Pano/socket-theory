@@ -221,9 +221,16 @@ every interior vertex, which nothing could ask for before.
 
 ## Put to the owner — one proposed amendment
 
-**A10 (extends the verb set — the gap mark).** The statute already
+**A10 — RATIFIED and shipped.** (Owner approval of the Class-A road plan, on
+the same basis as A1–A9; recorded in `AUTHORING-SPEC.md`.) `VerbName` gains
+`gap`; groove engraving reads `quilt.gaps`. On the P1 the shutline pass went
+from **342 vertices sunk on 8 crease curves** to **164 on 4 gap curves** — the
+beltline and the sill stopped being engraved as though a door opened along
+them. Closed mesh true, replay true, 573 tests green.
+
+The reasoning it was ratified on, kept for the record: the statute already
 distinguishes a panel gap from a deliberate crease and depends on the
-distinction: clause 24 has panels either side of a gap referencing *the same
+distinction — clause 24 has panels either side of a gap referencing *the same
 authored gap curve*, and amendment A2 rules that shutlines do **not** break
 flow unless coincident with a character line, the gap curve being interior to
 its parent flow solve. `FrameState.markGap` exists and `QuiltSpec` carries a

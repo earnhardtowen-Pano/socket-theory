@@ -203,6 +203,11 @@ class SessionImpl implements Session {
         state.markCrease(a.curveId);
         return;
       }
+      case "gap": {
+        const a = args as VerbArgs["gap"];
+        state.markGap(a.curveId);
+        return;
+      }
       case "apply-entry": {
         const a = args as VerbArgs["apply-entry"];
         this.splice(a.entry, seq);

@@ -100,6 +100,27 @@ export interface CreaseArgs {
   curveId: Id;
 }
 
+/**
+ * A panel GAP — a shutline, where two pieces of bodywork stop and the eye sees
+ * daylight or a seal.
+ *
+ * Deliberately not the same mark as `crease`, because the statute already
+ * treats them as different things and depends on the difference. A crease is a
+ * TANGENT BREAK: a beltline, a sill, the edge of a wheel box. A gap is a HOLE
+ * between two panels. Clause 24 has panels either side of a gap referencing the
+ * same authored gap curve; amendment A2 rules that a shutline does NOT break
+ * flow unless it happens to sit on a character line.
+ *
+ * `FrameState.markGap` has been there since the frame was written. Until
+ * amendment A10 there was no verb to reach it, so no curve in any document
+ * could be a gap, `quilt.gaps` was empty on every car, and the groove pass fell
+ * back to the crease set — which is why the P1 engraved a groove down its own
+ * beltline.
+ */
+export interface GapArgs {
+  curveId: Id;
+}
+
 export interface ApplyEntryArgs {
   entry: CarDocument;
 }
@@ -120,6 +141,7 @@ export interface VerbArgs {
   "assign-material": AssignMaterialArgs;
   "mirror-detach": MirrorDetachArgs;
   crease: CreaseArgs;
+  gap: GapArgs;
   "apply-entry": ApplyEntryArgs;
 }
 
@@ -368,6 +390,7 @@ export function validateVerbArgs<V extends VerbName>(verb: V, raw: unknown): Ver
     case "mirror-detach":
       return done({ cellId: checkId(verb, a["cellId"], "cell", "cellId") });
     case "crease":
+    case "gap":
       return done({ curveId: checkId(verb, a["curveId"], "curve", "curveId") });
     case "apply-entry":
       return done({ entry: validateDocumentShape(a["entry"], "apply-entry") });
