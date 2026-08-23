@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import body from "./body.json";
 
-const view = new URLSearchParams(location.search).get("view") ?? "persp";
+const params = new URLSearchParams(location.search);
+const view = params.get("view") ?? "persp";
+/** Skin lenses (charge §9 and the curvature companion): read-only overlays. */
+const lens = params.get("lens") ?? "";
 
 const tag = document.getElementById("tag")!;
 const line = (t: string) => t;
@@ -10,12 +13,59 @@ if (view === "side") {
     line(`PANORAMIC · FRAME INSTRUMENT<span class="accent"> ●</span> SIDE ELEVATION`) + "\n" +
     line(`SHARED CURVES ${body.curves.length} — CREASES IN ACCENT — ENGINE-CUT ARCHES`) + "\n" +
     line(`MM GRID · ${body.stats.verbs} VERBS IN HISTORY`);
+} else if (lens === "cp") {
+  const cp = body.cp;
+  tag.innerHTML =
+    line(`PANORAMIC · AERO LENS<span class="accent"> ●</span> PRESSURE COEFFICIENT`) + "\n" +
+    line(`${cp.panels} SOURCE PANELS · Cp ${cp.p02.toFixed(2)} TO ${cp.p98.toFixed(2)} SHOWN (${cp.min.toFixed(2)}/${cp.max.toFixed(2)} FULL) · FRONTAL ${cp.frontalAreaM2.toFixed(2)} M²`) + "\n" +
+    line(`POTENTIAL FLOW — NO WAKE, NO DRAG. THIS MAP IS NOT A FORCE.`);
+} else if (lens === "curvature") {
+  tag.innerHTML =
+    line(`PANORAMIC · CURVATURE LENS<span class="accent"> ●</span> MEAN CURVATURE`) + "\n" +
+    line(`COTANGENT LAPLACE-BELTRAMI ON THE PRINT MESH`) + "\n" +
+    line(`RANGE ±${(body.curvature.p98 * 1000).toFixed(2)} × 10⁻³ /MM (2ND-98TH PERCENTILE)`);
+} else if (lens === "zebra") {
+  tag.innerHTML =
+    line(`PANORAMIC · ZEBRA<span class="accent"> ●</span> REFLECTION LINES`) + "\n" +
+    line(`BANDS ON THE VIEW-SPACE NORMAL — A KINK BREAKS A STRIPE`) + "\n" +
+    line(`SAME SURFACE, SAME SMOOTHING GROUPS AS THE SHADED VIEW`);
 } else {
   tag.innerHTML =
     line(`PANORAMIC · FRAME INSTRUMENT<span class="accent"> ●</span> WORKED BODY`) + "\n" +
     line(`VERB-SCULPTED QUILT + OCCT BOOLEAN ARCHES`) + "\n" +
     line(`CELLS ${body.stats.cells} · TRIS ${body.stats.upperTris + body.stats.slabTris} · CLOSED ${String(body.stats.upperClosed && body.stats.slabClosed).toUpperCase()}`);
 }
+
+// --- lens colour ramps -----------------------------------------------------
+// Blue is high pressure, red is low: the convention every tunnel plot uses,
+// so nobody has to learn a new one to read this.
+function ramp(t: number): [number, number, number] {
+  const x = Math.max(0, Math.min(1, t));
+  const stops: [number, number, number][] = [
+    [0.13, 0.20, 0.55], [0.20, 0.60, 0.75], [0.85, 0.87, 0.83],
+    [0.92, 0.55, 0.25], [0.78, 0.16, 0.12],
+  ];
+  const f = x * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(f));
+  const u = f - i;
+  const a = stops[i]!, b = stops[i + 1]!;
+  return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
+}
+
+const ZEBRA_VERT = `
+varying vec3 vN;
+void main() {
+  vN = normalize(normalMatrix * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const ZEBRA_FRAG = `
+varying vec3 vN;
+void main() {
+  float band = fract(dot(normalize(vN), normalize(vec3(1.0, 1.0, 0.35))) * 9.0);
+  float s = step(0.5, band);
+  vec3 c = mix(vec3(0.09, 0.09, 0.10), vec3(0.88, 0.88, 0.86), s);
+  gl_FragColor = vec4(c, 1.0);
+}`;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0c);
@@ -79,6 +129,49 @@ if (view === "side") {
   grid.rotation.x = Math.PI / 2;
   grid.position.set(2100, 0, 0);
   scene.add(grid);
+
+  if (lens === "zebra") {
+    upper.material = new THREE.ShaderMaterial({ vertexShader: ZEBRA_VERT, fragmentShader: ZEBRA_FRAG });
+  } else if (lens === "cp") {
+    // Cp is per TRIANGLE, so the geometry is de-indexed: three coloured
+    // corners per face. The shape is identical; only the buffer is wider.
+    const src = upper.geometry;
+    const pos = src.getAttribute("position");
+    const nrm = src.getAttribute("normal");
+    const idx = src.getIndex()!;
+    const n = idx.count;
+    const p = new Float32Array(n * 3), q = new Float32Array(n * 3), col = new Float32Array(n * 3);
+    const cpv = body.cp.perTriangle as number[];
+    const lo = body.cp.p02 as number, hi = body.cp.p98 as number;
+    for (let k = 0; k < n; k++) {
+      const v = idx.getX(k);
+      p[k * 3] = pos.getX(v); p[k * 3 + 1] = pos.getY(v); p[k * 3 + 2] = pos.getZ(v);
+      q[k * 3] = nrm.getX(v); q[k * 3 + 1] = nrm.getY(v); q[k * 3 + 2] = nrm.getZ(v);
+      // Reversed: Cp high (stagnation) reads blue, Cp low (suction) reads red.
+      const c = ramp(1 - (cpv[Math.floor(k / 3)]! - lo) / Math.max(1e-9, hi - lo));
+      col[k * 3] = c[0]; col[k * 3 + 1] = c[1]; col[k * 3 + 2] = c[2];
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(p, 3));
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(q, 3));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    upper.geometry = g;
+    upper.material = new THREE.MeshBasicMaterial({ vertexColors: true });
+  } else if (lens === "curvature") {
+    // Curvature is per PRINT vertex; sourceOf maps each render vertex back to
+    // the print vertex it was split from, so no re-derivation is needed.
+    const mean = body.curvature.mean as number[];
+    const src = body.curvature.sourceOf as number[];
+    const scale = Math.max(1e-9, body.curvature.p98 as number);
+    const n = upper.geometry.getAttribute("position").count;
+    const col = new Float32Array(n * 3);
+    for (let v = 0; v < n; v++) {
+      const c = ramp(0.5 + 0.5 * Math.max(-1, Math.min(1, (mean[src[v] ?? v] ?? 0) / scale)));
+      col[v * 3] = c[0]; col[v * 3 + 1] = c[1]; col[v * 3 + 2] = c[2];
+    }
+    upper.geometry.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    upper.material = new THREE.MeshBasicMaterial({ vertexColors: true });
+  }
 
   scene.add(upper, slab);
   // No edge overlay on the body. With split normals the hard edges draw

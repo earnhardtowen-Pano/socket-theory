@@ -164,10 +164,14 @@ export type License =
   | { readonly tag: "ASSUMED"; readonly note: string };
 
 export type Unit =
-  | "mm" | "mm2" | "mm3" | "m" | "deg" | "rad"
+  | "mm" | "mm2" | "mm3" | "m" | "m2" | "deg" | "rad"
   | "kg" | "N" | "Nm" | "kW" | "W" | "kWh" | "L"
-  | "mm/kW" | "kW/m2" | "kg/L" | "g/cm3" | "km" | "L/100km" | "kWh/100km"
+  | "mm/kW" | "kW/m2" | "kg/L" | "g/cm3" | "kg/m3" | "km" | "km/h"
+  | "L/100km" | "kWh/100km"
   | "count" | "ratio" | "MPa";
+// m2, kg/m3 and km/h were added for the aero lens (charge §9): frontal area,
+// air density, and the speed the MPH box rescales by. Additive amendment to a
+// frozen seam — nothing existing changes meaning.
 
 /**
  * Branded quantity. The brand field makes bare numbers fail typecheck wherever

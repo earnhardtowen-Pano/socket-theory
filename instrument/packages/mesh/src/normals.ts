@@ -36,6 +36,13 @@ export interface CreaseNormalResult {
   readonly indices: Uint32Array;
   /** Vertices added by splitting — how much hard edge the body carries. */
   readonly split: number;
+  /**
+   * For every output vertex, the input vertex it came from. Identity for the
+   * originals, and the vertex it was copied from for each split. A lens that
+   * measures the PRINT mesh (curvature, say) needs this to paint its result
+   * on the RENDER mesh without re-deriving anything.
+   */
+  readonly sourceOf: Uint32Array;
 }
 
 /** Below this dihedral angle two faces share a normal. Degrees. */
@@ -99,6 +106,7 @@ export function creaseNormals(mesh: NormalMesh, angleDeg = DEFAULT_CREASE_ANGLE)
   };
 
   const outPos: number[] = Array.from(positions);
+  const sourceOf: number[] = Array.from({ length: vertCount }, (_, i) => i);
   const outNrm = new Float64Array(vertCount * 3);
   const outIdx = Uint32Array.from(indices);
   const extraNrm: number[] = [];
@@ -152,6 +160,7 @@ export function creaseNormals(mesh: NormalMesh, angleDeg = DEFAULT_CREASE_ANGLE)
       // that side its own copy of the vertex so the edge reads crisp.
       const nv = outPos.length / 3;
       outPos.push(positions[v * 3]!, positions[v * 3 + 1]!, positions[v * 3 + 2]!);
+      sourceOf.push(v);
       extraNrm.push(n[0], n[1], n[2]);
       split++;
       for (const f of members) {
@@ -165,5 +174,11 @@ export function creaseNormals(mesh: NormalMesh, angleDeg = DEFAULT_CREASE_ANGLE)
   const normals = new Float64Array(outNrm.length + extraNrm.length);
   normals.set(outNrm, 0);
   normals.set(extraNrm, outNrm.length);
-  return { positions: Float64Array.from(outPos), normals, indices: outIdx, split };
+  return {
+    positions: Float64Array.from(outPos),
+    normals,
+    indices: outIdx,
+    split,
+    sourceOf: Uint32Array.from(sourceOf),
+  };
 }

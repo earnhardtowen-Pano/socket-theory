@@ -2,6 +2,7 @@ import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import { creaseNormals, DEFAULT_CREASE_ANGLE, meshQuilt } from "@car/mesh";
+import { curvatureMap } from "@car/lens";
 import { evalChain, PI, ncos, nsin } from "@car/num";
 import { initEngineNode } from "@car/occt";
 import type { Pt3, QuiltSpec } from "@car/schema";
@@ -22,6 +23,10 @@ let minZ = Infinity;
 for (let i = 2; i < seated.length; i += 3) minZ = Math.min(minZ, seated[i]!);
 for (let i = 2; i < seated.length; i += 3) seated[i] = seated[i]! - minZ;
 const mesh = { positions: seated, normals: shaded.normals, indices: shaded.indices };
+// Curvature is read off the PRINT mesh, not the shaded one: splitting a
+// normal duplicates a vertex, and a duplicated vertex has half a ring, which
+// would read as an edge that is not there.
+const curv = curvatureMap({ positions: raw.positions, indices: raw.indices });
 const core = { positions: new Float64Array(0), indices: new Uint32Array(0) };
 
 const SAMPLES = 21;
@@ -35,6 +40,16 @@ writeFileSync(new URL("../apps/preview/body.json", import.meta.url), JSON.string
   upper: { positions: Array.from(mesh.positions), normals: Array.from(mesh.normals), indices: Array.from(mesh.indices) },
   slab: { positions: Array.from(core.positions), normals: [] as number[], indices: Array.from(core.indices) },
   curves,
+  // Per PRINT-mesh vertex; the viewer maps it onto the shaded buffer through
+  // the same split table creaseNormals used.
+  curvature: {
+    mean: Array.from(curv.mean, (v) => Math.round(v * 1e6) / 1e6),
+    p02: curv.meanP02,
+    p98: curv.meanP98,
+    note: curv.note,
+    printVertexCount: raw.positions.length / 3,
+    sourceOf: Array.from(shaded.sourceOf),
+  },
   stats: { cells: quilt.cells.length, verbs: doc.verbs.length, upperClosed: true, slabClosed: true,
            upperTris: mesh.indices.length / 3, slabTris: core.indices.length / 3 },
 }));

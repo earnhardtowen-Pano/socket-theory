@@ -96,6 +96,20 @@ describe("creaseNormals", () => {
     }
   });
 
+  it("says where every split vertex came from", () => {
+    const src = mesh(CUBE_POS, CUBE_IDX);
+    const r = creaseNormals(src);
+    expect(r.sourceOf).toHaveLength(r.positions.length / 3);
+    for (let v = 0; v < r.sourceOf.length; v++) {
+      const from = r.sourceOf[v]!;
+      if (v < 8) expect(from).toBe(v);            // originals map to themselves
+      else expect(from).toBeLessThan(8);          // splits name their original
+      for (let c = 0; c < 3; c++) {
+        expect(r.positions[v * 3 + c]).toBe(src.positions[from * 3 + c]);
+      }
+    }
+  });
+
   it("is deterministic across runs", () => {
     const a = creaseNormals(mesh(CUBE_POS, CUBE_IDX));
     const b = creaseNormals(mesh(CUBE_POS, CUBE_IDX));
