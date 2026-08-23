@@ -172,6 +172,59 @@ limit.
 
 ---
 
+## The 6 % that was not what it looked like
+
+The Class-A audit had a row reading **"980 of 16,316 print vertices (6.0 %)
+sit on a collapsed patch corner — fail."** It came from the curvature lens,
+which marks a vertex unmeasurable when its ring of triangles is under one per
+cent of a median face, and from a comment in that lens attributing the slivers
+to collapsed Coons corners.
+
+That attribution was never measured. It was wrong.
+
+`degeneratePatches` — which asks the mesher's own question, `lo === hi ||
+samePos(...)`, of the same numbers rather than inventing a second definition —
+finds **zero** collapsed sides on the P1, and `buildSampleTable` agrees exactly.
+Row 5 is a **pass**.
+
+The real cause was in the mesher. A curve's sample parameters are its base
+lattice union its trim endpoints, so a trim endpoint landing an ulp off a
+lattice point gives the curve two samples 1e-16 apart — and any cell spanning
+them gets two grid columns that far apart, with a column of zero-area quads
+between. On the P1: **214 such columns, smallest gap 2.8 × 10⁻¹⁷, 6,692 sliver
+triangles of 32,612.**
+
+The two populations do not overlap — 214 gaps below 1e-9, **none at all**
+between 1e-9 and 1e-2, 2,248 above — so the threshold is not a tuning choice.
+
+The obvious fix is wrong and worth recording. Dropping the near-duplicate from
+the union **opened 612 edges** on the P1: the seam has to stay exactly the
+table polyline, and the cell across it builds its own union from its own sides,
+so a column dropped here and kept there is a T-gap. Every one of 585 tests
+stayed green through that, because no fixture had a near-duplicate to find.
+
+What works: keep the column, so the boundary rows still snap to their own table
+vertices, and reuse the neighbour's vertex only in the **interior**. The quads
+between then have two equal corners and are dropped by the degenerate-triangle
+filter that was already there.
+
+```
+triangles              32,612 → 27,612      (5,000 of them were zero-area)
+unmeasurable vertices     980 → 45          (6.0 % → 0.33 %)
+sliver triangles        6,692 → 1,695       what the seam genuinely forces
+closed mesh              true → true        0 violations either way
+```
+
+`nearDuplicateSplitQuilt` is the fixture that was missing: a split-top box with
+its split one ulp off a lattice point. It fails at 16 violations against the
+dropped-column version and passes against this one.
+
+**The lesson is the lens's, not the mesher's.** The reading was right and the
+reason was invented, and an invented reason gets quoted onward as fact — this
+one put a defect on the geometry that belonged to the mesher, and I repeated it
+in an audit. A lens may report what it cannot measure. It may not name a cause
+it did not look for.
+
 ## Three things this found on the way
 
 **The field must not round off a break.** 38 P1 joins turn about 90° at

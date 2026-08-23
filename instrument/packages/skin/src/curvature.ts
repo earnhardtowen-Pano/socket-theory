@@ -123,18 +123,30 @@ export function curvatureMap(mesh: CurvatureMesh): CurvatureResult {
   // Some vertices have no curvature to report, and the honest answer is to
   // say so rather than to bound a meaningless number.
   //
-  // Where a Coons patch corner collapses, a vertex gets a whole ring of
-  // slivers: on the P1 five per cent of vertices have a mixed area of 1e-10
-  // mm² against a median face of 485. |Δx|/2A there first reported 3.5e14 per
-  // mm — a radius of 1e-14 mm — and flooring the AREA only moved it to 59 per
-  // mm, because the Laplacian at such a vertex is as meaningless as the area.
-  // Percentiles could not save it either: the bad vertices ARE the top of the
-  // distribution, so a 98th percentile lands inside them.
+  // A vertex ringed by slivers has a mixed area near zero — on the P1 it was
+  // 1e-10 mm² against a median face of 485. |Δx|/2A there first reported
+  // 3.5e14 per mm, a radius of 1e-14 mm, and flooring the AREA only moved it
+  // to 59 per mm, because the Laplacian at such a vertex is as meaningless as
+  // the area. Percentiles could not save it either: the bad vertices ARE the
+  // top of the distribution, so a 98th percentile lands inside them.
   //
   // So a vertex whose ring is under one per cent of a median face is marked
   // invalid, reads zero, and is left out of the display range. `degenerate`
-  // says how many, because a lens that quietly drops five per cent of a mesh
-  // is worse than one that reports nonsense.
+  // says how many, because a lens that quietly drops part of a mesh is worse
+  // than one that reports nonsense.
+  //
+  // WHAT THIS COMMENT USED TO SAY, AND WHY IT MATTERED. It attributed the
+  // slivers to collapsed Coons patch corners. That was never measured, only
+  // assumed — and it was wrong: `degeneratePatches` finds ZERO collapsed sides
+  // on that body, and the mesher's own table agrees. The real cause was 214
+  // near-duplicate grid columns in `meshQuilt`, trim endpoints landing an ulp
+  // off a lattice point, each spreading a column of zero-area quads across its
+  // cell. Fixing that took this count from 980 vertices to 45.
+  //
+  // The reading was right and the reason was invented, which is worse than
+  // useless: it got quoted onward as fact and put a defect on the geometry
+  // that belonged to the mesher. A lens may report what it cannot measure. It
+  // may not name a cause it did not look for.
   const faceAreas: number[] = [];
   for (let t = 0; t < triCount; t++) {
     const i = indices[t * 3]!, j = indices[t * 3 + 1]!, k = indices[t * 3 + 2]!;

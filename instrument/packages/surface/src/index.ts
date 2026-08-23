@@ -26,6 +26,11 @@ export {
 } from "./boundary.js";
 export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 export {
+  degeneratePatches,
+  type CollapsedSide,
+  type DegenerateReport,
+} from "./degenerate.js";
+export {
   cornerFairing,
   type FairingOptions,
   type FairingPlan,

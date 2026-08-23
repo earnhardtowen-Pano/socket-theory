@@ -139,6 +139,46 @@ export function splitTopBoxQuilt(s = 100): Fixture {
 }
 
 /**
+ * The split-top box with the split one ulp off a base-lattice point.
+ *
+ * This is the shape of quilt that produced 214 near-duplicate grid columns on
+ * a real body and 6,692 zero-area slivers with it — and that no other fixture
+ * here produces, which is why a change that opened 612 edges on that body left
+ * every test in this suite green.
+ *
+ * The mechanism, isolated: a curve's sample parameters are its base lattice
+ * UNION its trim endpoints. Put a trim endpoint a hair off a lattice point and
+ * the curve carries two samples an ulp apart; any cell spanning them gets two
+ * grid columns an ulp apart, and a column of degenerate quads between them.
+ *
+ * `0.5 + 2⁻⁵²` is 1.1e-16 from the lattice point at 0.5 — far below anything
+ * geometric, and not equal to it, which is the whole difficulty.
+ */
+export function nearDuplicateSplitQuilt(s = 100): Fixture {
+  const split = 0.5 + Number.EPSILON;
+  const b = new Builder();
+  addBoxEdges(b, s);
+  b.addCurve("M", lineChain([s * split, 0, s], [s * split, s, s]));
+  for (const [name, loop] of BOX_FACES) {
+    if (name === "top") continue;
+    b.addCell(name, loopSides(b, loop));
+  }
+  b.addCell("topA", [
+    side(b.c("4-5"), 0, split, false),
+    side(b.c("M"), 0, 1, false),
+    side(b.c("6-7"), 0, split, true),
+    side(b.c("4-6"), 0, 1, true),
+  ]);
+  b.addCell("topB", [
+    side(b.c("4-5"), split, 1, false),
+    side(b.c("5-7"), 0, 1, false),
+    side(b.c("6-7"), split, 1, true),
+    side(b.c("M"), 0, 1, true),
+  ]);
+  return b.done();
+}
+
+/**
  * Square pyramid = the box with its top collapsed to an apex: base cell plus
  * four tapered cells whose fourth side is one shared point-curve at the apex.
  */

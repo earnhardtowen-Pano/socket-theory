@@ -125,6 +125,36 @@ function plEval(side: GridSide, posOf: (v: number) => Pt3, q: number): Pt3 {
   return lerp3(posOf(side.verts[k]!), posOf(side.verts[k + 1]!), (q - g0) / (g1 - g0));
 }
 
+/**
+ * Two grid lines closer than this carry the same INTERIOR vertex.
+ *
+ * Where it comes from. `sOpp` exists so that a side running against the loop
+ * gets bitwise-identical params to the side opposite it — `1-(1-t)` is not `t`
+ * in floats, and that ulp would split the union into near-duplicate columns.
+ * It does its job where the two sides share a trim. Where they do not — two
+ * different curves, two different `(t-lo)/span` — the params come from
+ * different arithmetic and land an ulp or two apart. On the P1, 214 of 2462
+ * grid gaps were like that, the smallest 2.8e-17, and each one spread a column
+ * of zero-area slivers across its cell: 6,692 of 32,612 triangles, and 980
+ * vertices the curvature lens could not measure.
+ *
+ * NOT a tuning choice. The two populations do not overlap: 214 gaps below
+ * 1e-9, NONE AT ALL between 1e-9 and 1e-2, and 2248 above. Seven orders of
+ * magnitude of clear water, so any threshold in that band gives the same
+ * answer.
+ *
+ * WHAT IT MUST NOT DO. Drop the column. The seam polyline has to stay exactly
+ * the table polyline, and the neighbouring cell across that seam builds its own
+ * union from its own sides — so a column dropped here and kept there is a
+ * T-gap. Removing near-duplicates from `unionParams` opened 612 edges on the
+ * P1 while every test stayed green, because no fixture has two curves whose
+ * sampling nearly coincides. So the column stays, the boundary rows still snap
+ * to their own table vertices, and only the INTERIOR reuses its neighbour's
+ * vertex. The quads between then have two equal corners and are dropped by the
+ * degenerate-triangle filter that was already there.
+ */
+const COLUMN_MERGE = 1e-9;
+
 function unionParams(a: GridSide, b: GridSide): number[] {
   const all: number[] = [0, 1];
   if (!a.collapsed) all.push(...a.g);
@@ -135,6 +165,11 @@ function unionParams(a: GridSide, b: GridSide): number[] {
     if (out.length === 0 || out[out.length - 1] !== p) out.push(p);
   }
   return out;
+}
+
+/** For each grid line, whether it sits within COLUMN_MERGE of the one before. */
+function nearDuplicates(axis: readonly number[]): boolean[] {
+  return axis.map((v, i) => i > 0 && v - axis[i - 1]! <= COLUMN_MERGE);
 }
 
 export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
@@ -190,6 +225,8 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
 
     const nu = U.length;
     const nv = V.length;
+    const dupU = nearDuplicates(U);
+    const dupV = nearDuplicates(V);
     const grid = new Uint32Array(nu * nv);
     for (let j = 0; j < nv; j++) {
       const v = V[j]!;
@@ -200,7 +237,12 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
         else if (j === nv - 1) vert = snapVert(north, u);
         else if (i === 0) vert = snapVert(west, v);
         else if (i === nu - 1) vert = snapVert(east, v);
-        else {
+        else if (dupU[i] || dupV[j]) {
+          // A near-duplicate grid line: reuse the neighbour's interior vertex
+          // rather than push one a femtometre away. U wins over V when both,
+          // for no reason but determinism.
+          vert = dupU[i] ? grid[j * nu + i - 1]! : grid[(j - 1) * nu + i]!;
+        } else {
           const b = plEval(south, posOf, u);
           const t = plEval(north, posOf, u);
           const l = plEval(west, posOf, v);

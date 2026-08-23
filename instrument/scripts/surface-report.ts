@@ -20,8 +20,8 @@ import { writeFileSync, readFileSync } from "node:fs";
 import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import {
-  continuityProbe, curvatureJoinProbe, curveQuality, networkObstruction,
-  quiltAdjacency, tangentField, type CurveQuality,
+  continuityProbe, curvatureJoinProbe, curveQuality, degeneratePatches,
+  networkObstruction, quiltAdjacency, tangentField, type CurveQuality,
 } from "@car/surface";
 import type { CarDocument, Id } from "@car/schema";
 
@@ -109,6 +109,30 @@ for (const c of net.open.slice(0, 6)) {
 console.log(`\n  A patch has no freedom at a corner: its tangent plane there is spanned by\n` +
   `  the two curves meeting at the vertex. These ${net.corners - net.cleanCorners} are the whole of what is left,\n` +
   `  and closing them means moving curves — which is authoring, and needs a verb.`);
+
+// ── 4. degenerate patches ──────────────────────────────────────────────────
+const deg = degeneratePatches(quilt);
+rule("4. PATCHES — any of them triangles in disguise?");
+if (deg.sides === 0) {
+  console.log("  none — every cell has four sides of non-zero length");
+} else {
+  console.log(`  ${deg.cells} of ${deg.totalCells} cells carry a collapsed side (${deg.sides} sides)`);
+  console.log(`  A patch has no tangent plane, no normal and no curvature at a collapsed`);
+  console.log(`  corner. Legal here — the taper verb makes them on purpose — and rejected`);
+  console.log(`  outright by a Class-A audit.`);
+  console.log("");
+  console.log("  " + pad("cell", 14) + rp("side", 6) + rp("reason", 20) + "   at");
+  const seen = new Set<string>();
+  for (const c of deg.list) {
+    const key = `${c.cellId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (seen.size > 8) break;
+    console.log("  " + pad(c.cellId, 14) + rp(String(c.k), 6) + rp(c.reason, 20) +
+      `   [${c.at.map((v) => Math.round(v)).join(", ")}]`);
+  }
+  if (deg.cells > 8) console.log(`  ... and ${deg.cells - 8} more cells`);
+}
 
 // ── the combs ──────────────────────────────────────────────────────────────
 const SHOW = byRipple.slice(0, 6);
