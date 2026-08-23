@@ -116,12 +116,32 @@ and are left out of the display range — and the count is on the render, since
 a lens that quietly drops five per cent of a mesh is worse than one that
 reports nonsense.
 
-**The zebra earned its place on the first render.** The stripes break into
-blocks over the hood and flank: the body is **G1 and not G2**. The Coons
-patches meet with matching position and tangent but not curvature, the
-crease-normal shading hides it, and reflection lines do not. That is what the
-ratified flow stage-gate is for, and there is now evidence for when to spend
-it rather than a hunch.
+**CORRECTED.** An earlier version of this section read the zebra and claimed
+the body was "G1 and not G2 — the Coons patches meet with matching position
+and tangent but not curvature". Both halves were wrong, and one of them
+flatteringly.
+
+The zebra could not have measured it. It runs on the crease-split render
+normals, so at 48° every deliberate smoothing-group split breaks a stripe *by
+construction* and an authored break is indistinguishable from a defect.
+
+`continuityProbe` (`packages/surface/src/continuity.ts`) asks the surfaces
+instead: two patches sharing a curve are G1 when they share a tangent plane
+along it, so the measurement is the angle between their outward normals at the
+same point on that curve. On the P1:
+
+```
+joins 102   creased 104 (excluded — an authored break is not a defect)
+worst 90.00°   p90 90.00°   median 10.21°
+G1 joins (<1°): 6 of 102
+```
+
+**The body is G0** — position-watertight by construction, which is exactly
+what `@car/surface` has always claimed, and tangent-continuous only where the
+neighbouring geometry happens to agree. A Coons patch's cross-boundary
+derivative is fixed by its *opposite* edge; nothing makes two neighbours
+agree, and nothing in the codebase tried to. That is a representation
+property, not a tuning miss, and closing it is Stage 1 of the surfacing road.
 
 ## The print — `npx tsx scripts/build-p1.ts`, `npx tsx scripts/ten-minute.ts`
 

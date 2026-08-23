@@ -3,6 +3,7 @@ import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import { creaseNormals, DEFAULT_CREASE_ANGLE, meshQuilt } from "@car/mesh";
 import { curvatureMap } from "@car/skin";
+import { continuityProbe, tessellateQuilt } from "@car/surface";
 import { evalChain, PI, ncos, nsin } from "@car/num";
 import { initEngineNode } from "@car/occt";
 import type { Pt3, QuiltSpec } from "@car/schema";
@@ -39,6 +40,22 @@ mkdirSync(new URL("../apps/preview", import.meta.url), { recursive: true });
 writeFileSync(new URL("../apps/preview/body.json", import.meta.url), JSON.stringify({
   upper: { positions: Array.from(mesh.positions), normals: Array.from(mesh.normals), indices: Array.from(mesh.indices) },
   slab: { positions: Array.from(core.positions), normals: [] as number[], indices: Array.from(core.indices) },
+  // The ANALYTIC surface, tessellated per patch with its own Coons normals and
+  // no vertices shared between cells. This is the honest zebra source: the
+  // shaded body's normals are crease-split, so a stripe breaking there says
+  // only that an author asked for a hard edge. Here a broken stripe means the
+  // two patches genuinely disagree about which way the surface faces.
+  analytic: (() => {
+    const f = tessellateQuilt(quilt, 14);
+    const c = continuityProbe(quilt);
+    return {
+      positions: Array.from(f.positions),
+      normals: Array.from(f.normals),
+      indices: Array.from(f.indices),
+      g1Joins: c.g1Joins, joins: c.joins,
+      medianDeg: c.medianDeg, worstDeg: c.worstDeg, creased: c.creased,
+    };
+  })(),
   curves,
   // Per PRINT-mesh vertex; the viewer maps it onto the shaded buffer through
   // the same split table creaseNormals used.

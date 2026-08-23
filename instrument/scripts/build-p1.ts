@@ -23,6 +23,7 @@ import {
 } from "@car/fixtures";
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
+import { continuityProbe } from "@car/surface";
 import {
   closedMeshCheck,
   creaseNormals,
@@ -639,6 +640,12 @@ console.log(line("verbs in history", String(doc.verbs.length)));
 console.log(line("cells / curves", `${s.state.cells.size} / ${s.state.curves.size}`));
 console.log(line("quilt cells (with mirror)", String(quilt.cells.length)));
 console.log(line("triangles", String(mesh.indices.length / 3)));
+// Cross-boundary continuity, measured rather than eyeballed. The zebra cannot
+// tell an authored crease from a defect; this asks the surfaces directly.
+const cont = continuityProbe(quilt);
+console.log(line("G1 continuity", `${cont.g1Joins}/${cont.joins} joins under 1° · ` +
+  `median ${cont.medianDeg.toFixed(2)}° · worst ${cont.worstDeg.toFixed(2)}° ` +
+  `(${cont.creased} creased joins excluded)`));
 console.log(line("shutline grooves", `${grooved.moved} vertices sunk — ${grooved.note}`));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
 console.log(line("shading", `${DEFAULT_CREASE_ANGLE}° smoothing groups · ${shaded.split} vertices split on hard edges`));

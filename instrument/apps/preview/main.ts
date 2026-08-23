@@ -5,6 +5,8 @@ const params = new URLSearchParams(location.search);
 const view = params.get("view") ?? "persp";
 /** Skin lenses (charge §9 and the curvature companion): read-only overlays. */
 const lens = params.get("lens") ?? "";
+/** Zebra on the true per-patch normals rather than the crease-split shaded ones. */
+const analytic = params.get("normals") === "analytic";
 
 const tag = document.getElementById("tag")!;
 const line = (t: string) => t;
@@ -25,10 +27,14 @@ if (view === "side") {
     line(`COTANGENT LAPLACE-BELTRAMI ON THE PRINT MESH`) + "\n" +
     line(`RANGE ±${(body.curvature.p98 * 1000).toFixed(2)} × 10⁻³ /MM (98TH PCT) · ${body.curvature.degenerate} COLLAPSED CORNERS UNMEASURABLE`);
 } else if (lens === "zebra") {
-  tag.innerHTML =
-    line(`PANORAMIC · ZEBRA<span class="accent"> ●</span> REFLECTION LINES`) + "\n" +
-    line(`BANDS ON THE VIEW-SPACE NORMAL — A KINK BREAKS A STRIPE`) + "\n" +
-    line(`SAME SURFACE, SAME SMOOTHING GROUPS AS THE SHADED VIEW`);
+  const a = body.analytic;
+  tag.innerHTML = analytic
+    ? line(`PANORAMIC · ZEBRA<span class="accent"> ●</span> ANALYTIC SURFACE NORMALS`) + "\n" +
+      line(`PER-PATCH COONS NORMALS, NO CREASE SPLITTING — A BROKEN STRIPE IS A BROKEN SURFACE`) + "\n" +
+      line(`G1 ${a.g1Joins}/${a.joins} JOINS · MEDIAN ${a.medianDeg.toFixed(2)}° · WORST ${a.worstDeg.toFixed(2)}°`)
+    : line(`PANORAMIC · ZEBRA<span class="accent"> ●</span> SHADED NORMALS`) + "\n" +
+      line(`CREASE-SPLIT AT 48° — AN AUTHORED EDGE BREAKS A STRIPE TOO`) + "\n" +
+      line(`ADD &normals=analytic TO SEE THE SURFACE ITSELF`);
 } else {
   tag.innerHTML =
     line(`PANORAMIC · FRAME INSTRUMENT<span class="accent"> ●</span> WORKED BODY`) + "\n" +
@@ -131,6 +137,17 @@ if (view === "side") {
   scene.add(grid);
 
   if (lens === "zebra") {
+    if (analytic) {
+      // Swap in the analytic surface entirely: per-patch vertices, per-patch
+      // normals, nothing shared across a join. Two patches that disagree show
+      // it here and cannot show it in the shaded view.
+      const a = body.analytic;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(a.positions), 3));
+      g.setAttribute("normal", new THREE.Float32BufferAttribute(Float32Array.from(a.normals), 3));
+      g.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(a.indices), 1));
+      upper.geometry = g;
+    }
     upper.material = new THREE.ShaderMaterial({ vertexShader: ZEBRA_VERT, fragmentShader: ZEBRA_FRAG });
   } else if (lens === "cp") {
     // Cp is per TRIANGLE, so the geometry is de-indexed: three coloured

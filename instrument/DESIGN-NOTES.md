@@ -238,12 +238,16 @@ SolveResult contract added to @car/schema) are frozen and pushed.
   on the splitter lip set the colour scale for the whole car; the same lesson
   applied to the curvature ramp. min and max stay reported — they are the
   truth about the solve — but a display range is a different question.
-- **The zebra is the most useful thing here and it took an afternoon.** It
-  says the body is G1 and not G2: reflection lines break into blocks over the
-  hood where the Coons patches meet with matching tangent but not curvature.
-  The crease-normal shading hides exactly that, which is what shading is for
-  and why a second lens was needed to see past it. The ratified flow
-  stage-gate now has evidence for when to spend it.
+- **The zebra was the most useful thing here and I over-read it.** It showed
+  reflection lines breaking into blocks over the hood, and I concluded the
+  body was G1 and not G2. It could not have told me that: the zebra runs on
+  the crease-split render normals, so every authored smoothing group breaks a
+  stripe by construction and looks exactly like a defect. A lens that cannot
+  separate the intended from the broken cannot support a claim about either.
+  `continuityProbe` measures it properly — the angle between the two patches'
+  normals on the shared curve — and the answer is **G0**: 6 of 102 joins are
+  G1, median defect 10.21°. Correcting my own gate document was the cost of
+  reading an impression as a measurement.
 - **Grooves are scaled from the printer, not the car** — retrieved practice
   (every model-maker knows it), constructed here. A 4 mm door gap at 1:24 is
   0.17 mm and does not exist off a 0.4 mm nozzle. Sizing from the nozzle and
