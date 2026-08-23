@@ -101,7 +101,7 @@ function run(entry: BatteryEntry): Row {
       within: worstDelta <= BATTERY_TOLERANCE_MM.value,
       massKg: ledger.total.value,
       targetGap: ledger.targetGap.value,
-      assumed: ledger.outstandingAssumptions?.length ?? 0,
+      assumed: ledger.assumedOutstanding.length,
       byKind: packed.violations.reduce((m, v) => m.set(v.kind, (m.get(v.kind) ?? 0) + 1), new Map<string, number>()),
     };
   } catch (e) {

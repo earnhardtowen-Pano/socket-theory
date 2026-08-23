@@ -27,10 +27,11 @@ import {
   closedMeshCheck,
   creaseNormals,
   DEFAULT_CREASE_ANGLE,
+  engraveGrooves,
   meshQuilt,
   writeStlBinary,
 } from "@car/mesh";
-import { massLedger } from "@car/lens";
+import { massLedger, provenanceReport } from "@car/lens";
 import { evalChain } from "@car/num";
 
 // ---------------------------------------------------------------------------
@@ -509,8 +510,30 @@ const raw = meshQuilt(quilt, { baseDensity: 20 });
 // the car did not need smoother SHAPE, it needed smoother SHADING. That is
 // creaseNormals, a render-path derivation, and it moves no vertex at all.
 const shaded = creaseNormals(raw, DEFAULT_CREASE_ANGLE);
+// 1:24 on a 0.4 mm nozzle — the scale the P1 is printed at.
+const PRINT_SCALE = 24;
+const NOZZLE_MM = 0.4;
+// Dense enough that consecutive samples sit closer than the groove is wide,
+// or the groove comes out scalloped and that is a sampling artefact.
+const GROOVE_SAMPLES = 400;
+// Shutlines engrave as grooves (charge §10). The scale is the print's, not
+// the car's: a 4 mm door gap at 1:24 is 0.17 mm and simply does not exist
+// coming off a 0.4 mm nozzle, so the groove is sized from the printer and
+// back-scaled. Topology is untouched, so the closed check below is still
+// checking the thing that gets printed.
+const shutlines: Pt3[] = [];
+for (const id of quilt.creases) {
+  const chain = quilt.curves.get(id);
+  if (!chain) continue;
+  for (let i = 0; i <= GROOVE_SAMPLES; i++) shutlines.push(evalChain(chain, i / GROOVE_SAMPLES));
+}
+const grooved = engraveGrooves(raw, shutlines, {
+  scaleDenominator: PRINT_SCALE,
+  minPrintedFeatureMm: NOZZLE_MM,
+});
+
 // Seat the car on the road: the ground plane is a datum — the car meets it.
-const seated = Float64Array.from(raw.positions);
+const seated = Float64Array.from(grooved.positions);
 let minZ = Infinity;
 for (let i = 2; i < seated.length; i += 3) minZ = Math.min(minZ, seated[i]!);
 for (let i = 2; i < seated.length; i += 3) seated[i] = seated[i]! - minZ;
@@ -573,7 +596,38 @@ writeFileSync(new URL("../cars/panoramic-p1.car.json", import.meta.url), JSON.st
 // behind, and the tool then opened a car nobody had built.
 mkdirSync(new URL("../apps/instrument/src/cars", import.meta.url), { recursive: true });
 writeFileSync(new URL("../apps/instrument/src/cars/panoramic-p1.json", import.meta.url), JSON.stringify(doc));
-writeFileSync(new URL("../../panoramic-p1.stl", import.meta.url), writeStlBinary(mesh, "panoramic-p1"));
+const stl = writeStlBinary(mesh, "panoramic-p1");
+writeFileSync(new URL("../../panoramic-p1.stl", import.meta.url), stl);
+
+// Every print emits the provenance report (charge §10). Beside the STL, not
+// in a menu: a printed object stops looking like a model and starts looking
+// like a fact, and this is the page that says which parts of it are.
+const prov = provenanceReport({
+  carName: "Panoramic P1",
+  config: p1Config,
+  clamps: packed.clamps,
+  bodyChecks: car.bodyChecks,
+  ledgerLines: [
+    `total                ${ledger.total.value.toFixed(1)} kg (target ${p1Config.brief.massTargetKg.value} kg)`,
+    `gap to target        ${ledger.targetGap.value.toFixed(1)} kg`,
+    `CG                   ${ledger.cg.map((v) => v.toFixed(0)).join(", ")} mm`,
+    `axle loads F/R       ${ledger.axleLoads.front.value.toFixed(0)} / ${ledger.axleLoads.rear.value.toFixed(0)} kg`,
+    `ASSUMED outstanding  ${ledger.assumedOutstanding.length}`,
+  ],
+  modelFacts: [
+    ["verbs in history", String(doc.verbs.length)],
+    ["cells / curves", `${s.state.cells.size} / ${s.state.curves.size}`],
+    ["quilt cells with mirror", String(quilt.cells.length)],
+    ["triangles printed", String(mesh.indices.length / 3)],
+    ["closed mesh", `${report.closed} (${report.violations.length} violations)`],
+    ["STL bytes", String(stl.byteLength)],
+    ["print scale", `1:${PRINT_SCALE} on a ${NOZZLE_MM} mm nozzle`],
+    ["shutline grooves", `${grooved.moved} vertices sunk, ${grooved.printedWidthMm.toFixed(2)} mm wide printed`],
+    ["packaging solve closed", String(packed.closed)],
+    ["packaging violations", String(packed.violations.length)],
+  ],
+});
+writeFileSync(new URL("../../panoramic-p1-provenance.txt", import.meta.url), prov.text);
 
 // replay integrity: the car is a first-class replayable document
 const reloaded = load(doc);
@@ -585,6 +639,7 @@ console.log(line("verbs in history", String(doc.verbs.length)));
 console.log(line("cells / curves", `${s.state.cells.size} / ${s.state.curves.size}`));
 console.log(line("quilt cells (with mirror)", String(quilt.cells.length)));
 console.log(line("triangles", String(mesh.indices.length / 3)));
+console.log(line("shutline grooves", `${grooved.moved} vertices sunk — ${grooved.note}`));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
 console.log(line("shading", `${DEFAULT_CREASE_ANGLE}° smoothing groups · ${shaded.split} vertices split on hard edges`));
 console.log(line("replay round-trip", String(same)));
@@ -631,5 +686,6 @@ console.log(line("gap to target", `${ledger.targetGap.value.toFixed(1)} kg`));
 console.log(line("CG", ledger.cg.map((v) => v.toFixed(0)).join(", ")));
 console.log(line("axle loads F/R", `${ledger.axleLoads.front.value.toFixed(0)} / ${ledger.axleLoads.rear.value.toFixed(0)} kg`));
 console.log(line("ASSUMED outstanding", String(ledger.assumedOutstanding.length)));
-console.log("\nwrote cars/panoramic-p1.car.json and panoramic-p1.stl");
+console.log(`\nprovenance             ${prov.assumedCount} assumed · ${prov.sourcedCount} sourced · ${prov.derivedCount} derived`);
+console.log("\nwrote cars/panoramic-p1.car.json, panoramic-p1.stl and panoramic-p1-provenance.txt");
 void evalChain; void hp;

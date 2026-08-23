@@ -34,3 +34,9 @@ export {
   type CreaseNormalResult,
   type NormalMesh,
 } from "./normals.js";
+export {
+  engraveGrooves,
+  type GrooveMesh,
+  type GrooveOptions,
+  type GrooveResult,
+} from "./groove.js";

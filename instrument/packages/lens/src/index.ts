@@ -39,3 +39,10 @@ export {
   type DragEstimate,
   type InletCheck,
 } from "./aero.js";
+export {
+  provenanceReport,
+  collectLicensed,
+  type LicensedEntry,
+  type ProvenanceInput,
+  type ProvenanceReport,
+} from "./provenance.js";
