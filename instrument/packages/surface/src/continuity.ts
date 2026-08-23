@@ -29,9 +29,9 @@
  */
 
 import type { Id, Pt3, QuiltSpec } from "@car/schema";
-import { cross3, dot3, len3, natan2 } from "@car/num";
+import { add3, cross3, dot3, len3, natan2, norm3, scale3, sub3 } from "@car/num";
 import { cellBoundary, type CellBoundary, type CrossPrescription } from "./boundary.js";
-import { boundaryCoonsNormal } from "./coons.js";
+import { boundaryCoonsNormal, boundaryCoonsPartials } from "./coons.js";
 import { edgeDefectProfile, medianOf, quiltAdjacency, sideParamOf, uvOnSide } from "./adjacency.js";
 import { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 
@@ -240,6 +240,19 @@ export interface CornerObstruction {
   readonly end: 0 | 1;
   readonly at: Pt3;
   readonly angleDeg: number;
+  /**
+   * How far each side's adjacent curve would have to swing AT THE VERTEX for
+   * the two tangent planes to coincide, in degrees.
+   *
+   * This is the price of the fix, and it is deliberately not the same number
+   * as `angleDeg`. The obstruction is an angle between two PLANES; the
+   * rotation is what it takes to close it by moving the curves that span them,
+   * and a curve running close to the shared one needs a large swing to move
+   * its plane a little. Reported so the cost of fairing a corner can be
+   * weighed against the defect it removes, rather than assumed to be small.
+   */
+  readonly rotateADeg: number;
+  readonly rotateBDeg: number;
 }
 
 export interface NetworkReport {
@@ -251,6 +264,12 @@ export interface NetworkReport {
   readonly cleanCorners: number;
   readonly toleranceDeg: number;
   readonly worst: CornerObstruction | null;
+  /** Every corner that is not clean, worst first. The work list. */
+  readonly open: readonly CornerObstruction[];
+  /** Largest single curve swing any of them would need, degrees. */
+  readonly worstRotationDeg: number;
+  /** Median swing over the open corners, degrees. */
+  readonly medianRotationDeg: number;
   readonly note: string;
 }
 
@@ -273,6 +292,7 @@ export function networkObstruction(
   const adj = quiltAdjacency(quilt);
 
   const angles: number[] = [];
+  const open: CornerObstruction[] = [];
   let worst: CornerObstruction | null = null;
   let clean = 0;
 
@@ -293,17 +313,36 @@ export function networkObstruction(
       if (isZero(nA) || isZero(nB)) continue;
       const deg = angleBetween(nA, nB);
       angles.push(deg);
-      if (deg <= tol) clean++;
-      if (worst === null || deg > worst.angleDeg) {
-        worst = {
-          curveId: edge.curveId, cellA: edge.a.cellId, cellB: edge.b.cellId,
-          end, at: sA.atCurveParam(t), angleDeg: deg,
-        };
-      }
+
+      // What it would cost to close it. The two tangent planes have normals
+      // nA and nB; the common plane is the one whose normal bisects them, and
+      // each side's adjacent curve has to swing into it. That swing is the
+      // component of its tangent along the common normal, taken out.
+      const nStar = norm3(dot3(nA, nB) >= 0 ? add3(nA, nB) : sub3(nA, nB));
+      const swing = (b: CellBoundary, k: number, u: number, v: number): number => {
+        const { su, sv } = boundaryCoonsPartials(b, u, v);
+        const inward = k === 0 ? sv : k === 1 ? scale3(su, -1)
+          : k === 2 ? scale3(sv, -1) : su;
+        if (len3(inward) === 0 || isZero(nStar)) return 0;
+        const flat = sub3(inward, scale3(nStar, dot3(inward, nStar)));
+        if (len3(flat) === 0) return 90;
+        return angleBetween(norm3(inward), norm3(flat));
+      };
+      const station: CornerObstruction = {
+        curveId: edge.curveId, cellA: edge.a.cellId, cellB: edge.b.cellId,
+        end, at: sA.atCurveParam(t), angleDeg: deg,
+        rotateADeg: swing(bA, edge.a.k, ua, va),
+        rotateBDeg: swing(bB, edge.b.k, ub, vb),
+      };
+      if (deg <= tol) clean++; else open.push(station);
+      if (worst === null || deg > worst.angleDeg) worst = station;
     }
   }
 
   const sorted = [...angles].sort((a, b) => a - b);
+  const rotations = open
+    .flatMap((c) => [c.rotateADeg, c.rotateBDeg])
+    .sort((a, b) => a - b);
   const at = (f: number): number =>
     sorted.length === 0 ? 0 : sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))]!;
 
@@ -315,6 +354,9 @@ export function networkObstruction(
     cleanCorners: clean,
     toleranceDeg: tol,
     worst,
+    open: [...open].sort((a, b) => b.angleDeg - a.angleDeg),
+    worstRotationDeg: rotations.length === 0 ? 0 : rotations[rotations.length - 1]!,
+    medianRotationDeg: rotations.length === 0 ? 0 : rotations[Math.floor(rotations.length / 2)]!,
     note:
       "Tangent-plane disagreement AT the shared curve's endpoints, where a " +
       "Coons patch has no freedom: its tangent plane there is spanned by the " +

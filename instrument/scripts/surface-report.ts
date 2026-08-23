@@ -96,9 +96,19 @@ if (net.worst) {
   console.log(`  worst        ${net.worst.cellA} | ${net.worst.cellB} on ${net.worst.curveId} ` +
     `— ${net.worst.angleDeg.toFixed(1)}° at [${net.worst.at.map((v) => Math.round(v)).join(", ")}]`);
 }
+console.log(`  fairing them would swing a curve at the vertex by ` +
+  `${net.medianRotationDeg.toFixed(2)}° median · ${net.worstRotationDeg.toFixed(1)}° worst`);
+console.log("");
+console.log("  " + pad("worst open corners", 26) + rp("plane gap", 11) + rp("swing A", 10) + rp("swing B", 10) + "   at");
+for (const c of net.open.slice(0, 6)) {
+  console.log("  " + pad(`${c.cellA} | ${c.cellB}`, 26) +
+    rp(`${c.angleDeg.toFixed(2)}°`, 11) + rp(`${c.rotateADeg.toFixed(2)}°`, 10) +
+    rp(`${c.rotateBDeg.toFixed(2)}°`, 10) +
+    `   [${c.at.map((v) => Math.round(v)).join(", ")}]`);
+}
 console.log(`\n  A patch has no freedom at a corner: its tangent plane there is spanned by\n` +
   `  the two curves meeting at the vertex. These ${net.corners - net.cleanCorners} are the whole of what is left,\n` +
-  `  and they are curve work, not surface work.`);
+  `  and closing them means moving curves — which is authoring, and needs a verb.`);
 
 // ── the combs ──────────────────────────────────────────────────────────────
 const SHOW = byRipple.slice(0, 6);

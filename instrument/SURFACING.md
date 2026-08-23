@@ -251,7 +251,49 @@ correcting across a gap (A2 says a shutline does not break flow) while
 continuing to leave creases alone. Adding a verb amends a ratified closed set,
 so it is not taken here.
 
-A second thing worth the owner's eye, not an amendment: **clause 21's candor
+**A11 (extends the verb set — corner fairing).** Not proposed as strongly as
+A10; put here because the measurement now says exactly what it would buy and
+what it would cost, which it did not before.
+
+The 36 open corners are the entire remaining defect, and they split cleanly
+in two:
+
+```
+  worst open corners          plane gap   swing A   swing B   at
+  cell#1 | cell#100              74.43°    37.12°    37.01°   [4400, -520, 250]
+  cell#1 | cell#98               74.43°    37.12°    37.01°   [4400,  520, 250]
+  cell#1 | cell#100              72.41°    36.12°    36.16°   [4400, -560, 870]
+  cell#1 | cell#98               72.41°    36.12°    36.16°   [4400,  560, 870]
+  cell#107 | cell#110             3.16°     1.58°     1.58°   [1140,  932,  99]
+  ...
+  median over all 36 open corners:  1.58° swing
+```
+
+**Four of them are features, not faults.** They are the rear face meeting the
+flanks, at both ends of the same two joins — a 72–74° break at the corner on a
+join that runs smooth along its length. That is a designed edge, and the
+answer there is to crease the curve, not to fair it.
+
+**The other 32 need a curve to swing 1.6° at a vertex.** That is below what
+anyone would see and it would close the last of the residual.
+
+A fairing verb would take a vertex and a maximum swing, rotate each
+participating curve's end tangent into the common plane by moving one control
+point (the endpoint never moves, so nothing is unwelded), and leave anything
+sharper than the break angle alone. It is the standard curve-network tangent
+match, and it is authoring: it moves the model, so it belongs in the history
+where it can be seen and undone.
+
+**What is deliberately NOT done instead.** It would be technically easy to
+derive a faired network at evaluation time — the way the tangent field is
+derived — and never touch the document. That is the wrong trade and worth
+saying out loud: the tangent field is safe precisely because Φ vanishes on
+every edge and moves no authored curve, whereas a derived fairing would put
+the surface somewhere other than through the curve the designer drew. Clause
+20 says a cell evaluates from *its* four boundary curves. Quietly substituting
+different ones would make the document stop being the model.
+
+A third thing worth the owner's eye, not an amendment: **clause 21's candor
 on Coons has been partly overtaken.** It reads "shared boundaries buy
 position, not tangency", and anticipates interior control as "a legal future
 extension of the cell's data, not a new patch program". Shared boundaries now
