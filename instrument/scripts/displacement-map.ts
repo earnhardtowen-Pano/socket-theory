@@ -17,6 +17,9 @@
  * one red cell on a black car.
  *
  *   npx tsx scripts/displacement-map.ts [outfile.svg]
+ *
+ * The SVG is one path per triangle and comes out at about four megabytes, so it
+ * is gitignored; `shots/displacement-map.png` beside it is the artefact.
  */
 
 import { writeFileSync, readFileSync } from "node:fs";

@@ -3,3 +3,8 @@ dist/
 .vite/
 *.log
 *.stl
+
+# The displacement map is one SVG path per triangle — four megabytes, and it
+# regenerates from `npx tsx scripts/displacement-map.ts`. The PNG beside it is
+# the artefact; the SVG is the intermediate.
+shots/displacement-map.svg
