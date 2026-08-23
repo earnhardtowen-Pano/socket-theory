@@ -110,9 +110,11 @@
  */
 
 import type { Id, Pt3, QuiltSpec } from "@car/schema";
-import { chainDeriv, clamp, dot3, len3, norm3, scale3, sub3 } from "@car/num";
-import type { CellBoundary } from "./boundary.js";
-import { boundaryCoonsPartials } from "./coons.js";
+import { chainDeriv, clamp, cross3, dot3, len3, norm3, scale3, sub3 } from "@car/num";
+import { cellBoundary, type CellBoundary, type CrossPrescription } from "./boundary.js";
+import {
+  boundaryCoonsEdgeJet, boundaryCoonsPartials, inwardOf, normalCurvatureAt,
+} from "./coons.js";
 import {
   edgeDefectProfile,
   medianOf,
@@ -145,6 +147,13 @@ export interface CrossFieldOptions {
   readonly breakAngleDeg?: number;
   /** Stations used to classify a join as smooth or sharp. */
   readonly classifySamples?: number;
+  /**
+   * 1 = tangent plane (G1). 2 = tangent plane and cross-curvature (G2).
+   * The second order is a second pass over the FIRST-order-corrected patches,
+   * because the curvature to match is the curvature they end up with, not the
+   * one they started with.
+   */
+  readonly order?: 1 | 2;
 }
 
 const DEFAULT_CORNER_FADE = 0.12;
@@ -166,6 +175,8 @@ export interface CrossFieldStats {
   readonly sharpEdges: number;
   /** The angle that classified them. */
   readonly breakAngleDeg: number;
+  /** 1 or 2 — how far the prescription goes. */
+  readonly order: 1 | 2;
   /** Sides with more than one neighbour over the same stretch. */
   readonly ambiguous: number;
 }
@@ -185,6 +196,11 @@ export interface CrossField {
   /** The correction BEFORE the corner window — what full G1 would have asked
    *  for. The gap between this and `defect` is what the window gave up. */
   rawDefect(cellId: Id, k: number, s: number): Pt3;
+  /**
+   * Δ²_k(s): the curvature correction, a vector along the shared normal.
+   * Present only at order 2; a G1 field returns zero.
+   */
+  secondDefect(cellId: Id, k: number, s: number): Pt3;
   /** True if any of this cell's four sides carries a prescription. */
   has(cellId: Id): boolean;
   readonly stats: CrossFieldStats;
@@ -192,10 +208,23 @@ export interface CrossField {
 
 const ZERO: Pt3 = [0, 0, 0];
 
-/** Smoothstep: 0 and 1 at the ends, zero slope at both. */
-const smoothstep = (x: number): number => {
+/**
+ * Smootherstep: 0 and 1 at the ends, with zero FIRST AND SECOND derivative at
+ * both.
+ *
+ * The cubic smoothstep would do for G1 — it only has to be C¹ — but the G2
+ * term needs every field flat to second order at its own ends, or the
+ * curvature correction on one side leaks into the second derivative of the
+ * side next to it and the two neighbours stop agreeing about the thing they
+ * were just made to agree about. One window, strong enough for both.
+ */
+const smootherstep = (x: number): number => {
   const t = clamp(x, 0, 1);
-  return t * t * (3 - 2 * t);
+  return t * t * t * (t * (6 * t - 15) + 10);
+};
+const smootherstepPrime = (x: number): number => {
+  const t = clamp(x, 0, 1);
+  return 30 * t * t * (t - 1) * (t - 1);
 };
 
 /** The corner window. 0 (with zero slope) at s=0 and s=1, 1 across the middle. */
@@ -203,8 +232,8 @@ export function cornerWindow(s: number, fade: number): number {
   if (fade <= 0) return s <= 0 || s >= 1 ? 0 : 1;
   if (s <= 0 || s >= 1) return 0;
   const a = Math.min(fade, 0.5);
-  if (s < a) return smoothstep(s / a);
-  if (s > 1 - a) return smoothstep((1 - s) / a);
+  if (s < a) return smootherstep(s / a);
+  if (s > 1 - a) return smootherstep((1 - s) / a);
   return 1;
 }
 
@@ -213,9 +242,8 @@ export function cornerWindowDeriv(s: number, fade: number): number {
   if (fade <= 0) return 0;
   if (s <= 0 || s >= 1) return 0;
   const a = Math.min(fade, 0.5);
-  const sd = (x: number): number => 6 * x * (1 - x);   // d/dx of x²(3-2x)
-  if (s < a) return sd(s / a) / a;
-  if (s > 1 - a) return -sd((1 - s) / a) / a;
+  if (s < a) return smootherstepPrime(s / a) / a;
+  if (s > 1 - a) return -smootherstepPrime((1 - s) / a) / a;
   return 0;
 }
 
@@ -377,9 +405,93 @@ export function fieldFromAdjacency(
     return out;
   };
 
+  // ── order 2: cross-curvature ────────────────────────────────────────────
+  //
+  // Read the SECOND fundamental form of each neighbour on the shared curve,
+  // in the frame the two of them now hold in common. Under G1 the normal
+  // field N and the transverse direction ê are shared, which makes II(T,T)
+  // and II(T,ê) shared too — the first is the curve's own normal curvature,
+  // the second is only how N rotates along the curve. So the whole of G2
+  // across this join is one scalar: II(ê,ê), the normal curvature ACROSS it.
+  //
+  // Match it by averaging, and hand each patch the change to its own inward
+  // second derivative that lands it there. The change is purely along N: a
+  // second derivative's tangential part is parameterisation, and moving it
+  // would bend the surface to satisfy a metric.
+  const order: 1 | 2 = opts.order ?? 1;
+  const g1Only: CrossPrescription = { defect, defectDeriv };
+  const g1Boundaries = new Map<Id, CellBoundary>();
+  const cellsById = new Map<Id, (typeof adj.quilt.cells)[number]>();
+  for (const c of adj.quilt.cells) cellsById.set(c.id, c);
+  const g1BoundaryOf = (id: Id): CellBoundary | null => {
+    const hit = g1Boundaries.get(id);
+    if (hit) return hit;
+    const cell = cellsById.get(id);
+    if (!cell) return null;
+    const built = cellBoundary(cell, adj.quilt, g1Only);
+    g1Boundaries.set(id, built);
+    return built;
+  };
+
+  /** Everything the G2 step needs about one owner at one station. */
+  const readSide = (
+    cellId: Id, k: number, s: number, tHat: Pt3,
+  ): { curv: number; b: number; nHat: Pt3 } | null => {
+    const b = g1BoundaryOf(cellId);
+    if (!b) return null;
+    const [u, v] = uvOnSide(k, s);
+    const jet = boundaryCoonsEdgeJet(b, u, v);
+    const nHat = norm3(cross3(jet.su, jet.sv));
+    if (nHat[0] === 0 && nHat[1] === 0 && nHat[2] === 0) return null;
+    const inward = inwardOf(jet, k);
+    const perp = sub3(inward, scale3(tHat, dot3(inward, tHat)));
+    const bLen = len3(perp);
+    if (bLen <= minTrans * (1 + len3(inward))) return null;
+    const curv = normalCurvatureAt(jet, nHat, scale3(perp, 1 / bLen));
+    if (curv === null || !Number.isFinite(curv)) return null;
+    return { curv, b: bLen, nHat };
+  };
+
+  const rawSecond = (cellId: Id, k: number, s: number): Pt3 => {
+    if (order < 2) return ZERO;
+    const list = claims.get(`${cellId}#${k}`);
+    if (!list) return ZERO;
+    const bA = adj.boundaries.get(cellId);
+    if (!bA) return ZERO;
+    const t = bA.sides[k]!.curveParam(s);
+    let claim: Claim | null = null;
+    for (const c of list) {
+      if (t >= c.lo && t <= c.hi) { claim = c; break; }
+    }
+    if (!claim) return ZERO;
+    const bB = adj.boundaries.get(claim.otherCell);
+    if (!bB) return ZERO;
+    const sB = sideParamOf(bB.sides[claim.otherK]!, t);
+    if (sB < 0 || sB > 1) return ZERO;
+
+    const tHat = curveTangent(bA, k, t);
+    if (tHat[0] === 0 && tHat[1] === 0 && tHat[2] === 0) return ZERO;
+
+    const A = readSide(cellId, k, s, tHat);
+    const B = readSide(claim.otherCell, claim.otherK, sB, tHat);
+    if (!A || !B) return ZERO;
+
+    // II(ê,ê) is even in ê, so no sign bookkeeping: the two sides' transverse
+    // directions are opposite and the curvature they report is comparable.
+    const target = (A.curv + B.curv) / 2;
+    return scale3(A.nHat, A.b * A.b * (target - A.curv));
+  };
+
+  const secondDefect = (cellId: Id, k: number, s: number): Pt3 => {
+    const w = cornerWindow(s, fade);
+    if (w === 0) return ZERO;
+    return scale3(rawSecond(cellId, k, s), w);
+  };
+
   return {
     defect,
     defectDeriv,
+    secondDefect,
     rawDefect,
     has: (cellId: Id): boolean => cellsWithField.has(cellId),
     stats: {
@@ -388,6 +500,7 @@ export function fieldFromAdjacency(
       creasedEdges,
       sharpEdges,
       breakAngleDeg: breakAngle,
+      order,
       ambiguous: adj.ambiguous,
     },
   };

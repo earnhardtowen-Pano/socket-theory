@@ -110,11 +110,15 @@ export function tessellateQuilt(
     // (n+1) will do: Φ only ever reads each side's field along its own edge.
     const xv: Pt3[][] = [[], [], [], []];
     const xd: Pt3[][] = [[], [], [], []];
+    const xs: Pt3[][] = [[], [], [], []];
+    const ZERO: Pt3 = [0, 0, 0];
     if (b.cross) {
+      const second = b.cross.second;
       for (let k = 0; k < 4; k++) {
         for (let i = 0; i <= n; i++) {
           xv[k]!.push(b.cross.value(k, i / n));
           xd[k]!.push(b.cross.deriv(k, i / n));
+          xs[k]!.push(second ? second(k, i / n) : ZERO);
         }
       }
     }
@@ -123,6 +127,7 @@ export function tessellateQuilt(
       return {
         value: [xv[0]![i]!, xv[1]![j]!, xv[2]![n - i]!, xv[3]![n - j]!],
         deriv: [xd[0]![i]!, xd[1]![j]!, xd[2]![n - i]!, xd[3]![n - j]!],
+        second: [xs[0]![i]!, xs[1]![j]!, xs[2]![n - i]!, xs[3]![n - j]!],
       };
     };
 

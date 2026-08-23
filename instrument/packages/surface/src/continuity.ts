@@ -207,3 +207,118 @@ export function continuityProbe(
       `joins turning sharper than ${breakAngle}°, which are features nobody marked.`,
   };
 }
+
+/**
+ * The corner obstruction — the part of the G1 defect no surfacing pass can
+ * remove, because the CURVE NETWORK pins it.
+ *
+ * A patch that interpolates its four boundary curves has no freedom at a
+ * corner: S_u there IS one curve's tangent and S_v IS the other's, so its
+ * tangent plane at the vertex is span of the two curves meeting there and
+ * nothing can be done about it. Two patches across a shared curve therefore
+ * agree at the vertex only if the curves turning that corner on their two
+ * sides are coplanar with the shared curve — a condition on the network, not
+ * on the surfaces.
+ *
+ * This is the vertex enclosure problem stated as a measurement. Where this
+ * comes back at zero, the tangent field can run to the corner and the join is
+ * G1 end to end. Where it does not, the corner window has to fade the
+ * correction out over some band, and this number is what is left inside that
+ * band. Reporting it separates two very different faults that look identical
+ * on a zebra: a surfacing pass that did not do its job, and a curve network
+ * that will not let it.
+ *
+ * Measured on the UNCORRECTED patches, which is not an approximation: every
+ * correction vanishes at the corners by construction, so the corner values
+ * are the same either way.
+ */
+export interface CornerObstruction {
+  readonly curveId: Id;
+  readonly cellA: Id;
+  readonly cellB: Id;
+  /** Which end of the shared stretch: 0 = lo, 1 = hi. */
+  readonly end: 0 | 1;
+  readonly at: Pt3;
+  readonly angleDeg: number;
+}
+
+export interface NetworkReport {
+  readonly corners: number;
+  readonly medianDeg: number;
+  readonly p90Deg: number;
+  readonly worstDeg: number;
+  /** Corners already coplanar to within `toleranceDeg`. */
+  readonly cleanCorners: number;
+  readonly toleranceDeg: number;
+  readonly worst: CornerObstruction | null;
+  readonly note: string;
+}
+
+export interface NetworkOptions {
+  readonly breakAngleDeg?: number;
+  /** How close to the corner to read. Not 0: a corner can be degenerate. */
+  readonly epsilon?: number;
+  readonly toleranceDeg?: number;
+  readonly samplesPerJoin?: number;
+}
+
+export function networkObstruction(
+  quilt: QuiltSpec,
+  opts: NetworkOptions = {},
+): NetworkReport {
+  const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
+  const eps = opts.epsilon ?? 1e-5;
+  const tol = opts.toleranceDeg ?? DEFAULT_G1_TOL_DEG;
+  const n = opts.samplesPerJoin ?? DEFAULT_SAMPLES;
+  const adj = quiltAdjacency(quilt);
+
+  const angles: number[] = [];
+  let worst: CornerObstruction | null = null;
+  let clean = 0;
+
+  for (const edge of adj.edges) {
+    if (edge.creased) continue;
+    if (medianOf(edgeDefectProfile(adj, edge, n)) > breakAngle) continue;
+    const bA = adj.boundaries.get(edge.a.cellId)!;
+    const bB = adj.boundaries.get(edge.b.cellId)!;
+    const sA = bA.sides[edge.a.k]!;
+    const sB = bB.sides[edge.b.k]!;
+    for (const end of [0, 1] as const) {
+      const f = end === 0 ? eps : 1 - eps;
+      const t = edge.lo + (edge.hi - edge.lo) * f;
+      const [ua, va] = uvOnSide(edge.a.k, sideParamOf(sA, t));
+      const [ub, vb] = uvOnSide(edge.b.k, sideParamOf(sB, t));
+      const nA = boundaryCoonsNormal(bA, ua, va);
+      const nB = boundaryCoonsNormal(bB, ub, vb);
+      if (isZero(nA) || isZero(nB)) continue;
+      const deg = angleBetween(nA, nB);
+      angles.push(deg);
+      if (deg <= tol) clean++;
+      if (worst === null || deg > worst.angleDeg) {
+        worst = {
+          curveId: edge.curveId, cellA: edge.a.cellId, cellB: edge.b.cellId,
+          end, at: sA.atCurveParam(t), angleDeg: deg,
+        };
+      }
+    }
+  }
+
+  const sorted = [...angles].sort((a, b) => a - b);
+  const at = (f: number): number =>
+    sorted.length === 0 ? 0 : sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))]!;
+
+  return {
+    corners: angles.length,
+    medianDeg: at(0.5),
+    p90Deg: at(0.9),
+    worstDeg: sorted.length === 0 ? 0 : sorted[sorted.length - 1]!,
+    cleanCorners: clean,
+    toleranceDeg: tol,
+    worst,
+    note:
+      "Tangent-plane disagreement AT the shared curve's endpoints, where a " +
+      "Coons patch has no freedom: its tangent plane there is spanned by the " +
+      "two curves meeting at the vertex. This is a curve-network property and " +
+      "no surfacing pass can remove it.",
+  };
+}

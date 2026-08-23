@@ -14,9 +14,14 @@ const s = load(doc);
 const quilt = computeQuilt(s.state);
 // The same field the print path gets — one call, so the render, the lenses
 // and the probe all describe the body that comes out of the printer.
-const cross = tangentField(quilt);
+// P1_SURFACE=0 renders the bare G0 blend, 1 the tangent field, 2 the tangent
+// field plus cross-curvature. It exists so the three can be photographed
+// against each other; the body itself is always built at 2.
+const surfaceOrder = Number(process.env.P1_SURFACE ?? 2);
+const cross = surfaceOrder === 0 ? undefined
+  : tangentField(quilt, { order: surfaceOrder >= 2 ? 2 : 1 });
 
-const raw = meshQuilt(quilt, { baseDensity: 20, cross });
+const raw = meshQuilt(quilt, cross ? { baseDensity: 20, cross } : { baseDensity: 20 });
 // Authored geometry, shaded in smoothing groups: normals average across a
 // panel and split at anything sharper than the crease angle. The split
 // duplicates vertices, so the render buffer is wider than the print mesh —
@@ -50,7 +55,7 @@ writeFileSync(new URL("../apps/preview/body.json", import.meta.url), JSON.string
   // two patches genuinely disagree about which way the surface faces.
   analytic: (() => {
     const f = tessellateQuilt(quilt, 14, cross);
-    const c = continuityProbe(quilt, { cross });
+    const c = cross ? continuityProbe(quilt, { cross }) : continuityProbe(quilt);
     return {
       positions: Array.from(f.positions),
       normals: Array.from(f.normals),

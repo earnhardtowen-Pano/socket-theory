@@ -18,7 +18,7 @@
  */
 
 import type { CurveChain, Id, Pt3, QuiltSpec } from "@car/schema";
-import { chainDeriv, evalChain, scale3 } from "@car/num";
+import { chainDeriv, chainDeriv2, evalChain, scale3 } from "@car/num";
 import { FrameState } from "@car/frame";
 
 /** Sub-range claim on a shared curve — the shape both SideRef and QuiltSide satisfy. */
@@ -91,6 +91,10 @@ export interface BoundarySide {
   /** d(point)/ds in loop direction. */
   deriv(s: number): Pt3;
   gridDeriv(i: number, n: number): Pt3;
+  /** d²(point)/ds² in loop direction. The trim scale enters SQUARED, and
+   *  the sign of a reversed side cancels — a second derivative does not care
+   *  which way round the loop runs. */
+  deriv2(s: number): Pt3;
 }
 
 /**
@@ -105,12 +109,15 @@ export interface CrossPrescription {
   defect(cellId: Id, k: number, s: number): Pt3;
   /** Δ_k′(s), along the edge. Exactly zero at s = 0 and s = 1. */
   defectDeriv(cellId: Id, k: number, s: number): Pt3;
+  /** Δ²_k(s): the curvature correction. Absent for a G1-only prescription. */
+  secondDefect?(cellId: Id, k: number, s: number): Pt3;
 }
 
 /** The same thing, already bound to one cell. */
 export interface CrossDefects {
   value(k: number, s: number): Pt3;
   deriv(k: number, s: number): Pt3;
+  second?(k: number, s: number): Pt3;
 }
 
 export interface CellBoundary {
@@ -155,6 +162,7 @@ function makeSide(
     atCurveParam: (t: number): Pt3 => evalChain(chain, t),
     deriv: (s: number): Pt3 => scale3(chainDeriv(chain, curveParam(s)), dtds),
     gridDeriv: (i: number, n: number): Pt3 => scale3(chainDeriv(chain, gridParam(i, n)), dtds),
+    deriv2: (s: number): Pt3 => scale3(chainDeriv2(chain, curveParam(s)), dtds * dtds),
   };
 }
 
@@ -201,6 +209,9 @@ export function cellBoundary(
       ? {
           value: (k: number, s: number): Pt3 => cross.defect(cell.id, k, s),
           deriv: (k: number, s: number): Pt3 => cross.defectDeriv(cell.id, k, s),
+          ...(cross.secondDefect
+            ? { second: (k: number, s: number): Pt3 => cross.secondDefect!(cell.id, k, s) }
+            : {}),
         }
       : null,
   };

@@ -26,6 +26,8 @@ export {
 } from "./boundary.js";
 export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 export {
+  edgeDefectProfile,
+  medianOf,
   quiltAdjacency,
   sideParamOf,
   uvOnSide,
@@ -52,10 +54,15 @@ export {
   coonsBlend,
   coonsNormal,
   coonsPartials,
+  boundaryCoonsEdgeJet,
   coonsPhi,
   coonsPhiU,
   coonsPhiV,
   coonsPoint,
+  inwardOf,
+  normalCurvatureAt,
+  qBasis,
+  rBasis,
   gBasis,
   hBasis,
   phiAt,
@@ -69,8 +76,18 @@ export {
   type RenderFeedOptions,
 } from "./feed.js";
 export {
+  curvatureJoinProbe,
+  type CurvatureJoinOptions,
+  type CurvatureJoinReport,
+  type CurvatureStation,
+} from "./curvature-join.js";
+export {
   continuityProbe,
+  networkObstruction,
   type ContinuityOptions,
   type ContinuityReport,
   type ContinuityStation,
+  type CornerObstruction,
+  type NetworkOptions,
+  type NetworkReport,
 } from "./continuity.js";

@@ -41,13 +41,35 @@
  * So watertightness, the closed-mesh check and the replay hash are all
  * indifferent to this term; only the tangent plane moves.
  *
+ * ── THE G2 TERM ──────────────────────────────────────────────────────────
+ *
+ * G1 buys a shared tangent plane; it does not buy a shared curvature. With a
+ * shared normal field along the shared curve, though, TWO of the three second
+ * fundamental form coefficients come for free — II(T,T) is the curve's own
+ * normal curvature and II(T,ê) is how the shared normal rotates along the
+ * shared curve, and both are properties of objects the two patches already
+ * hold in common. Only II(ê,ê), the normal curvature ACROSS the join, is
+ * still each patch's own. So G2 here is one scalar per station, not three.
+ *
+ * That scalar is carried by a second term, Ψ, built from the quintic Hermite
+ * second-derivative bases:
+ *
+ *   Ψ(u,v) = q(v)Δ²₀(u) + r(u)Δ²₁(v) + r(v)Δ²₂(1-u) + q(u)Δ²₃(1-v)
+ *   q(x) = ½x²(1-x)³   r(x) = ½x³(1-x)²
+ *
+ * q is zero in value AND first derivative at both ends, has second derivative
+ * 1 at 0 and 0 at 1; r is its mirror. So Ψ adds exactly Δ²_k to side k's
+ * inward SECOND derivative and disturbs neither the position nor the tangent
+ * plane anywhere — G0 and G1 are untouched, and the terms stack rather than
+ * fight.
+ *
  * Normals come from the analytic partials of the same blend; boundary chain
  * derivatives route through chainDeriv in @car/num. Loops are CCW seen from
  * outside, so norm3(Su x Sv) points outward.
  */
 
 import type { Pt3 } from "@car/schema";
-import { clamp, cross3, norm3, scale3 } from "@car/num";
+import { clamp, cross3, dot3, norm3, scale3 } from "@car/num";
 import {
   cellBoundary,
   type CellBoundary,
@@ -111,6 +133,17 @@ export const gBasis = (x: number): number => x * (1 - x) * (1 - x);
 export const hBasis = (x: number): number => x * x * (1 - x);
 const gPrime = (x: number): number => 1 - 4 * x + 3 * x * x;
 const hPrime = (x: number): number => 2 * x - 3 * x * x;
+const gPrime2 = (x: number): number => -4 + 6 * x;
+const hPrime2 = (x: number): number => 2 - 6 * x;
+
+/** Quintic Hermite second-derivative bases: q''(0)=1, r''(1)=1, all else 0. */
+export const qBasis = (x: number): number => 0.5 * x * x * (1 - x) * (1 - x) * (1 - x);
+export const rBasis = (x: number): number => 0.5 * x * x * x * (1 - x) * (1 - x);
+// q = ½(x² - 3x³ + 3x⁴ - x⁵), r = ½(x³ - 2x⁴ + x⁵)
+const qPrime = (x: number): number => 0.5 * (2 * x - 9 * x * x + 12 * x ** 3 - 5 * x ** 4);
+const rPrime = (x: number): number => 0.5 * (3 * x * x - 8 * x ** 3 + 5 * x ** 4);
+const qPrime2 = (x: number): number => 0.5 * (2 - 18 * x + 36 * x * x - 20 * x ** 3);
+const rPrime2 = (x: number): number => 0.5 * (6 * x - 24 * x * x + 20 * x ** 3);
 
 /**
  * The four side corrections and their along-edge derivatives, already
@@ -120,63 +153,129 @@ const hPrime = (x: number): number => 2 * x - 3 * x * x;
 export interface PhiSample {
   readonly value: readonly [Pt3, Pt3, Pt3, Pt3];
   readonly deriv: readonly [Pt3, Pt3, Pt3, Pt3];
+  /** The G2 corrections Δ²_k at the same parameters; zero when order 1. */
+  readonly second: readonly [Pt3, Pt3, Pt3, Pt3];
 }
 
 const ZERO3: Pt3 = [0, 0, 0];
-export const NO_PHI: PhiSample = {
-  value: [ZERO3, ZERO3, ZERO3, ZERO3],
-  deriv: [ZERO3, ZERO3, ZERO3, ZERO3],
-};
+const ZERO4: readonly [Pt3, Pt3, Pt3, Pt3] = [ZERO3, ZERO3, ZERO3, ZERO3];
+export const NO_PHI: PhiSample = { value: ZERO4, deriv: ZERO4, second: ZERO4 };
 
-/** Φ(u,v) — the tangent-plane correction. Zero on every edge. */
+/** Φ + Ψ at (u,v) — the whole correction. Zero on every edge. */
 export function coonsPhi(p: PhiSample, u: number, v: number): Pt3 {
   const [D0, D1, D2, D3] = p.value;
+  const [S0, S1, S2, S3] = p.second;
   const gv = gBasis(v), hu = hBasis(u), hv = hBasis(v), gu = gBasis(u);
-  return [
-    gv * D0[0] + hu * D1[0] + hv * D2[0] + gu * D3[0],
-    gv * D0[1] + hu * D1[1] + hv * D2[1] + gu * D3[1],
-    gv * D0[2] + hu * D1[2] + hv * D2[2] + gu * D3[2],
-  ];
+  const qv = qBasis(v), ru = rBasis(u), rv = rBasis(v), qu = qBasis(u);
+  const out: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    out[k] =
+      gv * D0[k]! + hu * D1[k]! + hv * D2[k]! + gu * D3[k]! +
+      qv * S0[k]! + ru * S1[k]! + rv * S2[k]! + qu * S3[k]!;
+  }
+  return out;
 }
 
-/** ∂Φ/∂u. Note the chain-rule sign on Δ₂, which is read at 1-u. */
+/**
+ * ∂(Φ+Ψ)/∂u. Note the chain-rule sign on the sides read at 1-u.
+ *
+ * The Ψ part carries no along-edge derivative of its own: Δ²'s derivative is
+ * never needed because q and r are flat to first order at both ends, so the
+ * G2 term contributes to ∂/∂u only through its own u-dependence.
+ */
 export function coonsPhiU(p: PhiSample, u: number, v: number): Pt3 {
   const [, D1, , D3] = p.value;
   const [E0, , E2] = p.deriv;
+  const [, S1, , S3] = p.second;
   const gv = gBasis(v), hv = hBasis(v), hpu = hPrime(u), gpu = gPrime(u);
-  return [
-    gv * E0[0] + hpu * D1[0] - hv * E2[0] + gpu * D3[0],
-    gv * E0[1] + hpu * D1[1] - hv * E2[1] + gpu * D3[1],
-    gv * E0[2] + hpu * D1[2] - hv * E2[2] + gpu * D3[2],
-  ];
+  const rpu = rPrime(u), qpu = qPrime(u);
+  const out: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    out[k] =
+      gv * E0[k]! + hpu * D1[k]! - hv * E2[k]! + gpu * D3[k]! +
+      rpu * S1[k]! + qpu * S3[k]!;
+  }
+  return out;
 }
 
-/** ∂Φ/∂v. Note the chain-rule sign on Δ₃, which is read at 1-v. */
+/** ∂(Φ+Ψ)/∂v. Note the chain-rule sign on the sides read at 1-v. */
 export function coonsPhiV(p: PhiSample, u: number, v: number): Pt3 {
   const [D0, , D2] = p.value;
   const [, E1, , E3] = p.deriv;
+  const [S0, , S2] = p.second;
   const gpv = gPrime(v), hpv = hPrime(v), hu = hBasis(u), gu = gBasis(u);
-  return [
-    gpv * D0[0] + hu * E1[0] + hpv * D2[0] - gu * E3[0],
-    gpv * D0[1] + hu * E1[1] + hpv * D2[1] - gu * E3[1],
-    gpv * D0[2] + hu * E1[2] + hpv * D2[2] - gu * E3[2],
-  ];
+  const qpv = qPrime(v), rpv = rPrime(v);
+  const out: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    out[k] =
+      gpv * D0[k]! + hu * E1[k]! + hpv * D2[k]! - gu * E3[k]! +
+      qpv * S0[k]! + rpv * S2[k]!;
+  }
+  return out;
 }
 
-/** Sample a boundary's cross field at (u,v), in the layout Φ expects. */
+/**
+ * ∂²(Φ+Ψ)/∂v² ON AN EDGE v = 0 or v = 1. Not valid in the interior.
+ *
+ * The two sides read at 1-u carry Δ′′ and Δ²′′ terms that are genuinely
+ * nonzero away from the edges, and this drops them — because on the edge they
+ * vanish exactly (the corner window is C², so every field is flat to second
+ * order at its own ends) and because nothing needs interior curvature yet. An
+ * analytic curvature lens would; it would have to add them and difference the
+ * fields twice, and it should not silently inherit a formula that only holds
+ * on a boundary.
+ */
+export function coonsPhiEdgeVV(p: PhiSample, u: number, v: number): Pt3 {
+  const [D0, , D2] = p.value;
+  const [S0, , S2] = p.second;
+  const gppv = gPrime2(v), hppv = hPrime2(v), qppv = qPrime2(v), rppv = rPrime2(v);
+  const out: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    out[k] = gppv * D0[k]! + hppv * D2[k]! + qppv * S0[k]! + rppv * S2[k]!;
+  }
+  return out;
+}
+
+/** ∂²(Φ+Ψ)/∂u² on an edge u = 0 or u = 1, the mirror of the above. */
+export function coonsPhiEdgeUU(p: PhiSample, u: number, v: number): Pt3 {
+  const [, D1, , D3] = p.value;
+  const [, S1, , S3] = p.second;
+  const gppu = gPrime2(u), hppu = hPrime2(u), qppu = qPrime2(u), rppu = rPrime2(u);
+  const out: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    out[k] = hppu * D1[k]! + gppu * D3[k]! + rppu * S1[k]! + qppu * S3[k]!;
+  }
+  return out;
+}
+
+/** ∂²(Φ+Ψ)/∂u∂v on an edge. */
+export function coonsPhiEdgeUV(p: PhiSample, u: number, v: number): Pt3 {
+  const [E0, E1, E2, E3] = p.deriv;
+  const gpv = gPrime(v), hpv = hPrime(v), hpu = hPrime(u), gpu = gPrime(u);
+  const out: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    out[k] = gpv * E0[k]! + hpu * E1[k]! - hpv * E2[k]! - gpu * E3[k]!;
+  }
+  return out;
+}
+
+/** Sample a boundary's cross field at (u,v), in the layout Φ and Ψ expect. */
 export function phiAt(b: CellBoundary, u: number, v: number): PhiSample {
   const x = b.cross;
   if (!x) return NO_PHI;
   const args: [number, number, number, number] = [u, v, 1 - u, 1 - v];
   const value: Pt3[] = [];
   const deriv: Pt3[] = [];
+  const second: Pt3[] = [];
   for (let k = 0; k < 4; k++) {
     value.push(x.value(k, args[k]!));
     deriv.push(x.deriv(k, args[k]!));
+    second.push(x.second ? x.second(k, args[k]!) : ZERO3);
   }
   return {
     value: value as unknown as PhiSample["value"],
     deriv: deriv as unknown as PhiSample["deriv"],
+    second: second as unknown as PhiSample["second"],
   };
 }
 
@@ -258,4 +357,101 @@ export function coonsPartials(
   cell: CellLike, source: ChainLookup, u: number, v: number, cross?: CrossPrescription,
 ): { su: Pt3; sv: Pt3 } {
   return boundaryCoonsPartials(cellBoundary(cell, source, cross), u, v);
+}
+
+/**
+ * The second-order jet of the patch ON ONE OF ITS EDGES.
+ *
+ * Returns S_u, S_v, S_uu, S_uv, S_vv at (u,v), which must lie on an edge —
+ * exactly where the second fundamental form has to be read to say anything
+ * about curvature continuity across a join. The Φ and Ψ terms are included,
+ * and on an edge their second-derivative contributions are exact (see
+ * `coonsPhiEdgeVV`).
+ *
+ * The uncorrected pieces are the analytic derivatives of the blend:
+ *
+ *   S_uu = (1-v)c0'' + v c1''
+ *   S_vv = (1-u)d0'' + u d1''      (the bilinear corner term is linear in each)
+ *   S_uv = c1' - c0' + [d1' - (P11-P10)] - [d0' - (P01-P00)]
+ */
+export function boundaryCoonsEdgeJet(
+  b: CellBoundary, u: number, v: number,
+): { su: Pt3; sv: Pt3; suu: Pt3; suv: Pt3; svv: Pt3 } {
+  const uu = clamp(u, 0, 1);
+  const vv = clamp(v, 0, 1);
+  if (uu !== 0 && uu !== 1 && vv !== 0 && vv !== 1) {
+    throw new Error(`surface: edge jet asked for interior point (${uu}, ${vv})`);
+  }
+  const [s0, s1, s2, s3] = b.sides;
+  const [P00, P10, P11, P01] = b.corners;
+
+  const c0d = s0.deriv(uu);
+  const c1d = scale3(s2.deriv(1 - uu), -1);
+  const d0d = scale3(s3.deriv(1 - vv), -1);
+  const d1d = s1.deriv(vv);
+  const c0dd = s0.deriv2(uu);
+  const c1dd = s2.deriv2(1 - uu);      // (-1)² from the 1-u mapping
+  const d0dd = s3.deriv2(1 - vv);
+  const d1dd = s1.deriv2(vv);
+
+  const { su, sv } = boundaryCoonsPartials(b, uu, vv);
+  const suu: [number, number, number] = [0, 0, 0];
+  const svv: [number, number, number] = [0, 0, 0];
+  const suv: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    suu[k] = (1 - vv) * c0dd[k]! + vv * c1dd[k]!;
+    svv[k] = (1 - uu) * d0dd[k]! + uu * d1dd[k]!;
+    suv[k] =
+      c1d[k]! - c0d[k]! +
+      (d1d[k]! - (P11[k]! - P10[k]!)) -
+      (d0d[k]! - (P01[k]! - P00[k]!));
+  }
+  if (b.cross) {
+    const p = phiAt(b, uu, vv);
+    const puu = coonsPhiEdgeUU(p, uu, vv);
+    const pvv = coonsPhiEdgeVV(p, uu, vv);
+    const puv = coonsPhiEdgeUV(p, uu, vv);
+    for (let k = 0; k < 3; k++) {
+      suu[k]! += puu[k]!;
+      svv[k]! += pvv[k]!;
+      suv[k]! += puv[k]!;
+    }
+  }
+  return { su, sv, suu, suv, svv };
+}
+
+/**
+ * Normal curvature of the patch in tangent direction X, at a point whose jet
+ * and unit normal are given. X need not be a parameter direction and need not
+ * be unit — it is normalised against the first fundamental form.
+ *
+ * X is resolved into the (S_u, S_v) basis through the metric, so the answer is
+ * the geometric one: two patches meeting along a curve can be compared in the
+ * frame they share rather than in two parameterisations that have nothing to
+ * do with each other. Null where the patch is degenerate and there is no
+ * frame to resolve against.
+ */
+export function normalCurvatureAt(
+  jet: { su: Pt3; sv: Pt3; suu: Pt3; suv: Pt3; svv: Pt3 },
+  nHat: Pt3,
+  x: Pt3,
+): number | null {
+  const E = dot3(jet.su, jet.su), F = dot3(jet.su, jet.sv), G = dot3(jet.sv, jet.sv);
+  const det = E * G - F * F;
+  if (!(Math.abs(det) > 0)) return null;
+  const xu = dot3(x, jet.su), xv = dot3(x, jet.sv);
+  const a = (G * xu - F * xv) / det;
+  const b = (E * xv - F * xu) / det;
+  const xx = dot3(x, x);
+  if (!(xx > 0)) return null;
+  const e = dot3(jet.suu, nHat), f = dot3(jet.suv, nHat), g = dot3(jet.svv, nHat);
+  return (a * a * e + 2 * a * b * f + b * b * g) / xx;
+}
+
+/** Inward cross-boundary direction of side k, from a jet in (u,v). */
+export function inwardOf(jet: { su: Pt3; sv: Pt3 }, k: number): Pt3 {
+  if (k === 0) return jet.sv;
+  if (k === 1) return scale3(jet.su, -1);
+  if (k === 2) return scale3(jet.sv, -1);
+  return jet.su;
 }

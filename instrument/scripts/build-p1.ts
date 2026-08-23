@@ -23,7 +23,9 @@ import {
 } from "@car/fixtures";
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
-import { continuityProbe, tangentField } from "@car/surface";
+import {
+  continuityProbe, curvatureJoinProbe, networkObstruction, tangentField,
+} from "@car/surface";
 import {
   closedMeshCheck,
   creaseNormals,
@@ -505,12 +507,12 @@ s.apply("assign-material", { targetId: "cell#0" as Id, name: "body-in-white", co
 // 3. Evaluate: quilt -> conforming mesh -> closed check -> STL
 // ---------------------------------------------------------------------------
 const quilt = computeQuilt(s.state);
-// Tangent-plane continuity. The field is a property of the shared CURVES,
+// Tangent-plane AND cross-curvature continuity. The field is a property of the shared CURVES,
 // derived from the quilt and nothing else, so it changes no verb, no document
 // and no hash — it changes what the patches between those curves do. Handed
 // to the mesher AND to the render AND to the probe, from one call, because
 // three different fields would mean three different cars.
-const cross = tangentField(quilt);
+const cross = tangentField(quilt, { order: 2 });
 const raw = meshQuilt(quilt, { baseDensity: 20, cross });
 // The geometry stays as authored. Fairing it (the G3 flow solve, still in the
 // tree and still tested) melted the arch mouths, splitter and roof breaks —
@@ -655,6 +657,22 @@ console.log(line("G1 continuity", `${cont.g1Joins}/${cont.joins} joins under 1°
 console.log(line("  was, unfielded", `${before.g1Joins}/${before.joins} · ` +
   `median ${before.medianDeg.toFixed(2)}° · worst ${before.worstDeg.toFixed(2)}°`));
 console.log(line("  joins excluded", `${cont.creased} creased (authored) + ${cont.sharp} sharper than ${cont.breakAngleDeg}° (unmarked)`));
+// G2. Under G1 the only free coefficient of the second fundamental form on a
+// join is the curvature ACROSS it; this is that one number, matched.
+const g2 = curvatureJoinProbe(quilt, { cross });
+const g2before = curvatureJoinProbe(quilt);
+console.log(line("G2 curvature", `${g2.g2Joins}/${g2.joins} joins within 1% · ` +
+  `median gap ${g2.medianGap.toExponential(1)} /mm · worst ${g2.worstGap.toExponential(1)} /mm`));
+console.log(line("  was, unfielded", `${g2before.g2Joins}/${g2before.joins} · ` +
+  `median gap ${g2before.medianGap.toExponential(1)} /mm · worst ${g2before.worstGap.toExponential(1)} /mm`));
+// What the surfacing pass is NOT allowed to fix. A patch has no freedom at a
+// corner — its tangent plane there is spanned by the two curves meeting at the
+// vertex — so a corner where the network breaks tangency pins a defect no
+// surface can remove. This says how much of the body that is.
+const net = networkObstruction(quilt);
+console.log(line("curve network", `${net.cleanCorners}/${net.corners} corners coplanar to ${net.toleranceDeg}° · ` +
+  `median ${net.medianDeg.toFixed(3)}° · worst ${net.worstDeg.toFixed(1)}°` +
+  (net.worst ? ` at [${net.worst.at.map((v) => Math.round(v)).join(", ")}]` : "")));
 console.log(line("shutline grooves", `${grooved.moved} vertices sunk — ${grooved.note}`));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
 console.log(line("shading", `${DEFAULT_CREASE_ANGLE}° smoothing groups · ${shaded.split} vertices split on hard edges`));

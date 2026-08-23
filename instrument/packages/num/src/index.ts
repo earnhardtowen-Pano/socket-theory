@@ -118,6 +118,29 @@ export function cubicDeriv(c: CubicSeg, t: number): Pt3 {
   ];
 }
 
+/**
+ * Second derivative of a cubic Bezier: 6(1-t)(p2 - 2p1 + p0) + 6t(p3 - 2p2 + p1).
+ *
+ * Needed for curvature continuity. A cubic's second derivative is linear in t
+ * and its two endpoint values are the second differences of the control
+ * polygon — which is why a G2 join is a statement about the control points
+ * near the seam and not only about where the curve goes.
+ */
+export function cubicDeriv2(c: CubicSeg, t: number): Pt3 {
+  const u = 1 - t;
+  const a: Pt3 = [
+    6 * (c.p2[0] - 2 * c.p1[0] + c.p0[0]),
+    6 * (c.p2[1] - 2 * c.p1[1] + c.p0[1]),
+    6 * (c.p2[2] - 2 * c.p1[2] + c.p0[2]),
+  ];
+  const b: Pt3 = [
+    6 * (c.p3[0] - 2 * c.p2[0] + c.p1[0]),
+    6 * (c.p3[1] - 2 * c.p2[1] + c.p1[1]),
+    6 * (c.p3[2] - 2 * c.p2[2] + c.p1[2]),
+  ];
+  return [u * a[0] + t * b[0], u * a[1] + t * b[1], u * a[2] + t * b[2]];
+}
+
 /** de Casteljau split at t → two cubics covering [0,t] and [t,1]. */
 export function splitCubic(c: CubicSeg, t: number): [CubicSeg, CubicSeg] {
   const p01 = lerp3(c.p0, c.p1, t);
@@ -157,6 +180,26 @@ export function chainDeriv(ch: CurveChain, t: number): Pt3 {
   const seg = ch.segs[i];
   if (!seg) throw new Error("chain index out of range");
   return scale3(cubicDeriv(seg, scaled - i), n);
+}
+
+/**
+ * Second derivative of a chain at t ∈ [0,1].
+ *
+ * The chain parameter runs uniformly across n segments, so the chain rule
+ * brings n² — the same n that chainDeriv brings once. At a segment JOINT this
+ * is one-sided: a chain of cubics is C¹ where the control polygon makes it so
+ * and generally not C², and this returns the value from the segment the
+ * parameter falls in rather than pretending the two sides agree.
+ */
+export function chainDeriv2(ch: CurveChain, t: number): Pt3 {
+  const n = ch.segs.length;
+  const tt = clamp(t, 0, 1);
+  const scaled = tt * n;
+  let i = nfloor(scaled);
+  if (i >= n) i = n - 1;
+  const seg = ch.segs[i];
+  if (!seg) throw new Error("chain index out of range");
+  return scale3(cubicDeriv2(seg, scaled - i), n * n);
 }
 
 export const chainStart = (ch: CurveChain): Pt3 => evalChain(ch, 0);

@@ -49,6 +49,9 @@ export interface SharedEdge {
 export interface QuiltAdjacency {
   /** Uncorrected boundaries, one per cell, built once and shared. */
   readonly boundaries: ReadonlyMap<Id, CellBoundary>;
+  /** The quilt the walk read, so a caller can rebuild a boundary WITH a
+   *  prescription attached without re-deriving the adjacency. */
+  readonly quilt: QuiltSpec;
   /** Every overlapping owner pair, creased ones included and flagged. */
   readonly edges: readonly SharedEdge[];
   /** Owner pairs on the same curve whose trims do not overlap. */
@@ -145,7 +148,7 @@ export function quiltAdjacency(quilt: QuiltSpec): QuiltAdjacency {
     }
   }
 
-  return { boundaries, edges, disjointPairs, ambiguous };
+  return { boundaries, quilt, edges, disjointPairs, ambiguous };
 }
 
 /**
