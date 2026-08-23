@@ -97,18 +97,26 @@ const stationCut = (x: number, z0: number, z1: number, targets: Id[]): Id[] => {
 
 // Stations, nose to tail. Roof height and half-width at each: this table IS
 // the car's profile and plan, and reads as one.
-const STATIONS: { x: number; roof: number; halfWidth: number }[] = [
-  { x: 250,  roof: 620,  halfWidth: 700 },
-  { x: 620,  roof: 795,  halfWidth: 855 },
-  { x: 980,  roof: 840,  halfWidth: 935 },  // over the front wheels
-  { x: 1500, roof: 858,  halfWidth: 880 },
-  { x: 2010, roof: 890,  halfWidth: 855 },  // cowl: the screen starts here
-  { x: 2420, roof: 1235, halfWidth: 790 },  // roof front
-  { x: 3020, roof: 1225, halfWidth: 800 },  // roof rear
-  { x: 3450, roof: 1010, halfWidth: 940 },  // over the rear wheels, fastback falling
-  { x: 3900, roof: 880,  halfWidth: 910 },
-  { x: 4210, roof: 820,  halfWidth: 800 },
+const STATIONS: { x: number; roof: number; halfWidth: number; tuck: number }[] = [
+  { x: 250,  roof: 560,  halfWidth: 640, tuck: 60 },
+  { x: 505,  roof: 705,  halfWidth: 830, tuck: 300 },  // ahead of the front wheel
+  { x: 900,  roof: 815,  halfWidth: 980, tuck: 430 },  // front axle: fender crown
+  { x: 1295, roof: 840,  halfWidth: 860, tuck: 300 },  // behind it: waist returns
+  { x: 1880, roof: 880,  halfWidth: 850, tuck: 170 },  // cowl: the screen starts
+  { x: 2520, roof: 1215, halfWidth: 800, tuck: 150 },  // header rail
+  { x: 2900, roof: 1200, halfWidth: 825, tuck: 170 },  // roof rear
+  { x: 3045, roof: 1140, halfWidth: 880, tuck: 300 },  // ahead of the rear wheel
+  { x: 3440, roof: 1030, halfWidth: 995, tuck: 440 },  // rear axle: haunch
+  { x: 3835, roof: 905,  halfWidth: 890, tuck: 300 },  // behind it
+  { x: 4210, roof: 815,  halfWidth: 755, tuck: 110 },
 ];
+// Two things this table now does that the last one did not. The screen runs
+// 1880 -> 2520 and rises 335 mm: 28 degrees off horizontal, which is a sports
+// car; over 410 mm it was 40 degrees and rendered as a wall with a roof
+// dropped on it. And the stations at the wheel edges (505/1295, 3045/3835)
+// with the axles wide between them are what makes a FENDER: the plan swells
+// over each wheel and comes back in behind it. That shape used to be
+// attempted by lifting an arch mouth, which never once fired — see below.
 
 // Cut every station through the top face and both flanks in one pass each.
 const topCurves: Id[] = [];
@@ -127,8 +135,8 @@ for (let i = 0; i < STATIONS.length; i++) {
   pushCurve(id, [0, 0, st.roof - curveMean(id)[2]]);
 }
 // Nose and tail ends of the body follow the same profile.
-pushCurve(yEdge(0, 1), [0, 0, 470 - curveMean(yEdge(0, 1))[2]]);
-pushCurve(yEdge(0, 3), [0, 0, 790 - curveMean(yEdge(0, 3))[2]]);
+pushCurve(yEdge(0, 1), [0, 0, 395 - curveMean(yEdge(0, 1))[2]]);
+pushCurve(yEdge(0, 3), [0, 0, 795 - curveMean(yEdge(0, 3))[2]]);
 
 // Plan: each station's flank curves move to their target half-width. Left and
 // right move by the same magnitude, so the body stays symmetric and the mirror
@@ -141,8 +149,31 @@ for (let i = 0; i < STATIONS.length; i++) {
     pushCurve(id, [0, sign * (st.halfWidth - Math.abs(mean[1])), 0]);
   }
 }
+// Rocker tuck — and this is the wheel arch, arrived at the long way round.
+// The flank curve at a station runs from the floor up to the shoulder; pulling
+// its LOWER control point inboard makes the body narrow at the rocker while
+// the shoulder stays flared. Over an axle that is exactly an arch: the fender
+// swells to 980 at the shoulder and draws back inside the tire's outer face
+// (896) near the ground, so the wheel stands in the recess instead of being
+// skirted over. Between the wheels the same move gives the rocker its
+// undercut. Which control point is the low one has to be read off the curve —
+// the two flanks are cut in opposite directions, and assuming an order is how
+// a body goes quietly asymmetric.
+for (let i = 0; i < STATIONS.length; i++) {
+  const st = STATIONS[i]!;
+  if (st.tuck === 0) continue;
+  for (const id of flankCurves[i] ?? []) {
+    const c = s.state.curves.get(s.state.resolveCurve(id));
+    if (!c) continue;
+    const a0 = evalChain(c.chain, 0), a1 = evalChain(c.chain, 1);
+    const idx = a0[2] <= a1[2] ? 1 : 2;
+    const sign = (a0[1] + a1[1]) >= 0 ? 1 : -1;
+    s.apply("push-pull", { target: { kind: "ctrl", id, seg: 0, idx }, delta: [0, -sign * st.tuck, 0] });
+  }
+}
+
 // Nose and tail plan width.
-for (const [k, target] of [[0, 470], [2, 560]] as const) {
+for (const [k, target] of [[0, 415], [2, 530]] as const) {
   for (const j of [0, 1] as const) {
     const id = `curve#${8 + k + j}` as Id;
     const mean = curveMean(id);
@@ -156,7 +187,7 @@ for (let i = 0; i < topCurves.length; i++) {
   const id = topCurves[i];
   const st = STATIONS[i]!;
   if (!id) continue;
-  const amount = st.x < 2010 ? 26 : st.x < 3100 ? 18 : 22;
+  const amount = st.x < 1880 ? 26 : st.x < 3100 ? 18 : 22;
   pinch(id, [0, 0, amount]);
 }
 
@@ -194,40 +225,20 @@ const isFlank = (sign: 1 | -1) => (y: number, _z: number): boolean =>
 // Clause 25: an opening is authored, not cut. Splitting the flank at the arch
 // mouth and pushing that segment's lower edge up IS the arch — and the body
 // stays one closed solid, which is what a printable car has to be.
-const ARCH = [
-  { front: 560, rear: 1330, top: 560 },
-  { front: 3060, rear: 3830, top: 610 },
-];
-for (const a of ARCH) {
-  for (const x of [a.front, a.rear]) {
-    s.apply("tape", {
-      kind: "line",
-      line: { view: side, a: [x, FLOOR - 40], b: [x, FLOOR + 520], lineClass: "tape" },
-      targets: ["cell#2" as Id, "cell#3" as Id],
-    });
-  }
-}
-// Lift the arch mouths by geometry, not by cell search: every curve lying on
-// the floor line whose span falls inside an arch is one of the two mouths, so
-// left and right are treated in ONE pass and the body cannot drift asymmetric.
-// (Searching per side did drift, and the mirror law reported it as twins.)
-for (const a of ARCH) {
-  const mouths: Id[] = [];
-  for (const [id, c] of s.state.curves) {
-    let lo = Infinity, hi = -Infinity, zMax = -Infinity, yAbs = 0, n = 0;
-    for (const t of [0, 0.5, 1]) {
-      const p = evalChain(c.chain, t);
-      lo = Math.min(lo, p[0]); hi = Math.max(hi, p[0]);
-      zMax = Math.max(zMax, p[2]); yAbs += Math.abs(p[1]); n++;
-    }
-    if (zMax > FLOOR + 5 || yAbs / n < 380) continue;
-    if (lo > a.front - 5 && hi < a.rear + 5) mouths.push(id as Id);
-  }
-  for (const id of mouths) {
-    pushCurve(id, [0, 0, a.top - FLOOR]);
-    pinch(id, [0, 0, 110]);
-  }
-}
+// --- wheel openings: what this frame can and cannot author -----------------
+// This is where an arch mouth used to be lifted, and it is worth recording
+// that it never fired once. A tape split subdivides a curve's TRIMS, not the
+// curve, so the flank's bottom edge stays one curve running the whole length
+// of the car however many times it is cut. The search asked for a curve
+// spanning only the arch and found nothing, silently, on every run — the
+// openings in every render before this one were imaginary.
+//
+// Instrumented, removed, and replaced with the feature the frame does carry:
+// cross-car station curves. The fenders above are that feature. A real
+// opening needs a verb that splits a curve into children, which the ratified
+// set does not have; that is a spec question for G3, not a workaround here.
+// (Clause 25 says an opening is authored, not cut. It still is — this frame
+// just cannot author THIS opening yet, and saying so is the point.)
 
 // --- door cut + shoulder crease --------------------------------------------
 for (const sign of [1, -1] as const) {
@@ -242,8 +253,14 @@ for (const sign of [1, -1] as const) {
 }
 
 // --- wheels: four of them, and they are part of the document ---------------
-// Authored as blocks then pinched round — the silhouette a wheel needs at this
-// scale. Left side only: the mirror law renders the right.
+// A wheel has to read ROUND. The first pass taped a box and drew its four
+// corners in, which is an octagon at best and rendered as a brick with the top
+// corners knocked off. This pass sections the box the same way the body is
+// sectioned — tape lines across each face — and then projects every resulting
+// cross-car curve radially onto the wheel circle. Sixteen of them: the
+// silhouette is a 16-gon, under 10 mm off a true circle at this radius, and
+// the 22-degree facets fall under the crease angle so it shades as a cylinder.
+// Left side only: the mirror law renders the right.
 const wheel = (cx: number, radius: number, halfWidth: number, yIn: number): void => {
   const beforeCells = new Set(s.state.cells.keys());
   const beforeCurves = new Set(s.state.curves.keys());
@@ -254,23 +271,73 @@ const wheel = (cx: number, radius: number, halfWidth: number, yIn: number): void
   // Ids come from the model, never from a count: splits allocate too, so map
   // size stopped tracking the allocator the moment the body was sectioned.
   const made = [...s.state.cells.keys()].filter((id) => !beforeCells.has(id)) as Id[];
-  void made;
-  // Round the silhouette by drawing the four corner edges in toward the hub —
-  // an octagon reads as a wheel where a square does not. The corner edges are
-  // the ones running ACROSS the car, found by geometry so the wheel does not
-  // depend on the box's internal edge order.
-  const cut = radius * 0.42;
+
+  /** Mean point of a cell, read back off its own boundary curves. */
+  const cellMean = (id: Id): Pt3 => {
+    const cell = s.state.cells.get(id);
+    if (!cell) throw new Error(`no cell ${id}`);
+    let x = 0, y = 0, z = 0, n = 0;
+    for (const sd of cell.sides) {
+      const c = s.state.curves.get(s.state.resolveCurve(sd.curveId));
+      if (!c) continue;
+      for (const t of [0, 0.5, 1]) {
+        const p = evalChain(c.chain, sd.t0 + (sd.t1 - sd.t0) * t);
+        x += p[0]; y += p[1]; z += p[2]; n++;
+      }
+    }
+    return [x / n, y / n, z / n];
+  };
+  const means = new Map(made.map((id) => [id, cellMean(id)] as const));
+  const pickBy = (score: (m: Pt3) => number): Id =>
+    made.reduce((best, id) => (score(means.get(id)!) > score(means.get(best)!) ? id : best), made[0]!);
+
+  // The four faces that carry the silhouette. Flanks are never extreme in x or
+  // z (they sit at the hub), so max/min picks the right face without counting.
+  const topFace = pickBy((m) => m[2]);
+  const botFace = pickBy((m) => -m[2]);
+  const frontFace = pickBy((m) => -m[0]);
+  const rearFace = pickBy((m) => m[0]);
+
+  const flanks = made.filter((id) => id !== topFace && id !== botFace && id !== frontFace && id !== rearFace);
+
+  // Section the wheel the way the body is sectioned: each cut goes all the way
+  // ROUND the ring, never through one face alone. A cut that stops at one face
+  // leaves the neighbours holding a T-junction they were never told about, and
+  // the curve then moves out from under them — that is exactly how the first
+  // attempt at this wheel meshed open in 60 places. Targeting the original
+  // face ids is enough; the tape verb resolves descendants, so later cuts land
+  // on the pieces earlier ones made.
+  const seg = radius * 0.5;
+  for (const x of [cx - seg, cx, cx + seg]) {
+    s.apply("tape", {
+      kind: "line",
+      line: { view: side, a: [x, -40], b: [x, radius * 2 + 40], lineClass: "tape" },
+      targets: [topFace, botFace, ...flanks],
+    });
+  }
+  for (const z of [radius - seg, radius, radius + seg]) {
+    s.apply("tape", {
+      kind: "line",
+      line: { view: side, a: [cx - radius - 40, z], b: [cx + radius + 40, z], lineClass: "tape" },
+      targets: [frontFace, rearFace, ...flanks],
+    });
+  }
+
+  // Project every cross-car curve onto the circle about the hub. The corners
+  // come in, the face midpoints go out, and the flats disappear. Found by
+  // geometry so the wheel never depends on the box's internal edge order.
+  const hubZ = radius;
   for (const id of [...s.state.curves.keys()].filter((k) => !beforeCurves.has(k)) as Id[]) {
-    const c = s.state.curves.get(id)!;
+    const c = s.state.curves.get(id);
+    if (!c) continue;
     const a0 = evalChain(c.chain, 0), a1 = evalChain(c.chain, 1);
     const acrossCar = Math.abs(a1[1] - a0[1]) > Math.max(Math.abs(a1[0] - a0[0]), Math.abs(a1[2] - a0[2]));
     if (!acrossCar) continue;
     const m = curveMean(id);
-    // Draw the corner in along the length always, and down only from ABOVE the
-    // hub: lifting the lower corners rounds the tread off the road, and a car
-    // that floats is not a car. The contact patch is a datum.
-    const dz = m[2] > radius ? -cut : 0;
-    pushCurve(id, [Math.sign(cx - m[0]) * cut, 0, dz]);
+    const dx = m[0] - cx, dz = m[2] - hubZ;
+    const len = Math.hypot(dx, dz);
+    if (len < 1) continue;                       // a curve through the hub has no radial direction
+    pushCurve(id, [cx + (radius * dx) / len - m[0], 0, hubZ + (radius * dz) / len - m[2]]);
   }
 };
 if (process.env['NOWHEELS'] !== '1') { wheel(FRONT_AXLE_X, FRONT_R, 118, 660);

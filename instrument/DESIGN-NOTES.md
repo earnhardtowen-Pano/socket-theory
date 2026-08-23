@@ -100,3 +100,39 @@ SolveResult contract added to @car/schema) are frozen and pushed.
   curve, between patches. Taubin λ|μ relaxation with creases pinned puts the
   solve where the kink actually is, keeps topology (so a closed body stays
   printable), and stays a derivation.
+
+## Shading, and two findings the render forced out
+
+- **Smoothing groups, not a flow solve** — constructed for this build, retrieved
+  as a technique (crease-angle normals are how every car render has been shaded
+  for thirty years). Two earlier attempts were wrong in opposite directions:
+  flat shading drew every tessellation facet, so a flat panel read as
+  shattered; 30 Taubin passes fixed the facets by melting the arch mouths,
+  splitter and roof break into soap. Neither was a geometry problem.
+  `creaseNormals` averages a vertex normal across an edge only below the crease
+  angle and splits it above, moving no vertex at all. The boundary is stated in
+  the header and matters: a split duplicates a vertex, so the render buffer is
+  wider than the print mesh. The printed mesh stays the one `meshQuilt` emits;
+  the closed check and the STL run on that. `@car/flow` stays in the tree,
+  tested, unused by P1.
+- **A cut must go all the way round the ring.** The first round wheel sectioned
+  its box's top face alone and meshed OPEN in 60 places. Cutting one face
+  leaves its neighbours holding a T-junction they were never told about, and
+  the new curve then moves out from under them. Cut top + bottom + both flanks
+  in one verb and the same wheel closes with zero violations. This is the
+  general rule behind the P3 finding above: the body's station cuts already
+  went through top AND both flanks, which is why they always worked.
+- **The wheel arches never existed.** Instrumenting the arch-mouth search
+  showed it finding zero curves, on every run, since the flanks were first
+  sectioned — the openings in every render before this one were imaginary. Root
+  cause is structural, not a typo: a tape split subdivides a curve's TRIMS, not
+  the curve, so the flank's bottom edge stays ONE curve running the whole length
+  of the car however many times it is cut, and no curve ever spans just an arch.
+  A search that quietly matches nothing is worse than a crash; it shipped four
+  photo sets. Removed. The wheel openings are now made from what the frame does
+  carry — cross-car station curves, flared at the shoulder over each axle and
+  pulled inboard at the rocker, which is an arch by section instead of by
+  outline. A real opening wants a verb that splits a curve into children. That
+  is a spec question for G3, and clause 25 still stands: it is authored, not
+  cut. This frame simply cannot author THIS opening yet, and saying so is the
+  point.

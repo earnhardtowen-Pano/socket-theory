@@ -110,6 +110,9 @@ if (view === "side") {
     plan: { pos: [2200, -10, 9000], look: [2200, 0, 0], fov: 26 },
     front: { pos: [-9000, 0, 900], look: [2200, 0, 700], fov: 22 },
     rear: { pos: [13000, 0, 1100], look: [2200, 0, 700], fov: 22 },
+    // Long lens from the side: near-orthographic, which is how a profile is
+    // judged. The wireframe "side" view draws curves; this one draws the body.
+    profile: { pos: [2150, -26000, 640], look: [2150, 0, 640], fov: 11 },
   };
   const rig = rigs[which] ?? rigs["front34"]!;
   const cam = new THREE.PerspectiveCamera(rig.fov, w / h, 10, 60000);
