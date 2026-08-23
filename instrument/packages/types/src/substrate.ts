@@ -34,7 +34,7 @@ import type {
   Quantity,
 } from "@car/schema";
 import { assumed, demand, derived, port, qDiv, qMul, sourced } from "@car/demand";
-import { nround } from "@car/num";
+import { nmax, nmin, nround } from "@car/num";
 
 // ---------------------------------------------------------------------------
 // Scope statement — the charge requires the exclusion stated in code.
@@ -64,6 +64,19 @@ export interface SubstrateParams {
   readonly railSpacing: Quantity<"mm">;
   /** Crossmembers, evenly spaced along the rails. Minimum 2. */
   readonly crossmemberCount: Quantity<"count">;
+  /**
+   * Optional authored crossmember stations, X in substrate space, instead of
+   * even spacing. This exists because the anchorage law is a law and the
+   * grammar had no way to satisfy it: the substrate laid members on a fixed
+   * grid, the type library published anchorages wherever a part's mounts fell,
+   * and nothing reconciled the two — so every car in the six-car battery
+   * reported thirty-five anchorage violations at once. A car is not built that
+   * way round. The crossmember goes where the load is. Stations outside the
+   * rail tips are clamped to them; duplicates within a rail width collapse;
+   * `crossmemberCount` is ignored when this is given, and the count reported
+   * in the dims is what was actually laid.
+   */
+  readonly crossmemberStations?: readonly Quantity<"mm">[];
   /** Rail box section. Defaults SOURCED from a published ladder-chassis example. */
   readonly railSectionHeight?: Quantity<"mm">;
   readonly railSectionWidth?: Quantity<"mm">;
@@ -206,8 +219,26 @@ export function makeSubstrate(params: SubstrateParams, alloc: IdAllocator): Subs
     "mm",
     `crossmember span = rail spacing (${railSpacing.value} mm [${railSpacing.license.tag}]), rail center to rail center`,
   );
-  for (let k = 0; k < nCross; k++) {
-    const xk = x0 + ((x1 - x0) * k) / (nCross - 1);
+  const authored = params.crossmemberStations;
+  const stations: number[] = [];
+  if (authored && authored.length > 0) {
+    // Clamp inside the rails, sort, and collapse anything closer together
+    // than a rail width — two crossmembers 3 mm apart is one crossmember.
+    const sorted = authored
+      .map((q) => nmin(nmax(q.value, x0), x1))
+      .sort((a, b) => a - b);
+    for (const x of sorted) {
+      const last = stations[stations.length - 1];
+      if (last === undefined || x - last >= railW.value) stations.push(x);
+    }
+    // The tips still need closing out, whatever the author asked for.
+    if (stations.length === 0 || stations[0]! - x0 >= railW.value) stations.unshift(x0);
+    if (x1 - stations[stations.length - 1]! >= railW.value) stations.push(x1);
+  } else {
+    for (let k = 0; k < nCross; k++) stations.push(x0 + ((x1 - x0) * k) / (nCross - 1));
+  }
+  for (let k = 0; k < stations.length; k++) {
+    const xk = stations[k]!;
     members.push({
       id: alloc.next("feature"),
       label: `crossmember-${k}`,

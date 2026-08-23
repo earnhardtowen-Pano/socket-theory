@@ -90,6 +90,7 @@ export interface AssembledCar {
   readonly rearWheels: readonly WheelTireInstance[];
   /** Every part by its label, for readback after the solve. */
   readonly byLabel: ReadonlyMap<string, PartInstance>;
+  /** World-placed: the substrate's own frame plus its fixed pose. */
   readonly members: readonly MemberRecord[];
   /** The law, surfaced: carried for the report, not enforced against v1 parts. */
   readonly regulatory: readonly DemandRecord[];
@@ -176,6 +177,18 @@ export function assembleCar(config: CarConfig, alloc: IdAllocator): AssembledCar
     [rearSusp.id, { origin: [wheelbase, 0, rearRadius] }],
   ]);
 
+  // The substrate authors its members in its OWN frame, and the solve reads
+  // them in world. Handing them over unshifted put every rail and crossmember
+  // railZ millimetres below where it actually is, so the anchorage law tested
+  // every mount against members that were not there — thirty-five violations
+  // per car, on all seven cars in the battery, identically. Two frames that
+  // were never reconciled, and a law that could not be satisfied by any
+  // layout. The substrate's pose is a fixed datum known right here.
+  const worldMembers: MemberRecord[] = substrate.members.map((m) => ({
+    ...m,
+    at: [m.at[0] + 0, m.at[1] + 0, m.at[2] + railZ] as Pt3,
+  }));
+
   // --- the mate chain -----------------------------------------------------
   // Wheels hang off their axle's hubs; the powertrain hangs off the substrate;
   // everything downstream of the engine hangs off the engine.
@@ -230,13 +243,13 @@ export function assembleCar(config: CarConfig, alloc: IdAllocator): AssembledCar
   const byLabel = new Map<string, PartInstance>(parts.map((p) => [p.label, p]));
 
   return {
-    input: { parts, mates, fixed, members: substrate.members, worldDemands },
+    input: { parts, mates, fixed, members: worldMembers, worldDemands },
     substrate,
     engine,
     frontWheels: [wheelFL, wheelFR],
     rearWheels: [wheelRL, wheelRR],
     byLabel,
-    members: substrate.members,
+    members: worldMembers,
     regulatory,
     bodyChecks,
   };

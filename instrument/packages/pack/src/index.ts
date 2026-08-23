@@ -57,6 +57,10 @@ import { anchorPointOf, makeState, sortedDemands, type PackState } from "./state
 
 export { MATE_AGREEMENT_TOL_MM, CONTACT_TOL_MM, PROJECTION_PASS_CAP } from "./policy.js";
 export { idCompare, worldBox, containsPoint, pointBoxDistance, type WorldBox } from "./geometry.js";
+// Exported so a fitting pass can ask the SAME question the anchorage law
+// asks. A second implementation of "where does this demand land" would drift
+// from the law it is trying to satisfy, and the drift would be silent.
+export { anchorPointOf } from "./state.js";
 export { mateName } from "./closure.js";
 
 /** Malformed input (dangling references, duplicates) — thrown, since the
