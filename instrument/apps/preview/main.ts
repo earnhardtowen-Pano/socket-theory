@@ -23,7 +23,7 @@ if (view === "side") {
   tag.innerHTML =
     line(`PANORAMIC · CURVATURE LENS<span class="accent"> ●</span> MEAN CURVATURE`) + "\n" +
     line(`COTANGENT LAPLACE-BELTRAMI ON THE PRINT MESH`) + "\n" +
-    line(`RANGE ±${(body.curvature.p98 * 1000).toFixed(2)} × 10⁻³ /MM (2ND-98TH PERCENTILE)`);
+    line(`RANGE ±${(body.curvature.p98 * 1000).toFixed(2)} × 10⁻³ /MM (98TH PCT) · ${body.curvature.degenerate} COLLAPSED CORNERS UNMEASURABLE`);
 } else if (lens === "zebra") {
   tag.innerHTML =
     line(`PANORAMIC · ZEBRA<span class="accent"> ●</span> REFLECTION LINES`) + "\n" +
@@ -161,12 +161,18 @@ if (view === "side") {
     // Curvature is per PRINT vertex; sourceOf maps each render vertex back to
     // the print vertex it was split from, so no re-derivation is needed.
     const mean = body.curvature.mean as number[];
+    const ok = body.curvature.valid as number[];
     const src = body.curvature.sourceOf as number[];
     const scale = Math.max(1e-9, body.curvature.p98 as number);
     const n = upper.geometry.getAttribute("position").count;
     const col = new Float32Array(n * 3);
     for (let v = 0; v < n; v++) {
-      const c = ramp(0.5 + 0.5 * Math.max(-1, Math.min(1, (mean[src[v] ?? v] ?? 0) / scale)));
+      const p = src[v] ?? v;
+      // A collapsed corner gets the neutral middle of the ramp, not a colour
+      // that would read as a curvature reading it does not have.
+      const c = ok[p] === 1
+        ? ramp(0.5 + 0.5 * Math.max(-1, Math.min(1, (mean[p] ?? 0) / scale)))
+        : [0.55, 0.55, 0.55] as [number, number, number];
       col[v * 3] = c[0]; col[v * 3 + 1] = c[1]; col[v * 3 + 2] = c[2];
     }
     upper.geometry.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));

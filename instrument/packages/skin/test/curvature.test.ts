@@ -115,6 +115,39 @@ describe("curvature lens", () => {
     expect(c.note).toContain("DERIVED mesh");
   });
 
+  it("a collapsed patch corner cannot report an infinite curvature", () => {
+    // The real cause, built directly: a vertex whose ENTIRE ring is slivers,
+    // which is what a Coons patch corner collapsing to a point produces. Its
+    // mixed area goes to nothing while its Laplacian does not, and
+    // |Laplacian|/2A ran to 3.5e14 per mm on the P1 — a radius of 1e-14 mm.
+    // Percentiles did not save it either: more than two per cent of a quilt's
+    // vertices sit at a corner like this.
+    const pos: number[] = [0, 0, 0];              // the collapsed corner
+    const idx: number[] = [];
+    const N = 8, TINY = 1e-4, FAR = 500;
+    for (let i = 0; i < N; i++) {
+      const th = (2 * Math.PI * i) / N;
+      pos.push(TINY * Math.cos(th), TINY * Math.sin(th), 0);
+      pos.push(FAR * Math.cos(th), FAR * Math.sin(th), 0);
+    }
+    const inner = (i: number) => 1 + 2 * (i % N);
+    const outer = (i: number) => 2 + 2 * (i % N);
+    for (let i = 0; i < N; i++) {
+      idx.push(0, inner(i), inner(i + 1));                       // sliver fan
+      idx.push(inner(i), outer(i), outer(i + 1));                // healthy ring
+      idx.push(inner(i), outer(i + 1), inner(i + 1));
+    }
+    const m = { positions: new Float64Array(pos), indices: new Uint32Array(idx) };
+
+    const cur = curvatureMap(m);
+    expect(cur.degenerate).toBeGreaterThan(0);
+    expect(cur.areaFloorMm2).toBeGreaterThan(0);
+    // Nothing on a 500 mm patch may claim a radius under a millimetre.
+    for (let i = 0; i < cur.mean.length; i++) {
+      expect(Math.abs(cur.mean[i]!)).toBeLessThan(1);
+    }
+  });
+
   it("is deterministic", () => {
     const m = sphere(500, 2);
     expect(Array.from(curvatureMap(m).mean)).toEqual(Array.from(curvatureMap(m).mean));

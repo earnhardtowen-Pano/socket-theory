@@ -197,3 +197,65 @@ SolveResult contract added to @car/schema) are frozen and pushed.
 - **`MESHDEBUG=1`.** An open mesh was a count, and a count cannot be debugged.
   The build now reports violation kinds, open-vertex count, and a histogram of
   open vertices by station. It located the windshield in one run.
+
+## P3 → G3 — skin, flow, print
+
+- **The battery is a bug-finding instrument, not a scoreboard** — constructed,
+  and it paid for itself before its first run finished. Seven cars down one
+  builder found: a type that refuses to guess a V bank angle (correct); a
+  brief that refuses SOURCED because a brief is the owner's principal
+  (correct, and the fix is `override()`, which keeps the chain to the
+  published figure and re-licenses the decision as his); and one genuine bug
+  that had been hiding an entire law. Members reached the solver in the
+  substrate's own frame while the solve read them in world, so every rail sat
+  `railHeight` below where it was and the anchorage audit tested every mount
+  against members that were not there. Thirty-five violations per car on all
+  seven, identically — which is the signature of one missing step, not seven
+  failing cars. A single car could not have told me that.
+- **A law you cannot satisfy is a missing capability, not a bad law.** The
+  remaining anchorage violations are real: the type library publishes an
+  anchorage at a mount pad and there is no bracket part to carry the load to a
+  member. Adding a tolerance to the law would have made the report green and
+  the car no more buildable. Recorded open instead, with `crossmemberStations`
+  and `fitSubstrate()` added so a member can at least go where a load is.
+- **The aero lens is arranged so it cannot be misread** — constructed. Drag
+  lives in a function that does not read the Cp map and demands a Cd from
+  outside; a non-SOURCED Cd puts a caveat on the result that travels with it.
+  The method statement is a field on the result, not a comment, so it cannot
+  be separated from the numbers. Separation is flagged, ASSUMED, and the lens
+  says so in its own notes. Every one of those is there because the failure
+  mode of an aero tool is not being wrong — it is being *plausible*.
+- **The inlet check was wrong twice, in the same place.** First the ram ratio
+  was folded into the mass-flow constant and multiplied where it should have
+  divided; then it turned out to be the wrong ratio anyway — at the inlet
+  plane the right factor is capture (0.8), while a third is what reaches the
+  CORE face, which is why a radiator core is two to three times the grille
+  ahead of it. Both numbers are separate and ASSUMED now so each can be argued
+  with alone. The tell, both times, was a reason string that contradicted its
+  own arithmetic. Write the reason and the mistake shows.
+- **Percentiles, not extremes, wherever a number colours something.**
+  Potential flow puts unbounded suction on a sharp convex edge, so one panel
+  on the splitter lip set the colour scale for the whole car; the same lesson
+  applied to the curvature ramp. min and max stay reported — they are the
+  truth about the solve — but a display range is a different question.
+- **The zebra is the most useful thing here and it took an afternoon.** It
+  says the body is G1 and not G2: reflection lines break into blocks over the
+  hood where the Coons patches meet with matching tangent but not curvature.
+  The crease-normal shading hides exactly that, which is what shading is for
+  and why a second lens was needed to see past it. The ratified flow
+  stage-gate now has evidence for when to spend it.
+- **Grooves are scaled from the printer, not the car** — retrieved practice
+  (every model-maker knows it), constructed here. A 4 mm door gap at 1:24 is
+  0.17 mm and does not exist off a 0.4 mm nozzle. Sizing from the nozzle and
+  back-scaling gives a groove that looks wrong in CAD and is the only thing
+  that reads in the hand. The result carries both dimensions so the trade is
+  visible rather than discovered.
+- **The provenance report has no clock, on purpose.** Diffing two reports is
+  most of what they are for, and a timestamp makes every pair differ.
+- **The honesty police drew the package boundary, and drew it correctly.** The
+  no-bare-constants lint failing on the panel solver was not the lint being
+  fussy; it was the lint saying that arithmetic does not belong in a licensed
+  package. Splitting `@car/skin` out left `@car/lens` holding only claims —
+  and then every literal remaining in it genuinely deserved a licence,
+  including the reporting precision. Three decimals on a Cp is a claim about
+  how far the method is worth reading, and now it says so.

@@ -47,6 +47,8 @@ writeFileSync(new URL("../apps/preview/body.json", import.meta.url), JSON.string
     p02: curv.meanP02,
     p98: curv.meanP98,
     note: curv.note,
+    degenerate: curv.degenerate,
+    valid: Array.from(curv.valid),
     printVertexCount: raw.positions.length / 3,
     sourceOf: Array.from(shaded.sourceOf),
   },

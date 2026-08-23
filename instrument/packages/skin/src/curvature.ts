@@ -40,6 +40,12 @@ export interface CurvatureResult {
   readonly gaussian: Float64Array;
   /** Mixed area per vertex, mm² — the weight the operators were taken over. */
   readonly area: Float64Array;
+  /** 1 where the reading means something, 0 at a collapsed patch corner. */
+  readonly valid: Uint8Array;
+  /** Vertices with no measurable curvature — a collapsed ring. */
+  readonly degenerate: number;
+  /** The threshold applied, mm² — one per cent of the median face area. */
+  readonly areaFloorMm2: number;
   /** Robust display range: the 2nd and 98th percentile of |mean|. */
   readonly meanP02: number;
   readonly meanP98: number;
@@ -114,11 +120,46 @@ export function curvatureMap(mesh: CurvatureMesh): CurvatureResult {
     }
   }
 
+  // Some vertices have no curvature to report, and the honest answer is to
+  // say so rather than to bound a meaningless number.
+  //
+  // Where a Coons patch corner collapses, a vertex gets a whole ring of
+  // slivers: on the P1 five per cent of vertices have a mixed area of 1e-10
+  // mm² against a median face of 485. |Δx|/2A there first reported 3.5e14 per
+  // mm — a radius of 1e-14 mm — and flooring the AREA only moved it to 59 per
+  // mm, because the Laplacian at such a vertex is as meaningless as the area.
+  // Percentiles could not save it either: the bad vertices ARE the top of the
+  // distribution, so a 98th percentile lands inside them.
+  //
+  // So a vertex whose ring is under one per cent of a median face is marked
+  // invalid, reads zero, and is left out of the display range. `degenerate`
+  // says how many, because a lens that quietly drops five per cent of a mesh
+  // is worse than one that reports nonsense.
+  const faceAreas: number[] = [];
+  for (let t = 0; t < triCount; t++) {
+    const i = indices[t * 3]!, j = indices[t * 3 + 1]!, k = indices[t * 3 + 2]!;
+    const ux = positions[j * 3]! - positions[i * 3]!;
+    const uy = positions[j * 3 + 1]! - positions[i * 3 + 1]!;
+    const uz = positions[j * 3 + 2]! - positions[i * 3 + 2]!;
+    const vx = positions[k * 3]! - positions[i * 3]!;
+    const vy = positions[k * 3 + 1]! - positions[i * 3 + 1]!;
+    const vz = positions[k * 3 + 2]! - positions[i * 3 + 2]!;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    faceAreas.push(nsqrt(nx * nx + ny * ny + nz * nz) / 2);
+  }
+  faceAreas.sort((a, b) => a - b);
+  const medianFace = faceAreas.length === 0 ? 0 : faceAreas[Math.floor(faceAreas.length / 2)]!;
+  const areaFloor = medianFace / 100;
+
   const mean = new Float64Array(vertCount);
   const gaussian = new Float64Array(vertCount);
+  const valid = new Uint8Array(vertCount);
+  let degenerate = 0;
   for (let v = 0; v < vertCount; v++) {
     const a = area[v]!;
     if (a <= 0) continue;
+    if (a < areaFloor) { degenerate++; continue; }
+    valid[v] = 1;
     const lx = lap[v * 3]! / (2 * a), ly = lap[v * 3 + 1]! / (2 * a), lz = lap[v * 3 + 2]! / (2 * a);
     const m = nsqrt(lx * lx + ly * ly + lz * lz) / 2;
     const nx = normal[v * 3]!, ny = normal[v * 3 + 1]!, nz = normal[v * 3 + 2]!;
@@ -127,19 +168,27 @@ export function curvatureMap(mesh: CurvatureMesh): CurvatureResult {
     gaussian[v] = (2 * Math.PI - angle[v]!) / a;
   }
 
-  // Percentiles rather than min and max: one bad vertex at a wheel rim would
-  // otherwise set the colour scale for the whole car.
-  const mags = Array.from(mean, Math.abs).sort((a, b) => a - b);
+  // Percentiles over the VALID vertices only, and percentiles rather than
+  // min and max: one bad vertex at a wheel rim would otherwise set the colour
+  // scale for the whole car.
+  const mags: number[] = [];
+  for (let v = 0; v < vertCount; v++) if (valid[v] === 1) mags.push(Math.abs(mean[v]!));
+  mags.sort((a, b) => a - b);
   const at = (p: number): number => mags.length === 0 ? 0 : mags[Math.min(mags.length - 1, Math.floor(p * mags.length))]!;
 
   return {
     mean, gaussian, area,
+    valid,
+    degenerate,
+    areaFloorMm2: areaFloor,
     meanP02: at(0.02),
     meanP98: at(0.98),
     note:
       "Discrete operators on the DERIVED mesh: cotangent Laplace–Beltrami for mean, " +
       "angle deficit over barycentric area for Gaussian. A reading is a property of " +
       "the tessellation as much as the surface — two readings at different mesh " +
-      "densities are not comparable.",
+      "densities are not comparable. A vertex whose ring is under one per cent " +
+      "of a median face has no measurable curvature: it reads zero, is marked " +
+      "invalid, and is left out of the display range.",
   };
 }
