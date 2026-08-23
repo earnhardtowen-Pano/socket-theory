@@ -18,6 +18,23 @@
 
 export { curvatureMap, type CurvatureMesh, type CurvatureResult } from "./curvature.js";
 export {
+  isophoteContours,
+  isophoteField,
+  isophoteGradient,
+  type IsophoteMesh,
+  type IsophoteOptions,
+  type IsophoteResult,
+} from "./isophote.js";
+export {
+  draftMap,
+  shallowFraction,
+  twoSidedDraftDeg,
+  undercutFraction,
+  type DraftMesh,
+  type DraftOptions,
+  type DraftResult,
+} from "./draft.js";
+export {
   panelSolve,
   frontalAreaMm2,
   type PanelMesh,

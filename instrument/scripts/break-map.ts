@@ -24,8 +24,8 @@ import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import { meshQuilt } from "@car/mesh";
 import {
-  boundaryCoonsNormal, cellBoundary, continuityProbe, quiltAdjacency,
-  sideParamOf, tangentField, uvOnSide, type CrossPrescription,
+  boundaryCoonsNormal, bySize, cellBoundary, continuityProbe, panelsOf, quiltAdjacency,
+  sideParamOf, tangentField, uvOnSide, type CrossPrescription, type SeamKind,
 } from "@car/surface";
 import { cross3, dot3, len3, natan2 } from "@car/num";
 import type { CarDocument, Id, Pt3 } from "@car/schema";
@@ -49,8 +49,15 @@ const STATIONS = (() => {
   return [...out].sort((a, b) => a - b);
 })();
 
+const panels = panelsOf(quilt, adj);
+const kindByEdge = new Map<SharedEdgeKey, SeamKind>();
+type SharedEdgeKey = string;
+const keyOf = (e: { a: { cellId: Id; k: number }; b: { cellId: Id; k: number }; lo: number }): string =>
+  `${e.a.cellId}#${e.a.k}|${e.b.cellId}#${e.b.k}@${e.lo}`;
+for (const s of panels.seams) kindByEdge.set(keyOf(s.edge), s.kind);
+
 function seamDefect(cross: CrossPrescription | undefined): {
-  pts: Pt3[]; deg: number[]; creased: boolean;
+  pts: Pt3[]; deg: number[]; creased: boolean; kind: SeamKind;
 }[] {
   const built = new Map<Id, ReturnType<typeof cellBoundary>>();
   const bOf = (id: Id): ReturnType<typeof cellBoundary> => {
@@ -61,7 +68,7 @@ function seamDefect(cross: CrossPrescription | undefined): {
     }
     return h;
   };
-  const out: { pts: Pt3[]; deg: number[]; creased: boolean }[] = [];
+  const out: { pts: Pt3[]; deg: number[]; creased: boolean; kind: SeamKind }[] = [];
   for (const e of adj.edges) {
     const bA = bOf(e.a.cellId), bB = bOf(e.b.cellId);
     const sA = bA.sides[e.a.k]!, sB = bB.sides[e.b.k]!;
@@ -76,7 +83,7 @@ function seamDefect(cross: CrossPrescription | undefined): {
       deg.push(len3(nA) === 0 || len3(nB) === 0 ? 0
         : (natan2(len3(cross3(nA, nB)), dot3(nA, nB)) * 180) / Math.PI);
     }
-    out.push({ pts, deg, creased: e.creased });
+    out.push({ pts, deg, creased: e.creased, kind: kindByEdge.get(keyOf(e)) ?? "smooth" });
   }
   return out;
 }
@@ -143,20 +150,29 @@ function bodyPanel(y0: number): string {
   }).join("");
 }
 
-function seams(y0: number, data: ReturnType<typeof seamDefect>, which: "smooth" | "creased"): string {
+function seams(
+  y0: number, data: ReturnType<typeof seamDefect>,
+  pick: (s: ReturnType<typeof seamDefect>[number]) => boolean,
+  colour: (s: ReturnType<typeof seamDefect>[number], i: number) => string,
+  width = 2.4,
+): string {
   const parts: string[] = [];
   for (const seam of data) {
-    if ((which === "creased") !== seam.creased) continue;
+    if (!pick(seam)) continue;
     for (let i = 0; i + 1 < seam.pts.length; i++) {
       const a = project(seam.pts[i]!), b = project(seam.pts[i + 1]!);
-      const d = Math.max(seam.deg[i]!, seam.deg[i + 1]!);
       parts.push(`<line x1="${(OX + a[0] * SC).toFixed(1)}" y1="${(y0 + (a[1] - minY) * SC).toFixed(1)}" ` +
         `x2="${(OX + b[0] * SC).toFixed(1)}" y2="${(y0 + (b[1] - minY) * SC).toFixed(1)}" ` +
-        `stroke="${ramp(d)}" stroke-width="2.4" stroke-linecap="round"/>`);
+        `stroke="${colour(seam, i)}" stroke-width="${width}" stroke-linecap="round"/>`);
     }
   }
   return parts.join("");
 }
+
+/** The three things a seam can be, and they are not interchangeable. */
+const SHUT = "rgb(120,215,255)";
+const FEATURE = "rgb(245,175,60)";
+const SMOOTH = "rgb(60,150,150)";
 
 const before = continuityProbe(quilt);
 const after = continuityProbe(quilt, { cross: field });
@@ -188,13 +204,15 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
 <text class="s" x="${PAD}" y="70">${STATIONS.length} stations per join, crowding both corners to a ten-millionth of an edge</text>
 <text class="s" x="${PAD}" y="90">log scale · teal is under a thousandth of a degree · white is ninety</text>
 ${cap("BARE COONS BLEND", `${before.g1Joins} of ${before.joins} smooth joins under 1° · median ${before.medianDeg.toExponential(1)}° · worst ${before.worstDeg.toFixed(1)}°`, y1 - 14)}
-${bodyPanel(y1 + 8)}${seams(y1 + 8, bare, "smooth")}
+${bodyPanel(y1 + 8)}${seams(y1 + 8, bare, (s) => s.kind === "smooth", (s, i) => ramp(Math.max(s.deg[i]!, s.deg[i + 1]!)))}
 ${cap("WITH THE TANGENT FIELD", `${after.g1Joins} of ${after.joins} · median ${after.medianDeg.toExponential(1)}° · worst ${after.worstDeg.toExponential(1)}° — corner to corner`, y2 - 14)}
-${bodyPanel(y2 + 8)}${seams(y2 + 8, fixed, "smooth")}
-${cap("THE CREASED SEAMS", `${after.creased} curves the field is right to leave alone — wheels, shutlines, the nose and tail panel edges`, y3 - 14)}
-${bodyPanel(y3 + 8)}${seams(y3 + 8, fixed, "creased")}
+${bodyPanel(y2 + 8)}${seams(y2 + 8, fixed, (s) => s.kind === "smooth", (s, i) => ramp(Math.max(s.deg[i]!, s.deg[i + 1]!)))}
+${cap("WHAT EACH SEAM IS", `${panels.panels.length} panels · ${panels.shutlines} shutline seams (blue, a real gap between two pieces) · ` +
+  `${panels.features} feature lines (amber, one piece folded) · ${panels.smooth} smooth (teal, must be invisible)`, y3 - 14)}
+${bodyPanel(y3 + 8)}${seams(y3 + 8, fixed, (s) => s.kind === "smooth", () => SMOOTH, 1.5)}${seams(y3 + 8, fixed, (s) => s.kind === "feature", () => FEATURE, 2.4)}${seams(y3 + 8, fixed, (s) => s.kind === "shutline", () => SHUT, 3.4)}
 ${legend}
-<text class="ax" x="${PAD}" y="${H - 40}">A break can only survive in the band next to a corner. Nine evenly spaced stations start a tenth of an edge in and never look inside it.</text>
+<text class="ax" x="${PAD}" y="${H - 46}">A break can only survive in the band next to a corner. Nine evenly spaced stations start a tenth of an edge in and never look inside it.</text>
+<text class="ax" x="${PAD}" y="${H - 32}">A panel is a connected component of the cell graph with the GAP curves cut. Continuity is judged inside a panel; gap and flush across one. This body is ${panels.panels.length} pieces: ${bySize(panels).map((p) => p.cells.length).join(" + ")} cells.</text>
 </svg>
 `;
 
@@ -202,4 +220,5 @@ const out = process.argv[2] ?? "../../shots/break-map.svg";
 writeFileSync(new URL(out, import.meta.url), svg);
 console.log(`\nbare  ${before.g1Joins}/${before.joins} · worst ${before.worstDeg.toFixed(2)}°`);
 console.log(`field ${after.g1Joins}/${after.joins} · worst ${after.worstDeg.toExponential(2)}°`);
+console.log(`panels ${panels.panels.length} · shutline seams ${panels.shutlines} · feature ${panels.features} · smooth ${panels.smooth}`);
 console.log(`wrote ${out}\n`);

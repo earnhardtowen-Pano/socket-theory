@@ -24,7 +24,8 @@ import {
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import {
-  continuityProbe, curvatureJoinProbe, fieldDisplacement, networkObstruction, tangentField,
+  bySize, continuityProbe, curvatureJoinProbe, fieldDisplacement, networkObstruction,
+  panelsOf, tangentField,
 } from "@car/surface";
 import {
   closedMeshCheck,
@@ -798,6 +799,14 @@ const net = networkObstruction(quilt);
 console.log(line("curve network", `${net.cleanCorners}/${net.corners} corners coplanar to ${net.toleranceDeg}° · ` +
   `median ${net.medianDeg.toFixed(3)}° · worst ${net.worstDeg.toFixed(1)}°` +
   (net.worst ? ` at [${net.worst.at.map((v) => Math.round(v)).join(", ")}]` : "")));
+// What each seam actually IS. Three different things looked identical to this
+// build until now: a shutline is a gap between two pieces of metal, a feature
+// line is a fold in one piece, and a smooth seam is a surfacing subdivision
+// that must be invisible. Continuity is judged inside a panel and gap across
+// one, and neither question can be asked without the partition.
+const pieces = panelsOf(quilt);
+console.log(line("panels", `${pieces.panels.length} pieces — ${bySize(pieces).map((p) => p.cells.length).join(" + ")} cells · ` +
+  `${pieces.shutlines} shutline seams · ${pieces.features} feature lines · ${pieces.smooth} smooth`));
 console.log(line("shutline grooves", `${grooved.moved} vertices sunk on ${quilt.gaps.size} gap curves ` +
   `(${quilt.creases.size} creased curves are character lines and are NOT engraved) — ${grooved.note}`));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));

@@ -9,3 +9,4 @@ dist/
 # the artefact; the SVG is the intermediate.
 shots/displacement-map.svg
 shots/break-map.svg
+shots/lenses.svg

@@ -26,6 +26,14 @@ export {
 } from "./boundary.js";
 export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 export {
+  bySize,
+  panelsOf,
+  type Panel,
+  type PanelReport,
+  type Seam,
+  type SeamKind,
+} from "./panels.js";
+export {
   fieldDisplacement,
   type CellDisplacement,
   type DisplacementOptions,
