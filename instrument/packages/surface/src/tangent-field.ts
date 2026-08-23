@@ -106,14 +106,48 @@
  *    itself). There is no tangent plane to share; inventing one would move
  *    geometry to satisfy a metric.
  *
+ * ─────────────────────────────────────────────────────────────────────────
+ * THE FIELD IS A SPLINE (see `cross-poly.ts`)
+ *
+ * d̂ above is a normalised bisector, which is a square root, which means the
+ * patch could be sampled and printed but not written down. By default this
+ * builds the same field in a form that can be: one cubic B-spline direction
+ * D* per shared edge, and per owner a pair of scalar splines placing its
+ * cross-derivative in span{C', D*}. G1 is then exact by the same argument as
+ * before — both owners read the same D* — and Δ = E - N is piecewise
+ * polynomial, because the natural Coons cross-derivative N always was.
+ *
+ * WHAT IT COSTS, MEASURED. On the P1:
+ *
+ *   G1   exact in both forms; the spline body sits within 0.0065 mm of the
+ *        bisector body, which is the fit tolerance carried through Φ's
+ *        Hermite basis and nothing else.
+ *   G2   was exact, is now a fit. Median relative curvature gap 0.000 % →
+ *        0.154 %, joins within 1 % 23/64 → 19/64. The miss is concentrated
+ *        in the corner fade, where the two patches have not yet converged on
+ *        the normal Δ² is supposed to lie along, so the model is
+ *        approximating something outside itself. Class-A grades G2 at 0.5 to
+ *        5 % relative, so the median is still an order inside the tight end.
+ *
+ * `polynomial: false` returns the bisector field instead. It is not a fallback
+ * and nothing in the pipeline uses it; it is there so the two can be measured
+ * against each other, which is the only way to make the paragraph above a
+ * measurement rather than a claim.
+ *
  * Deterministic throughout: ID-ordered walk, fixed windows, no wall clock.
  */
 
 import type { Id, Pt3, QuiltSpec } from "@car/schema";
-import { chainDeriv, clamp, cross3, dot3, len3, norm3, scale3, sub3 } from "@car/num";
-import { cellBoundary, type CellBoundary, type CrossPrescription } from "./boundary.js";
 import {
-  boundaryCoonsEdgeJet, boundaryCoonsPartials, inwardOf, normalCurvatureAt,
+  bsplineAt, bsplineAt3, bsplineDerivAt, bsplineDerivAt3,
+  chainDeriv, chainDeriv2, clamp, cross3, dot3, len3, norm3, scale3, sub3,
+} from "@car/num";
+import {
+  cellBoundary, type BoundarySide, type CellBoundary, type CrossPrescription,
+} from "./boundary.js";
+import {
+  boundaryCoonsEdgeJet, boundaryCoonsMixedNatural, boundaryCoonsPartials,
+  inwardOf, normalCurvatureAt,
 } from "./coons.js";
 import {
   edgeDefectProfile,
@@ -122,8 +156,13 @@ import {
   sideParamOf,
   uvOnSide,
   type QuiltAdjacency,
+  type SharedEdge,
 } from "./adjacency.js";
 import { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
+import {
+  evalCrossDeriv, fitEdgeField, fitSecondMagnitude, sharedNormal,
+  type EdgeSample, type OwnerCoeffs, type SecondStation,
+} from "./cross-poly.js";
 
 export interface CrossFieldOptions {
   /**
@@ -154,14 +193,67 @@ export interface CrossFieldOptions {
    * one they started with.
    */
   readonly order?: 1 | 2;
+  /**
+   * Build the polynomial field (the default) rather than the raw normalised
+   * bisector. False is for measurement only — see the header.
+   */
+  readonly polynomial?: boolean;
+  /** Degree of every fitted field. 3 unless there is a reason. */
+  readonly fitDegree?: number;
+  /** Cap on polynomial pieces per edge. */
+  readonly maxSpans?: number;
+  /** Relative residual the span doubling aims for. */
+  readonly fitTolerance?: number;
 }
 
 const DEFAULT_CORNER_FADE = 0.12;
-/** Central-difference step for Δraw′, in the side's loop parameter. */
+/** Central-difference step for Δraw′ — bisector form only; the polynomial
+ *  form differentiates its own coefficients. */
 const FD_STEP = 1e-4;
 const DEFAULT_CLASSIFY_SAMPLES = 9;
 const DEFAULT_MIN_SEPARATION = 1e-9;
 const DEFAULT_MIN_TRANSVERSE = 1e-9;
+const DEFAULT_FIT_DEGREE = 3;
+/**
+ * Cap on polynomial pieces per shared edge.
+ *
+ * Most joins take one piece. It is set this high for the few that do not: the
+ * P1 has two, on a curve whose speed swings four to one under a join that turns
+ * 52°, and they need every one of the thirty-two. The cap exists so that a
+ * pathological curve costs a BOUNDED number of control points in the export
+ * rather than an unbounded one; an edge that reaches it is reported as
+ * unconverged with the residual it achieved, not dropped back to G0.
+ */
+const DEFAULT_MAX_SPANS = 32;
+/**
+ * Worst cross-derivative residual the span doubling aims for, in mm.
+ *
+ * Through the Hermite basis this is at most 4/27 of it in body, so 0.05 mm of
+ * cross-derivative is under eight micrometres of car — thinner than the paint,
+ * two orders below a panel gap, and the level at which "the spline body IS the
+ * bisector body" is a statement rather than a hope.
+ */
+const DEFAULT_FIT_TOLERANCE = 0.05;
+
+/** How well one shared edge's field came out as a polynomial. Shape, not
+ *  continuity — see `cross-poly.ts`. */
+export interface EdgeFitReport {
+  readonly curveId: Id;
+  readonly cellA: Id;
+  readonly cellB: Id;
+  /** Worst |E − target| / |target| over the check stations, both owners. */
+  readonly relative: number;
+  /** The same, absolute — mm of cross-derivative. */
+  readonly worst: number;
+  /** Polynomial pieces this edge needed. */
+  readonly spans: number;
+  /** False if the span cap was reached without meeting the tolerance. */
+  readonly converged: boolean;
+  /** Worst departure of D* from unit length over the stations. */
+  readonly drift: number;
+  /** Worst relative residual of the two G2 magnitude fits; 0 at order 1. */
+  readonly secondRelative: number;
+}
 
 export interface CrossFieldStats {
   /** (cell, side) pairs carrying a prescription. */
@@ -179,6 +271,35 @@ export interface CrossFieldStats {
   readonly order: 1 | 2;
   /** Sides with more than one neighbour over the same stretch. */
   readonly ambiguous: number;
+  /** Polynomial form, or the raw bisector. */
+  readonly polynomial: boolean;
+  readonly fitDegree: number;
+  /** Worst span count any edge needed. 1 means every edge is a plain Bézier. */
+  readonly worstSpans: number;
+  /** Edges whose fit did not reach the tolerance at the span cap. */
+  readonly unconverged: number;
+  /**
+   * Worst and median relative residual of the (a, λ) fits — how far the
+   * polynomial cross-derivative sits from the natural one, against the
+   * natural one's own length. A SHAPE figure. It says nothing about G1,
+   * which is exact in either form.
+   */
+  readonly fitWorst: number;
+  readonly fitMedian: number;
+  /** Worst departure of a fitted D* from unit length. Cosmetic — λ absorbs
+   *  the magnitude — but a large one means the direction fit is straining. */
+  readonly directionDrift: number;
+  /** Smallest |λ| over every owner and station. Zero is a collapsed plane. */
+  readonly minAcross: number;
+  /** Edges dropped because too few stations had a bisector to fit. */
+  readonly unfittable: number;
+  /** Worst residual of the G2 magnitude fits, relative to the correction. */
+  readonly secondFitWorst: number;
+  /** Per-edge, in adjacency order. Empty in bisector form. */
+  readonly fits: readonly EdgeFitReport[];
+  /** Worst |E − target| over every edge, mm of cross-derivative. The number
+   *  that bounds how far the spline body sits from the bisector body. */
+  readonly fitWorstAbs: number;
 }
 
 export interface CrossField {
@@ -207,6 +328,7 @@ export interface CrossField {
 }
 
 const ZERO: Pt3 = [0, 0, 0];
+const isZeroPt = (v: Pt3): boolean => v[0] === 0 && v[1] === 0 && v[2] === 0;
 
 /**
  * Smootherstep: 0 and 1 at the ends, with zero FIRST AND SECOND derivative at
@@ -258,6 +380,39 @@ export function naturalCross(b: CellBoundary, k: number, s: number): Pt3 {
 }
 
 /**
+ * The cross-derivative one owner should end up with: its own tangential part,
+ * and its own transverse part turned onto the shared direction WITHOUT being
+ * shortened.
+ *
+ *     target = (N·T̂)T̂ + |X⊥|·d̂
+ *
+ * This is `N + Δraw` for the bisector field, written directly — so a perfect
+ * polynomial fit reproduces the bisector body exactly, and the fit residual
+ * measures the polynomial and nothing else.
+ */
+function crossTarget(n: Pt3, tHat: Pt3, bis: { dHat: Pt3; aLen: number }): Pt3 {
+  const along = dot3(n, tHat);
+  return [
+    along * tHat[0] + bis.aLen * bis.dHat[0],
+    along * tHat[1] + bis.aLen * bis.dHat[1],
+    along * tHat[2] + bis.aLen * bis.dHat[2],
+  ];
+}
+
+/**
+ * d/ds of the natural cross-derivative, exactly.
+ *
+ * Every side's natural cross-derivative differentiates along the edge to the
+ * patch's mixed partial, up to the sign its loop direction puts on it: sides
+ * 0 and 2 run with it and sides 1 and 3 against.
+ */
+function naturalCrossDeriv(b: CellBoundary, k: number, s: number): Pt3 {
+  const [u, v] = uvOnSide(k, s);
+  const suv = boundaryCoonsMixedNatural(b, u, v);
+  return k === 0 || k === 2 ? suv : scale3(suv, -1);
+}
+
+/**
  * Unit tangent of the shared curve at global parameter t.
  *
  * Read off the ONE shared chain object, at the GLOBAL parameter, never
@@ -269,12 +424,46 @@ function curveTangent(b: CellBoundary, k: number, t: number): Pt3 {
   return norm3(chainDeriv(b.sides[k]!.chain, clamp(t, 0, 1)));
 }
 
+/** dt/ds of a side — the trim scale, signed by the loop direction. */
+const trimScale = (side: BoundarySide): number =>
+  side.reversed ? side.t0 - side.t1 : side.t1 - side.t0;
+
+/**
+ * One owner's fitted cross field on one shared edge.
+ *
+ * `dStar` is shared by reference with the other owner. That is the mechanism,
+ * not an optimisation: two owners reading the same array cannot disagree about
+ * which plane they are in, in the same way that two cells reading the same
+ * chain object cannot disagree about where the boundary is.
+ */
+interface EdgePoly {
+  readonly lo: number;
+  readonly hi: number;
+  readonly degree: number;
+  readonly knots: readonly number[];
+  readonly dStar: readonly Pt3[];
+  readonly coeffs: OwnerCoeffs;
+  /** μ for the G2 magnitude; empty until (and unless) the order-2 pass runs. */
+  second: readonly number[];
+}
+
 interface Claim {
   readonly lo: number;
   readonly hi: number;
   /** The neighbour, as (cellId, k). */
   readonly otherCell: Id;
   readonly otherK: number;
+  /** This owner's fitted field, or null in bisector form. */
+  readonly poly: EdgePoly | null;
+}
+
+/** The queried owner's view of the shared transverse direction at a station. */
+interface Bisector {
+  /** Unit, and pointing out of the queried owner. */
+  readonly dHat: Pt3;
+  /** The queried owner's own unit transverse natural. */
+  readonly aHat: Pt3;
+  readonly aLen: number;
 }
 
 export function tangentField(quilt: QuiltSpec, opts: CrossFieldOptions = {}): CrossField {
@@ -294,6 +483,12 @@ export function fieldFromAdjacency(
   const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
   const classifySamples = opts.classifySamples ?? DEFAULT_CLASSIFY_SAMPLES;
 
+  const order: 1 | 2 = opts.order ?? 1;
+  const polynomial = opts.polynomial ?? true;
+  const fitDegree = Math.max(1, Math.floor(opts.fitDegree ?? DEFAULT_FIT_DEGREE));
+  const maxSpans = Math.max(1, Math.floor(opts.maxSpans ?? DEFAULT_MAX_SPANS));
+  const fitTolerance = opts.fitTolerance ?? DEFAULT_FIT_TOLERANCE;
+
   const claims = new Map<string, Claim[]>();
   let creasedEdges = 0;
   let sharpEdges = 0;
@@ -306,37 +501,140 @@ export function fieldFromAdjacency(
     else claims.set(key, [c]);
   };
 
+  // The decision is made ONCE PER EDGE, not per station. Deciding per sample
+  // would let the correction switch on partway along a join and put a
+  // tangent-plane step exactly where the field exists to remove one.
+  const kept: SharedEdge[] = [];
   for (const e of adj.edges) {
     if (e.creased) { creasedEdges++; continue; }
-    // The decision is made ONCE PER EDGE, not per station. Deciding per
-    // sample would let the correction switch on partway along a join and put
-    // a tangent-plane step exactly where the field exists to remove one.
     if (medianOf(edgeDefectProfile(adj, e, classifySamples)) > breakAngle) {
       sharpEdges++;
       continue;
     }
+    kept.push(e);
+  }
+
+  /** The natural bisector at one station, seen from the queried owner. */
+  const bisectorFrom = (
+    bA: CellBoundary, kA: number, sA: number,
+    bB: CellBoundary, kB: number, sB: number,
+    tHat: Pt3,
+  ): Bisector | null => {
+    const nA = naturalCross(bA, kA, sA);
+    const nB = naturalCross(bB, kB, sB);
+    const perp = (n: Pt3): Pt3 => sub3(n, scale3(tHat, dot3(n, tHat)));
+    const aPerp = perp(nA);
+    const bPerp = perp(nB);
+    const aLen = len3(aPerp);
+    const bLen = len3(bPerp);
+    if (aLen <= minTrans * (1 + len3(nA)) || bLen <= minTrans * (1 + len3(nB))) return null;
+    const aHat = scale3(aPerp, 1 / aLen);
+    const bHat = scale3(bPerp, 1 / bLen);
+    const sep = sub3(aHat, bHat);
+    const sepLen = len3(sep);
+    if (sepLen <= minSep) return null;   // folded: no plane to share
+    return { dHat: scale3(sep, 1 / sepLen), aHat, aLen };
+  };
+
+  // ── the fit ─────────────────────────────────────────────────────────────
+  interface FittedEdge {
+    readonly edge: SharedEdge;
+    readonly sideA: BoundarySide;
+    readonly sideB: BoundarySide;
+    readonly chain: BoundarySide["chain"];
+    readonly poly: EdgePoly;
+    readonly polyB: EdgePoly;
+    readonly samples: readonly EdgeSample[];
+  }
+  const fitted: FittedEdge[] = [];
+  const reports: (EdgeFitReport & { secondRelative: number })[] = [];
+  const fitRelatives: number[] = [];
+  let unfittable = 0;
+  let unconverged = 0;
+  let worstSpans = 0;
+  let worstDrift = 0;
+  let fitWorstAbs = 0;
+  let minAcross = Infinity;
+
+  for (const e of kept) {
+    const bA = adj.boundaries.get(e.a.cellId);
+    const bB = adj.boundaries.get(e.b.cellId);
+    if (!bA || !bB) continue;
+    const claimA = { lo: e.lo, hi: e.hi, otherCell: e.b.cellId, otherK: e.b.k };
+    const claimB = { lo: e.lo, hi: e.hi, otherCell: e.a.cellId, otherK: e.a.k };
+
+    if (!polynomial) {
+      add(e.a.cellId, e.a.k, { ...claimA, poly: null });
+      add(e.b.cellId, e.b.k, { ...claimB, poly: null });
+      edgeCount++;
+      continue;
+    }
+
+    const sideA = bA.sides[e.a.k]!;
+    const sideB = bB.sides[e.b.k]!;
+    const sampler = (tau: number): EdgeSample | null => {
+      const t = e.lo + tau * (e.hi - e.lo);
+      const sA = sideParamOf(sideA, t);
+      const sB = sideParamOf(sideB, t);
+      if (sA < 0 || sA > 1 || sB < 0 || sB > 1) return null;
+      const cp = chainDeriv(sideA.chain, clamp(t, 0, 1));
+      const tHat = norm3(cp);
+      if (isZeroPt(tHat)) return null;
+      // Both owners' views of the same station. B's bisector is A's negated —
+      // asked for rather than assumed, so each magnitude comes from the owner
+      // it belongs to.
+      const bisA = bisectorFrom(bA, e.a.k, sA, bB, e.b.k, sB, tHat);
+      const bisB = bisectorFrom(bB, e.b.k, sB, bA, e.a.k, sA, tHat);
+      if (!bisA || !bisB) return null;
+      return {
+        tau, tangent: cp, dHat: bisA.dHat,
+        targetA: crossTarget(naturalCross(bA, e.a.k, sA), tHat, bisA),
+        targetB: crossTarget(naturalCross(bB, e.b.k, sB), tHat, bisB),
+      };
+    };
+
+    const fit = fitEdgeField(sampler, {
+      degree: fitDegree, maxSpans, tolerance: fitTolerance,
+    });
+    if (!fit) { unfittable++; continue; }
+    if (!fit.converged) unconverged++;
+    if (fit.spans > worstSpans) worstSpans = fit.spans;
+    if (fit.drift > worstDrift) worstDrift = fit.drift;
+    if (fit.minAcross < minAcross) minAcross = fit.minAcross;
+    if (fit.worst > fitWorstAbs) fitWorstAbs = fit.worst;
+    fitRelatives.push(fit.relative);
+
+    const shared = { lo: e.lo, hi: e.hi, degree: fit.degree, knots: fit.knots, dStar: fit.dStar };
+    const polyA: EdgePoly = { ...shared, coeffs: fit.a, second: [] };
+    const polyB: EdgePoly = { ...shared, coeffs: fit.b, second: [] };
+    reports.push({
+      curveId: e.curveId, cellA: e.a.cellId, cellB: e.b.cellId,
+      relative: fit.relative, worst: fit.worst, spans: fit.spans,
+      converged: fit.converged, drift: fit.drift, secondRelative: 0,
+    });
+    add(e.a.cellId, e.a.k, { ...claimA, poly: polyA });
+    add(e.b.cellId, e.b.k, { ...claimB, poly: polyB });
+    fitted.push({
+      edge: e, sideA, sideB, chain: sideA.chain, poly: polyA, polyB,
+      samples: fit.samples,
+    });
     edgeCount++;
-    add(e.a.cellId, e.a.k, { lo: e.lo, hi: e.hi, otherCell: e.b.cellId, otherK: e.b.k });
-    add(e.b.cellId, e.b.k, { lo: e.lo, hi: e.hi, otherCell: e.a.cellId, otherK: e.a.k });
   }
 
   const cellsWithField = new Set<Id>();
   for (const key of claims.keys()) cellsWithField.add(key.slice(0, key.lastIndexOf("#")) as Id);
 
   /**
-   * Memo for the two expensive primitives.
+   * Memo for the expensive primitives.
    *
    * Not an optimisation bolted on afterwards — without it the second order is
    * quadratic in disguise. Evaluating Δ² at one station reads the G1-corrected
    * jets of BOTH patches, and each of those reads all four of that patch's Δ
-   * and Δ′ fields, and each Δ′ is two more Δraw evaluations. One Δ² call was
-   * costing ~380 chain evaluations, nearly all of them repeats of values asked
-   * for a moment earlier by a neighbour.
+   * and Δ′ fields. One Δ² call was costing ~380 chain evaluations, nearly all
+   * of them repeats of values asked for a moment earlier by a neighbour.
    *
    * Safe because every function here is a pure function of the quilt: caching
-   * cannot change an answer, only how often it is computed. The map grows with
-   * the number of DISTINCT stations a caller asks about, which for a grid
-   * tessellation is bounded by the grid.
+   * cannot change an answer, only how often it is computed.
    */
   const rawCache = new Map<string, Pt3>();
   const memo = (tag: string, cellId: Id, k: number, s: number, f: () => Pt3): Pt3 => {
@@ -348,49 +646,49 @@ export function fieldFromAdjacency(
     return v;
   };
 
-  const rawDefectUncached = (cellId: Id, k: number, s: number): Pt3 => {
+  /** The claim covering loop parameter s of (cell, side), with its boundary. */
+  const locate = (
+    cellId: Id, k: number, s: number,
+  ): { b: CellBoundary; side: BoundarySide; t: number; claim: Claim } | null => {
     const list = claims.get(`${cellId}#${k}`);
-    if (!list) return ZERO;
-    const bA = adj.boundaries.get(cellId);
-    if (!bA) return ZERO;
-    const sideA = bA.sides[k]!;
-    const t = sideA.curveParam(s);
-
-    // First claim covering this parameter, in insertion (ID) order.
-    let claim: Claim | null = null;
+    if (!list) return null;
+    const b = adj.boundaries.get(cellId);
+    if (!b) return null;
+    const side = b.sides[k]!;
+    const t = side.curveParam(s);
     for (const c of list) {
-      if (t >= c.lo && t <= c.hi) { claim = c; break; }
+      if (t >= c.lo && t <= c.hi) return { b, side, t, claim: c };
     }
-    if (!claim) return ZERO;
+    return null;
+  };
+
+  /** E(τ) = a(τ)·C′(t) + λ(τ)·D*(τ) — the spline cross-derivative. */
+  const evalOwner = (p: EdgePoly, side: BoundarySide, t: number): Pt3 => {
+    const span = p.hi - p.lo;
+    const tau = span === 0 ? 0 : (t - p.lo) / span;
+    const cp = chainDeriv(side.chain, clamp(t, 0, 1));
+    return evalCrossDeriv(p.coeffs, p.dStar, p.degree, p.knots, cp, tau);
+  };
+
+  const rawDefectUncached = (cellId: Id, k: number, s: number): Pt3 => {
+    const at = locate(cellId, k, s);
+    if (!at) return ZERO;
+    const { b: bA, side: sideA, t, claim } = at;
+
+    if (claim.poly) {
+      return sub3(evalOwner(claim.poly, sideA, t), naturalCross(bA, k, s));
+    }
 
     const bB = adj.boundaries.get(claim.otherCell);
     if (!bB) return ZERO;
-    const sideB = bB.sides[claim.otherK]!;
-    const sB = sideParamOf(sideB, t);
+    const sB = sideParamOf(bB.sides[claim.otherK]!, t);
     if (sB < 0 || sB > 1) return ZERO;
-
     const tHat = curveTangent(bA, k, t);
-    if (tHat[0] === 0 && tHat[1] === 0 && tHat[2] === 0) return ZERO;
-
-    const nA = naturalCross(bA, k, s);
-    const nB = naturalCross(bB, claim.otherK, sB);
-
-    const perp = (n: Pt3): Pt3 => sub3(n, scale3(tHat, dot3(n, tHat)));
-    const aPerp = perp(nA);
-    const bPerp = perp(nB);
-    const aLen = len3(aPerp);
-    const bLen = len3(bPerp);
-    if (aLen <= minTrans * (1 + len3(nA)) || bLen <= minTrans * (1 + len3(nB))) return ZERO;
-
-    const aHat = scale3(aPerp, 1 / aLen);
-    const bHat = scale3(bPerp, 1 / bLen);
-    const sep = sub3(aHat, bHat);
-    const sepLen = len3(sep);
-    if (sepLen <= minSep) return ZERO;   // folded: no plane to share
-    const dHat = scale3(sep, 1 / sepLen);
-
+    if (isZeroPt(tHat)) return ZERO;
+    const bis = bisectorFrom(bA, k, s, bB, claim.otherK, sB, tHat);
+    if (!bis) return ZERO;
     // Δraw = |A⊥|(d̂ - Â⊥).
-    return scale3(sub3(dHat, aHat), aLen);
+    return scale3(sub3(bis.dHat, bis.aHat), bis.aLen);
   };
 
   const rawDefect = (cellId: Id, k: number, s: number): Pt3 =>
@@ -403,12 +701,48 @@ export function fieldFromAdjacency(
   };
 
   /**
+   * dΔraw/ds where the field is polynomial — every term differentiated in
+   * closed form.
+   *
+   *   Δraw(s) = E(τ(s)) - N(s)
+   *   dE/dτ   = a′C′ + a·C″·(hi-lo) + λ′D* + λ·D*′
+   *   dτ/ds   = (dt/ds)/(hi-lo)
+   *   dN/ds   = ±S_uv
+   *
+   * Null in bisector form, where there is no closed form worth deriving and
+   * the caller falls back to a central difference.
+   */
+  const rawDefectDerivPoly = (cellId: Id, k: number, s: number): Pt3 | null => {
+    const at = locate(cellId, k, s);
+    if (!at) return null;
+    const p = at.claim.poly;
+    if (!p) return null;
+    const { b, side, t } = at;
+    const span = p.hi - p.lo;
+    if (span === 0) return null;
+    const tau = (t - p.lo) / span;
+    const cp = chainDeriv(side.chain, clamp(t, 0, 1));
+    const cpp = scale3(chainDeriv2(side.chain, clamp(t, 0, 1)), span);
+    const d = bsplineAt3(p.dStar, p.degree, p.knots, tau);
+    const dp = bsplineDerivAt3(p.dStar, p.degree, p.knots, tau);
+    const a = bsplineAt(p.coeffs.along, p.degree, p.knots, tau);
+    const ap = bsplineDerivAt(p.coeffs.along, p.degree, p.knots, tau);
+    const lam = bsplineAt(p.coeffs.across, p.degree, p.knots, tau);
+    const lamp = bsplineDerivAt(p.coeffs.across, p.degree, p.knots, tau);
+    const dTauDs = trimScale(side) / span;
+    const dn = naturalCrossDeriv(b, k, s);
+    const out: [number, number, number] = [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      const dE = ap * cp[c]! + a * cpp[c]! + lamp * d[c]! + lam * dp[c]!;
+      out[c] = dE * dTauDs - dn[c]!;
+    }
+    return out;
+  };
+
+  /**
    * Δ′ = ρ′·Δraw + ρ·Δraw′. The window derivative is analytic, so at s = 0
    * and s = 1 BOTH terms are exactly zero and the C¹ vanishing the patch
-   * relies on is not a matter of step size. Δraw itself is a normalised
-   * combination of two patches' partials with no closed form worth deriving;
-   * it is differenced centrally, with the step pulled in near the ends so the
-   * stencil never leaves the trim.
+   * relies on is not a matter of step size.
    */
   const defectDeriv = (cellId: Id, k: number, s: number): Pt3 =>
     memo("d", cellId, k, s, () => defectDerivUncached(cellId, k, s));
@@ -419,18 +753,22 @@ export function fieldFromAdjacency(
     const wp = cornerWindowDeriv(s, fade);
     if (w === 0 && wp === 0) return ZERO;
     const raw = rawDefect(cellId, k, s);
-    let out: Pt3 = scale3(raw, wp);
+    const out: [number, number, number] = [raw[0] * wp, raw[1] * wp, raw[2] * wp];
     if (w !== 0) {
-      const step = Math.min(FD_STEP, s / 2, (1 - s) / 2);
-      if (step > 0) {
-        const plus = rawDefect(cellId, k, s + step);
-        const minus = rawDefect(cellId, k, s - step);
-        const scale = w / (2 * step);
-        out = [
-          out[0] + (plus[0] - minus[0]) * scale,
-          out[1] + (plus[1] - minus[1]) * scale,
-          out[2] + (plus[2] - minus[2]) * scale,
-        ];
+      const exact = rawDefectDerivPoly(cellId, k, s);
+      if (exact) {
+        for (let c = 0; c < 3; c++) out[c] = out[c]! + exact[c]! * w;
+      } else {
+        // Bisector form: a normalised combination of two patches' partials
+        // with no closed form worth deriving. Differenced centrally, with the
+        // step pulled in near the ends so the stencil never leaves the trim.
+        const step = Math.min(FD_STEP, s / 2, (1 - s) / 2);
+        if (step > 0) {
+          const plus = rawDefect(cellId, k, s + step);
+          const minus = rawDefect(cellId, k, s - step);
+          const scale = w / (2 * step);
+          for (let c = 0; c < 3; c++) out[c] = out[c]! + (plus[c]! - minus[c]!) * scale;
+        }
       }
     }
     return out;
@@ -449,7 +787,6 @@ export function fieldFromAdjacency(
   // second derivative that lands it there. The change is purely along N: a
   // second derivative's tangential part is parameterisation, and moving it
   // would bend the surface to satisfy a metric.
-  const order: 1 | 2 = opts.order ?? 1;
   const g1Only: CrossPrescription = { defect, defectDeriv };
   const g1Boundaries = new Map<Id, CellBoundary>();
   const cellsById = new Map<Id, (typeof adj.quilt.cells)[number]>();
@@ -473,7 +810,7 @@ export function fieldFromAdjacency(
     const [u, v] = uvOnSide(k, s);
     const jet = boundaryCoonsEdgeJet(b, u, v);
     const nHat = norm3(cross3(jet.su, jet.sv));
-    if (nHat[0] === 0 && nHat[1] === 0 && nHat[2] === 0) return null;
+    if (isZeroPt(nHat)) return null;
     const inward = inwardOf(jet, k);
     const perp = sub3(inward, scale3(tHat, dot3(inward, tHat)));
     const bLen = len3(perp);
@@ -483,34 +820,97 @@ export function fieldFromAdjacency(
     return { curv, b: bLen, nHat };
   };
 
-  const rawSecondUncached = (cellId: Id, k: number, s: number): Pt3 => {
-    if (order < 2) return ZERO;
-    const list = claims.get(`${cellId}#${k}`);
-    if (!list) return ZERO;
-    const bA = adj.boundaries.get(cellId);
-    if (!bA) return ZERO;
-    const t = bA.sides[k]!.curveParam(s);
-    let claim: Claim | null = null;
-    for (const c of list) {
-      if (t >= c.lo && t <= c.hi) { claim = c; break; }
-    }
-    if (!claim) return ZERO;
+  /**
+   * Δ² as the averaging derivation gives it, split into the owner's own normal
+   * and the amount along it — because the amount IS the curvature effect and
+   * the direction is only where it is delivered.
+   */
+  const exactSecondParts = (
+    cellId: Id, k: number, s: number,
+  ): { nHat: Pt3; amount: number } | null => {
+    const at = locate(cellId, k, s);
+    if (!at) return null;
+    const { b: bA, t, claim } = at;
     const bB = adj.boundaries.get(claim.otherCell);
-    if (!bB) return ZERO;
+    if (!bB) return null;
     const sB = sideParamOf(bB.sides[claim.otherK]!, t);
-    if (sB < 0 || sB > 1) return ZERO;
-
+    if (sB < 0 || sB > 1) return null;
     const tHat = curveTangent(bA, k, t);
-    if (tHat[0] === 0 && tHat[1] === 0 && tHat[2] === 0) return ZERO;
-
+    if (isZeroPt(tHat)) return null;
     const A = readSide(cellId, k, s, tHat);
     const B = readSide(claim.otherCell, claim.otherK, sB, tHat);
-    if (!A || !B) return ZERO;
-
+    if (!A || !B) return null;
     // II(ê,ê) is even in ê, so no sign bookkeeping: the two sides' transverse
     // directions are opposite and the curvature they report is comparable.
     const target = (A.curv + B.curv) / 2;
-    return scale3(A.nHat, A.b * A.b * (target - A.curv));
+    return { nHat: A.nHat, amount: A.b * A.b * (target - A.curv) };
+  };
+
+  const exactSecond = (cellId: Id, k: number, s: number): Pt3 => {
+    const p = exactSecondParts(cellId, k, s);
+    return p ? scale3(p.nHat, p.amount) : ZERO;
+  };
+
+  // Fit μ against the shared normal C′ × D*, once the G1 field above exists —
+  // the curvature to match is the one the patches end up with.
+  let secondFitWorst = 0;
+  if (order >= 2 && polynomial) {
+    for (let fi = 0; fi < fitted.length; fi++) {
+      const f = fitted[fi]!;
+      const owners: [EdgePoly, Id, number, BoundarySide][] = [
+        [f.poly, f.edge.a.cellId, f.edge.a.k, f.sideA],
+        [f.polyB, f.edge.b.cellId, f.edge.b.k, f.sideB],
+      ];
+      for (const [poly, cellId, k, side] of owners) {
+        // μ has degree+spans coefficients; four stations each is
+        // over-determination enough, and every station here costs two edge
+        // jets on G1-corrected patches, which is the most expensive thing in
+        // the file. On a 32-piece edge this is 140 stations rather than 513.
+        const want = 4 * (poly.degree + (poly.knots.length - 2 * poly.degree - 1));
+        const stride = Math.max(1, Math.floor(f.samples.length / Math.max(want, 1)));
+        const st: SecondStation[] = [];
+        for (let si = 0; si < f.samples.length; si += stride) {
+          const sm = f.samples[si]!;
+          const t = f.edge.lo + sm.tau * (f.edge.hi - f.edge.lo);
+          const sOwn = sideParamOf(side, t);
+          if (cornerWindow(sOwn, fade) === 0) continue;
+          const parts = exactSecondParts(cellId, k, sOwn);
+          if (!parts) continue;
+          const normal = sharedNormal(
+            sm.tangent, bsplineAt3(poly.dStar, poly.degree, poly.knots, sm.tau),
+          );
+          const nl = len3(normal);
+          if (nl === 0) continue;
+          st.push({
+            tau: sm.tau,
+            effect: parts.amount,
+            response: dot3(normal, parts.nHat),
+            scale: nl,
+          });
+        }
+        const fit = fitSecondMagnitude(st, poly.degree, poly.knots);
+        poly.second = fit.coeffs;
+        if (fit.relative > secondFitWorst) secondFitWorst = fit.relative;
+        const rep = reports[fi]!;
+        if (fit.relative > rep.secondRelative) rep.secondRelative = fit.relative;
+      }
+    }
+  }
+
+  const rawSecondUncached = (cellId: Id, k: number, s: number): Pt3 => {
+    if (order < 2) return ZERO;
+    const at = locate(cellId, k, s);
+    if (!at) return ZERO;
+    const p = at.claim.poly;
+    if (!p) return exactSecond(cellId, k, s);
+    if (p.second.length === 0) return ZERO;
+    const span = p.hi - p.lo;
+    const tau = span === 0 ? 0 : (at.t - p.lo) / span;
+    const normal = sharedNormal(
+      chainDeriv(at.side.chain, clamp(at.t, 0, 1)),
+      bsplineAt3(p.dStar, p.degree, p.knots, tau),
+    );
+    return scale3(normal, bsplineAt(p.second, p.degree, p.knots, tau));
   };
 
   const rawSecond = (cellId: Id, k: number, s: number): Pt3 =>
@@ -522,6 +922,7 @@ export function fieldFromAdjacency(
     return scale3(rawSecond(cellId, k, s), w);
   };
 
+  const sortedFits = [...fitRelatives].sort((a, b) => a - b);
   return {
     defect,
     defectDeriv,
@@ -536,6 +937,18 @@ export function fieldFromAdjacency(
       breakAngleDeg: breakAngle,
       order,
       ambiguous: adj.ambiguous,
+      polynomial,
+      fitDegree,
+      worstSpans,
+      unconverged,
+      fitWorst: sortedFits.length === 0 ? 0 : sortedFits[sortedFits.length - 1]!,
+      fitMedian: sortedFits.length === 0 ? 0 : sortedFits[Math.floor(sortedFits.length / 2)]!,
+      directionDrift: worstDrift,
+      minAcross: Number.isFinite(minAcross) ? minAcross : 0,
+      unfittable,
+      secondFitWorst,
+      fits: reports,
+      fitWorstAbs,
     },
   };
 }

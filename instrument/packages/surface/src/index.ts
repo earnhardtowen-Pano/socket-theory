@@ -26,6 +26,12 @@ export {
 } from "./boundary.js";
 export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 export {
+  fieldDisplacement,
+  type CellDisplacement,
+  type DisplacementOptions,
+  type DisplacementReport,
+} from "./displacement.js";
+export {
   degeneratePatches,
   type CollapsedSide,
   type DegenerateReport,
@@ -63,8 +69,22 @@ export {
   type CrossField,
   type CrossFieldOptions,
   type CrossFieldStats,
+  type EdgeFitReport,
 } from "./tangent-field.js";
 export {
+  evalCrossDeriv,
+  fitEdgeField,
+  fitSecondMagnitude,
+  planeResidual,
+  sharedNormal,
+  type EdgeFieldFit,
+  type EdgeFitOptions,
+  type EdgeSample,
+  type OwnerCoeffs,
+  type SecondStation,
+} from "./cross-poly.js";
+export {
+  boundaryCoonsMixedNatural,
   boundaryCoonsNormal,
   boundaryCoonsPartials,
   boundaryCoonsPartialsNatural,

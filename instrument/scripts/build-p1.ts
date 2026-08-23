@@ -24,7 +24,7 @@ import {
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import {
-  continuityProbe, curvatureJoinProbe, networkObstruction, tangentField,
+  continuityProbe, curvatureJoinProbe, fieldDisplacement, networkObstruction, tangentField,
 } from "@car/surface";
 import {
   closedMeshCheck,
@@ -685,6 +685,19 @@ console.log(line("G2 curvature", `${g2.g2Joins}/${g2.joins} joins within 1% · `
   `median gap ${g2.medianGap.toExponential(1)} /mm · worst ${g2.worstGap.toExponential(1)} /mm`));
 console.log(line("  was, unfielded", `${g2before.g2Joins}/${g2before.joins} · ` +
   `median gap ${g2before.medianGap.toExponential(1)} /mm · worst ${g2before.worstGap.toExponential(1)} /mm`));
+// How far the surfacing moved the body. Every number above is about agreement
+// at a seam; none of them says where the surface went, and a correction can
+// drive every join to machine zero while moving a panel by a hand's width.
+const g1field = tangentField(quilt, { order: 1 });
+const phiMoved = fieldDisplacement(quilt, { cross: g1field });
+const psiMoved = fieldDisplacement(quilt, { cross, against: g1field });
+console.log(line("surfacing moves body", `tangent plane ${phiMoved.median.toFixed(1)} mm median · ` +
+  `${phiMoved.p90.toFixed(1)} p90 · ${phiMoved.worst.toFixed(0)} worst (${phiMoved.worstCell}) — ` +
+  `curvature a further ${psiMoved.median.toFixed(2)} · ${psiMoved.p90.toFixed(1)} · ${psiMoved.worst.toFixed(0)}`));
+console.log(line("  field form", `cubic spline, ${cross.stats.edges} edges, ` +
+  `up to ${cross.stats.worstSpans} pieces each · worst residual ` +
+  `${cross.stats.fitWorstAbs.toExponential(1)} mm of cross-derivative · ` +
+  `${cross.stats.unconverged} short of tolerance`));
 // What the surfacing pass is NOT allowed to fix. A patch has no freedom at a
 // corner — its tangent plane there is spanned by the two curves meeting at the
 // vertex — so a corner where the network breaks tangency pins a defect no

@@ -38,16 +38,38 @@ describe("G2: the second fundamental form across a join", () => {
     expect(r.tangentAgreement).toBeLessThan(1e-12);
   });
 
-  it("collapses the cross-join curvature gap to machine zero", () => {
+  it("collapses the cross-join curvature gap to machine zero — in bisector form", () => {
     const { quilt } = foldedPairQuilt();
     const g1 = curvatureJoinProbe(quilt, {
-      breakAngleDeg: 179, cross: tangentField(quilt, { ...SMOOTH_EVERYTHING, cornerFade: 0 }),
+      breakAngleDeg: 179,
+      cross: tangentField(quilt, { ...SMOOTH_EVERYTHING, cornerFade: 0, polynomial: false }),
     });
     const g2 = curvatureJoinProbe(quilt, {
-      breakAngleDeg: 179, cross: tangentField(quilt, G2_FULL),
+      breakAngleDeg: 179, cross: tangentField(quilt, { ...G2_FULL, polynomial: false }),
     });
     expect(g1.worstGap).toBeGreaterThan(1e-9);
     expect(g2.worstGap).toBeLessThan(1e-12);
+    expect(g2.g2Joins).toBe(g2.joins);
+  });
+
+  /**
+   * The trade the spline form makes, stated as a test rather than left to a
+   * comment. G1 stays exact — that is the construction, and the test above it
+   * checks it at machine zero in either form. G2 does not: it is a scalar
+   * condition on a quantity the shared-normal model can only approximate, so
+   * it drops from "exact" to "a tolerance". Class-A practice grades G2 as a
+   * tolerance anyway, at 0.5 to 5 % relative curvature; this asks for two
+   * orders better than the tight end of that.
+   */
+  it("holds G2 to a tolerance in spline form, and says so", () => {
+    const { quilt } = foldedPairQuilt();
+    const bare = curvatureJoinProbe(quilt, {
+      breakAngleDeg: 179,
+      cross: tangentField(quilt, { ...SMOOTH_EVERYTHING, cornerFade: 0 }),
+    });
+    const g2 = curvatureJoinProbe(quilt, { breakAngleDeg: 179, cross: tangentField(quilt, G2_FULL) });
+    expect(g2.worstGap).toBeLessThan(bare.worstGap / 1e2);
+    expect(g2.worstRelative).toBeLessThan(1e-3);
     expect(g2.g2Joins).toBe(g2.joins);
   });
 

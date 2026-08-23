@@ -7,6 +7,7 @@ of a command named against it and is reproducible at this commit.
 
 ```
 npx tsx scripts/build-p1.ts        the body, with the numbers in the build output
+npx tsx scripts/surface-report.ts  the whole body graded in one pass, worst first
 npx tsx scripts/g1-probe.ts        before/after over the same joins
 npx tsx scripts/curvature-comb.ts  the Class-A diagnostic, as an SVG
 ```
@@ -133,7 +134,44 @@ G1 · tangent field         1.6e-15°                4.52e-4 /mm
 G2 · + cross-curvature     1.6e-15°                1.08e-5 /mm
 ```
 
-Across the whole body, median cross-curvature gap **9.4e-6 → 4.3e-19 /mm**.
+Across the whole body, median cross-curvature gap **9.4e-6 → 4.3e-19 /mm** in
+bisector form, and **4.4e-7 /mm** in the spline form the body actually ships
+(see *The field as a spline* below — G1 stays exact, G2 becomes a fit).
+
+---
+
+## What the correction costs in shape
+
+Every number above is about agreement at a seam. **None of them says where the
+surface went.** A correction can drive every join to machine zero and move a
+panel by a hand's width, and until `fieldDisplacement` was written there was
+nothing here that could see it.
+
+On the P1, measured against the bare bilinear blend:
+
+```
+                        median      p90       worst      cells >1mm   >10mm
+tangent plane (Φ)       2.6 mm    18.4 mm    133 mm          63/80      15
+curvature (Ψ), further  0.46 mm    4.1 mm     85 mm          28/80       1
+```
+
+Two things follow, and both are worth saying plainly.
+
+**The surfacing pass is not a touch-up.** It reshapes the body by centimetres.
+That is the mechanism working as designed — the boundaries are pinned bit for
+bit, so the only place a tangent-plane correction can go is the interior — but
+it means the corrected body is a different body from the blend, and everything
+downstream (frontal area, the Cp map, the print) has been reading the corrected
+one since the field landed.
+
+**`cell#1` is an outlier by a factor of thirteen.** The curvature term moves it
+85 mm; the next worst cell moves 6.6 mm. Δ² goes as the transverse length
+SQUARED times the curvature disagreement, so a join the network cannot close
+buys a correction of thousands. `cell#1` is the tail panel carrying the four
+72–74° corners of the previous section — the same four exceptions, showing up a
+third time, now as a visible deformation rather than a residual. Nothing here
+caps it; deciding where the line is means choosing a threshold, and that is a
+design decision for whoever owns the car.
 
 ---
 
@@ -169,6 +207,101 @@ incompatibility, it squeezes it into a narrower band with a steeper gradient.
 It is quoted here only because it is the measurement that says the machinery
 is exact and the default fade width is a **shape** decision rather than a
 limit.
+
+---
+
+## The field as a spline — what makes it exportable
+
+`d̂ = normalise(Â⊥ − B̂⊥)` is three square roots deep. The patch could be
+sampled, rendered and printed; it could not be **written down**. Everything
+else in `S₀ + Φ + Ψ` is polynomial already, so that one normalisation was the
+whole of what stood between the body and a file somebody else can open.
+
+The fix is not to approximate d̂ and accept the error. It is to notice what the
+requirement on d̂ ever was. Patch A's tangent plane on the edge is
+span{C′, E_A}, where C′ is the curve's own derivative — bit-identical for both
+owners, because the edge IS the curve. So the join is G1 iff
+
+```
+span{C′, E_A} = span{C′, E_B}
+```
+
+which holds for ANY pair of the form
+
+```
+E_A(τ) = a_A(τ)·C′(t) + λ_A(τ)·D*(τ)
+E_B(τ) = a_B(τ)·C′(t) + λ_B(τ)·D*(τ)        λ_A, λ_B ≠ 0
+```
+
+with `D*` **any** field both owners read. Its exact value decides *which* plane
+they share, never *whether* they share one. So `D*` is free to be a spline, and
+then `Δ = E − N` is a spline, because the natural Coons cross-derivative `N`
+always was.
+
+**The tangential slot has to hold C′ itself**, and the reason is not obvious:
+fit the unit tangent too and `det(C′, E_A, E_B) = (a_Aλ_B − a_Bλ_A)·C′·(T*×D*)`,
+which vanishes only if C′ lies in span{T*, D*}. Approximate the one vector that
+has to be exact and the two planes part by an angle proportional to the fit
+error.
+
+### A spline, not a polynomial, and why that was forced
+
+The first version fitted single Béziers and was not good enough. On
+`cell#19 | cell#27` — a join on `curve#18`, whose speed swings from 1972 to 502
+mm per unit parameter while the bisector rotates 52° across the middle of the
+edge — **a degree-3 Bézier left 23 % of the cross-derivative and degree 11 still
+left 3 %.** That is 19 mm of body. The trouble is local; global degree is the
+wrong instrument for it. Two interior knots at degree 3 beat degree 11 outright.
+
+So the fields are cubic B-splines, and the piece count is chosen per edge by
+doubling until the residual is under tolerance. Two mistakes were made and are
+recorded because both look exactly like an approximation limit and neither is:
+
+- **Overfitting reads as convergence stalling.** At sixteen pieces over
+  forty-nine fit stations a cubic span holds three points, interpolates them,
+  and does as it pleases in between — where the CHECK stations are. The
+  residual on the worst join sat at 1.8 mm from four pieces to sixteen. The fix
+  is more data per piece, not more pieces: the sampler now works at the density
+  the piece count needs, and the residual falls 24 → 1.8 → 0.047 → 0.002 mm.
+- **Fitting the wrong target reads as the model being wrong.** Fitting `E` to
+  the patch's NATURAL cross-derivative asks the spline to move the surface as
+  little as possible, and the smallest move into the shared plane is the
+  orthogonal projection — which shortens the cross-derivative by cos θ and
+  flattens the patch against its own boundary. The target is a ROTATION,
+  `(N·T̂)T̂ + |X⊥|d̂`, which is what the bisector field always computed.
+
+Fit stations and check stations are different sets: the fit reads every other
+station and the check reads all of them, so the reported residual is measured
+half on data the least squares never saw.
+
+### What it costs, measured
+
+```
+P1, 64 corrected edges, cubic, pieces per edge: 1×18  4×2  8×11  16×19  32×14
+
+G1   exact in both forms. The spline body sits within 0.0065 mm of the
+     bisector body — the fit tolerance carried through Φ's Hermite basis and
+     nothing else.
+G2   was exact, is now a fit. Median relative curvature gap 0.000 % → 0.154 %;
+     joins within 1 % 23/64 → 19/64. Class-A grades G2 at 0.5–5 % relative, so
+     the median is an order inside the tight end of that.
+```
+
+**G1 is exact and G2 is a tolerance, and the asymmetry is structural rather
+than a matter of effort.** G1 is a statement about a plane, and the
+construction puts both owners in one plane by making them read the same two
+spanning vectors. G2 is a statement about a scalar — `II(ê,ê)` — and no choice
+of polynomial coefficients makes two rational functions equal identically. The
+miss concentrates in the corner fade, where the two patches have not yet
+converged on the normal Δ² is supposed to lie along, so the model is
+approximating something outside itself.
+
+A narrower window for Δ² was tried, on the argument that the correction should
+not act where its own premise is false. It was reverted: it damps hardest at
+exactly the stations the probe reads, where the tangent correction is already
+90 % applied and the curvature match is real, and it costs seven G2 joins to
+buy a theoretical improvement in a band the probe never samples and the window
+already damps twenty-fold.
 
 ---
 

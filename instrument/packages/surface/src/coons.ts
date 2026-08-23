@@ -335,6 +335,40 @@ export function boundaryCoonsPartialsNatural(
   return boundaryCoonsPartials({ ...b, cross: null }, u, v);
 }
 
+/**
+ * The mixed partial S_uv of the UNCORRECTED blend, at any (u,v).
+ *
+ * Unlike S_uu and S_vv this one has a closed form valid over the whole patch
+ * rather than only on an edge: the bilinear corner term's mixed partial is the
+ * constant P00 - P10 + P11 - P01, and the two ruled terms contribute their own
+ * boundary derivatives.
+ *
+ * It exists because d/ds of a side's natural cross-boundary derivative IS this
+ * vector, up to the sign the side's loop direction puts on it. The polynomial
+ * cross field differentiates its correction analytically, and the natural half
+ * of that derivative has to come from somewhere exact — a central difference
+ * of the partials would put ~1e-8 of noise into a quantity whose vanishing at
+ * the corners is the condition keeping the correction off the adjacent sides.
+ */
+export function boundaryCoonsMixedNatural(b: CellBoundary, u: number, v: number): Pt3 {
+  const uu = clamp(u, 0, 1);
+  const vv = clamp(v, 0, 1);
+  const [s0, s1, s2, s3] = b.sides;
+  const [P00, P10, P11, P01] = b.corners;
+  const c0d = s0.deriv(uu);
+  const c1d = scale3(s2.deriv(1 - uu), -1);
+  const d0d = scale3(s3.deriv(1 - vv), -1);
+  const d1d = s1.deriv(vv);
+  const out: [number, number, number] = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    out[k] =
+      c1d[k]! - c0d[k]! +
+      (d1d[k]! - (P11[k]! - P10[k]!)) -
+      (d0d[k]! - (P01[k]! - P00[k]!));
+  }
+  return out;
+}
+
 /** Outward unit normal ([0,0,0] where the patch is degenerate). */
 export function boundaryCoonsNormal(b: CellBoundary, u: number, v: number): Pt3 {
   const { su, sv } = boundaryCoonsPartials(b, u, v);

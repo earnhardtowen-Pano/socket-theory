@@ -21,7 +21,8 @@ import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import {
   continuityProbe, curvatureJoinProbe, curveQuality, degeneratePatches,
-  networkObstruction, quiltAdjacency, tangentField, type CurveQuality,
+  fieldDisplacement, networkObstruction, quiltAdjacency, tangentField,
+  type CurveQuality,
 } from "@car/surface";
 import type { CarDocument, Id } from "@car/schema";
 
@@ -82,10 +83,65 @@ const jrow = (label: string, c: typeof before, g: typeof g2before): void => {
 };
 jrow("bare blend", before, g2before);
 jrow("with field", after, g2after);
+console.log(`  ${pad("", 12)}${rp(`${g2after.g2Joins}/${g2after.joins} joins within 1% relative`, 46)}` +
+  `  · median ${(g2after.medianRelative * 100).toFixed(3)}% · p90 ${(g2after.p90Relative * 100).toFixed(2)}%`);
+console.log(`\n  The probe samples each join at tenths, so with a corner fade of ` +
+  `${(0.12 * 100).toFixed(0)}% of an\n  edge, one station per end sits inside the band where the field ` +
+  `deliberately\n  does not act. The median is the figure for the body of a join; the p90 is\n` +
+  `  the figure for its ends.`);
 if (after.worst) {
   console.log(`\n  worst join   ${after.worst.cellA} | ${after.worst.cellB} on ${after.worst.curveId} ` +
     `— ${after.worst.angleDeg.toFixed(2)}° at [${after.worst.at.map((v) => Math.round(v)).join(", ")}]`);
 }
+
+// ── 2b. what the correction costs in shape ────────────────────────
+//
+// Every number above is about agreement at a seam. None of them says where the
+// surface went, and a correction can drive every join to machine zero while
+// moving a panel by a hand's width. That is not hypothetical — see cell#1.
+const g1only = tangentField(quilt, { order: 1 });
+const phi = fieldDisplacement(quilt, { cross: g1only });
+const psi = fieldDisplacement(quilt, { cross, against: g1only });
+
+rule("2b. DISPLACEMENT — how far the correction moves the body");
+console.log("  " + pad("", 22) + rp("median", 10) + rp("p90", 10) + rp("worst", 12) +
+  rp("cells >1mm", 12) + rp(">10mm", 8) + "   worst cell");
+const drow = (label: string, r: typeof phi): void => {
+  console.log("  " + pad(label, 22) + rp(r.median.toFixed(3), 10) +
+    rp(r.p90.toFixed(3), 10) + rp(`${r.worst.toFixed(2)} mm`, 12) +
+    rp(String(r.overMillimetre), 12) + rp(String(r.overCentimetre), 8) +
+    `   ${r.worstCell ?? "-"}`);
+};
+drow("tangent plane (Φ)", phi);
+drow("curvature (Ψ)", psi);
+if (psi.cells.length > 1) {
+  const worstCell = psi.cells[0]!;
+  const next = psi.cells[1]!;
+  console.log(`\n  Δ² goes as the transverse length SQUARED times the curvature disagreement,\n` +
+    `  so a join the network cannot close buys a correction of thousands. ${worstCell.cellId} moves\n` +
+    `  ${worstCell.mm.toFixed(0)} mm; the next worst moves ${next.mm.toFixed(1)} mm. Same four corners as section 3.`);
+}
+
+// ── 2c. the exportable form ─────────────────────────────────────
+const bisector = tangentField(quilt, { order: 2, polynomial: false });
+const drift = fieldDisplacement(quilt, { cross, against: bisector });
+const st = cross.stats;
+const spanHist = new Map<number, number>();
+for (const f of st.fits) spanHist.set(f.spans, (spanHist.get(f.spans) ?? 0) + 1);
+
+rule("2c. THE EXPORTABLE FORM — the field as a spline");
+console.log(`  ${st.edges} corrected edges · cubic · pieces per edge: ` +
+  [...spanHist.entries()].sort((a, b) => a[0] - b[0]).map(([k, v]) => `${k}×${v}`).join("  ") +
+  ` · ${st.unconverged} short of tolerance`);
+console.log(`  worst cross-derivative residual ${st.fitWorstAbs.toExponential(2)} mm ` +
+  `(relative ${st.fitWorst.toExponential(2)}, median ${st.fitMedian.toExponential(2)})`);
+console.log(`  the spline body against the bisector body: median ${drift.median.toExponential(2)} · ` +
+  `p90 ${drift.p90.toExponential(2)} · worst ${drift.worst.toFixed(3)} mm (${drift.worstCell})`);
+console.log(`\n  G1 is exact in both forms — both owners read the same D*, so they share a\n` +
+  `  PLANE and not two planes that agree to a tolerance. G2 is not: it is a scalar\n` +
+  `  condition the shared-normal model can only approximate, and in spline form it\n` +
+  `  drops from exact to a fit. That trade is what buys a surface that can be written\n` +
+  `  into a file and handed to somebody.`);
 
 // ── 3. network ─────────────────────────────────────────────────────────────
 const net = networkObstruction(quilt);
