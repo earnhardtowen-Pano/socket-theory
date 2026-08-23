@@ -202,6 +202,41 @@ export function curvedPairQuilt(): Fixture {
   return b.done();
 }
 
+/**
+ * The same two cells FOLDED out of plane: the far edges are lifted to
+ * different heights, so the two patches genuinely disagree about the tangent
+ * plane along the shared S-curve.
+ *
+ * `curvedPairQuilt` is flat, and two flat coplanar patches are G1 by accident
+ * — which makes it useless for measuring whether anything fixed a G1 defect.
+ * This one has a defect to fix.
+ */
+export function foldedPairQuilt(): Fixture {
+  const b = new Builder();
+  const A: Pt3 = [0, 0, 0];
+  const B: Pt3 = [100, 0, 0];
+  b.addCurve("S", chainOf({ p0: A, p1: [25, 30, 0], p2: [75, 30, 0], p3: B }));
+  const upFar0: Pt3 = [100, 100, 40];
+  const upFar1: Pt3 = [0, 100, 55];
+  const loFar0: Pt3 = [0, -100, -18];
+  const loFar1: Pt3 = [100, -100, -6];
+  b.addCurve("upper-e", lineChain(B, upFar0));
+  b.addCurve("upper-n", chainOf({ p0: upFar0, p1: [66, 100, 62], p2: [33, 100, 62], p3: upFar1 }));
+  b.addCurve("upper-w", lineChain(upFar1, A));
+  b.addCurve("lower-s", lineChain(loFar0, loFar1));
+  b.addCurve("lower-e", lineChain(loFar1, B));
+  b.addCurve("lower-w", lineChain(A, loFar0));
+  b.addCell("upper", [
+    side(b.c("S"), 0, 1, false), side(b.c("upper-e"), 0, 1, false),
+    side(b.c("upper-n"), 0, 1, false), side(b.c("upper-w"), 0, 1, false),
+  ]);
+  b.addCell("lower", [
+    side(b.c("lower-s"), 0, 1, false), side(b.c("lower-e"), 0, 1, false),
+    side(b.c("S"), 0, 1, true), side(b.c("lower-w"), 0, 1, false),
+  ]);
+  return b.done();
+}
+
 /** Vertex indices referenced by one cell's triangle range. */
 export function rangeVertexSet(
   indices: Uint32Array,

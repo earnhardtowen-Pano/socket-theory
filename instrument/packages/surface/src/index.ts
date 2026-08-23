@@ -3,6 +3,13 @@
  * the render feed. One evaluator serves crude and smooth: a straight-edged
  * frame's patch IS the flat panel. Position-watertight by construction:
  * patch edges short-circuit to the shared curve itself, bit for bit.
+ *
+ * Tangent-plane continuity is a separate, opt-in layer on top of that:
+ * `tangentField` derives a cross-boundary direction owned by each shared
+ * CURVE, and the evaluator adds a term that carries it without moving a
+ * single boundary point. `continuityProbe` measures the result. Both run off
+ * ONE adjacency walk (`quiltAdjacency`) so the thing being measured and the
+ * thing being built cannot drift apart.
  */
 
 export {
@@ -13,16 +20,47 @@ export {
   type CellLike,
   type ChainLookup,
   type ChainSource,
+  type CrossDefects,
+  type CrossPrescription,
   type SideRange,
 } from "./boundary.js";
+export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
+export {
+  quiltAdjacency,
+  sideParamOf,
+  uvOnSide,
+  type EdgeOwner,
+  type QuiltAdjacency,
+  type SharedEdge,
+} from "./adjacency.js";
+export {
+  cornerWindow,
+  cornerWindowDeriv,
+  fieldFromAdjacency,
+  fieldMagnitude,
+  naturalCross,
+  tangentField,
+  type CrossField,
+  type CrossFieldOptions,
+  type CrossFieldStats,
+} from "./tangent-field.js";
 export {
   boundaryCoonsNormal,
   boundaryCoonsPartials,
+  boundaryCoonsPartialsNatural,
   boundaryCoonsPoint,
   coonsBlend,
   coonsNormal,
   coonsPartials,
+  coonsPhi,
+  coonsPhiU,
+  coonsPhiV,
   coonsPoint,
+  gBasis,
+  hBasis,
+  phiAt,
+  NO_PHI,
+  type PhiSample,
 } from "./coons.js";
 export {
   buildRenderFeed,

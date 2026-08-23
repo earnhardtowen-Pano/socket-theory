@@ -45,8 +45,16 @@ export interface CreaseNormalResult {
   readonly sourceOf: Uint32Array;
 }
 
-/** Below this dihedral angle two faces share a normal. Degrees. */
-export const DEFAULT_CREASE_ANGLE = 48;
+/**
+ * Below this dihedral angle two faces share a normal. Degrees.
+ *
+ * Re-exported, not redefined: the surfacing pass uses the SAME angle to
+ * decide which joins are features it must not smooth, and two numbers that
+ * are meant to be one decision have no business being written down twice.
+ * See `@car/surface/crease-angle.ts`.
+ */
+export { DEFAULT_CREASE_ANGLE } from "@car/surface";
+import { DEFAULT_CREASE_ANGLE } from "@car/surface";
 
 const faceNormalRaw = (p: Float64Array, a: number, b: number, c: number): Pt3 => {
   const ux = p[b * 3]! - p[a * 3]!, uy = p[b * 3 + 1]! - p[a * 3 + 1]!, uz = p[b * 3 + 2]! - p[a * 3 + 2]!;

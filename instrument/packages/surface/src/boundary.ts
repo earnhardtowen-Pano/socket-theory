@@ -93,12 +93,34 @@ export interface BoundarySide {
   gridDeriv(i: number, n: number): Pt3;
 }
 
+/**
+ * A prescribed cross-boundary derivative correction, keyed by cell and side.
+ * Structural on purpose: `tangentField` in `tangent-field.ts` satisfies this,
+ * and stating it here rather than importing it keeps the dependency running
+ * one way — the field is DERIVED from uncorrected boundaries, so it cannot be
+ * a prerequisite for building one.
+ */
+export interface CrossPrescription {
+  /** Δ_k(s): what to add to side k's inward cross-boundary derivative. */
+  defect(cellId: Id, k: number, s: number): Pt3;
+  /** Δ_k′(s), along the edge. Exactly zero at s = 0 and s = 1. */
+  defectDeriv(cellId: Id, k: number, s: number): Pt3;
+}
+
+/** The same thing, already bound to one cell. */
+export interface CrossDefects {
+  value(k: number, s: number): Pt3;
+  deriv(k: number, s: number): Pt3;
+}
+
 export interface CellBoundary {
   readonly cellId: Id;
   readonly sides: readonly [BoundarySide, BoundarySide, BoundarySide, BoundarySide];
   /** Corner k = loop start of side k. In Coons terms:
    *  P00=corners[0], P10=corners[1], P11=corners[2], P01=corners[3]. */
   readonly corners: readonly [Pt3, Pt3, Pt3, Pt3];
+  /** Tangent-plane prescription for this cell, or null for the plain G0 blend. */
+  readonly cross: CrossDefects | null;
 }
 
 function makeSide(
@@ -137,7 +159,11 @@ function makeSide(
 }
 
 /** Extract the four oriented boundary functions of a cell. */
-export function cellBoundary(cell: CellLike, source: ChainLookup): CellBoundary {
+export function cellBoundary(
+  cell: CellLike,
+  source: ChainLookup,
+  cross?: CrossPrescription,
+): CellBoundary {
   const chainOf = chainsOf(source);
   const resolve = resolverOf(source);
 
@@ -171,5 +197,11 @@ export function cellBoundary(cell: CellLike, source: ChainLookup): CellBoundary 
     cellId: cell.id,
     sides: sides as unknown as CellBoundary["sides"],
     corners: corners as unknown as CellBoundary["corners"],
+    cross: cross
+      ? {
+          value: (k: number, s: number): Pt3 => cross.defect(cell.id, k, s),
+          deriv: (k: number, s: number): Pt3 => cross.defectDeriv(cell.id, k, s),
+        }
+      : null,
   };
 }

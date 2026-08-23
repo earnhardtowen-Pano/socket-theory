@@ -31,7 +31,7 @@ if (view === "side") {
   tag.innerHTML = analytic
     ? line(`PANORAMIC · ZEBRA<span class="accent"> ●</span> ANALYTIC SURFACE NORMALS`) + "\n" +
       line(`PER-PATCH COONS NORMALS, NO CREASE SPLITTING — A BROKEN STRIPE IS A BROKEN SURFACE`) + "\n" +
-      line(`G1 ${a.g1Joins}/${a.joins} JOINS · MEDIAN ${a.medianDeg.toFixed(2)}° · WORST ${a.worstDeg.toFixed(2)}°`)
+      line(`G1 ${a.g1Joins}/${a.joins} SMOOTH JOINS · MEDIAN ${a.medianDeg.toFixed(2)}° · WORST ${a.worstDeg.toFixed(2)}° · ${a.creased + a.sharp} BREAKS EXCLUDED`)
     : line(`PANORAMIC · ZEBRA<span class="accent"> ●</span> SHADED NORMALS`) + "\n" +
       line(`CREASE-SPLIT AT 48° — AN AUTHORED EDGE BREAKS A STRIPE TOO`) + "\n" +
       line(`ADD &normals=analytic TO SEE THE SURFACE ITSELF`);

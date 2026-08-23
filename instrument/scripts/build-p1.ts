@@ -23,7 +23,7 @@ import {
 } from "@car/fixtures";
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
-import { continuityProbe } from "@car/surface";
+import { continuityProbe, tangentField } from "@car/surface";
 import {
   closedMeshCheck,
   creaseNormals,
@@ -505,7 +505,13 @@ s.apply("assign-material", { targetId: "cell#0" as Id, name: "body-in-white", co
 // 3. Evaluate: quilt -> conforming mesh -> closed check -> STL
 // ---------------------------------------------------------------------------
 const quilt = computeQuilt(s.state);
-const raw = meshQuilt(quilt, { baseDensity: 20 });
+// Tangent-plane continuity. The field is a property of the shared CURVES,
+// derived from the quilt and nothing else, so it changes no verb, no document
+// and no hash — it changes what the patches between those curves do. Handed
+// to the mesher AND to the render AND to the probe, from one call, because
+// three different fields would mean three different cars.
+const cross = tangentField(quilt);
+const raw = meshQuilt(quilt, { baseDensity: 20, cross });
 // The geometry stays as authored. Fairing it (the G3 flow solve, still in the
 // tree and still tested) melted the arch mouths, splitter and roof breaks —
 // the car did not need smoother SHAPE, it needed smoother SHADING. That is
@@ -642,10 +648,13 @@ console.log(line("quilt cells (with mirror)", String(quilt.cells.length)));
 console.log(line("triangles", String(mesh.indices.length / 3)));
 // Cross-boundary continuity, measured rather than eyeballed. The zebra cannot
 // tell an authored crease from a defect; this asks the surfaces directly.
-const cont = continuityProbe(quilt);
+const before = continuityProbe(quilt);
+const cont = continuityProbe(quilt, { cross });
 console.log(line("G1 continuity", `${cont.g1Joins}/${cont.joins} joins under 1° · ` +
-  `median ${cont.medianDeg.toFixed(2)}° · worst ${cont.worstDeg.toFixed(2)}° ` +
-  `(${cont.creased} creased joins excluded)`));
+  `median ${cont.medianDeg.toFixed(2)}° · worst ${cont.worstDeg.toFixed(2)}°`));
+console.log(line("  was, unfielded", `${before.g1Joins}/${before.joins} · ` +
+  `median ${before.medianDeg.toFixed(2)}° · worst ${before.worstDeg.toFixed(2)}°`));
+console.log(line("  joins excluded", `${cont.creased} creased (authored) + ${cont.sharp} sharper than ${cont.breakAngleDeg}° (unmarked)`));
 console.log(line("shutline grooves", `${grooved.moved} vertices sunk — ${grooved.note}`));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
 console.log(line("shading", `${DEFAULT_CREASE_ANGLE}° smoothing groups · ${shaded.split} vertices split on hard edges`));

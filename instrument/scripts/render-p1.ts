@@ -3,7 +3,7 @@ import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import { creaseNormals, DEFAULT_CREASE_ANGLE, meshQuilt } from "@car/mesh";
 import { curvatureMap } from "@car/skin";
-import { continuityProbe, tessellateQuilt } from "@car/surface";
+import { continuityProbe, tangentField, tessellateQuilt } from "@car/surface";
 import { evalChain, PI, ncos, nsin } from "@car/num";
 import { initEngineNode } from "@car/occt";
 import type { Pt3, QuiltSpec } from "@car/schema";
@@ -12,8 +12,11 @@ import type { CarDocument } from "@car/schema";
 const doc = JSON.parse(readFileSync(new URL("../cars/panoramic-p1.car.json", import.meta.url), "utf8")) as CarDocument;
 const s = load(doc);
 const quilt = computeQuilt(s.state);
+// The same field the print path gets — one call, so the render, the lenses
+// and the probe all describe the body that comes out of the printer.
+const cross = tangentField(quilt);
 
-const raw = meshQuilt(quilt, { baseDensity: 20 });
+const raw = meshQuilt(quilt, { baseDensity: 20, cross });
 // Authored geometry, shaded in smoothing groups: normals average across a
 // panel and split at anything sharper than the crease angle. The split
 // duplicates vertices, so the render buffer is wider than the print mesh —
@@ -46,14 +49,15 @@ writeFileSync(new URL("../apps/preview/body.json", import.meta.url), JSON.string
   // only that an author asked for a hard edge. Here a broken stripe means the
   // two patches genuinely disagree about which way the surface faces.
   analytic: (() => {
-    const f = tessellateQuilt(quilt, 14);
-    const c = continuityProbe(quilt);
+    const f = tessellateQuilt(quilt, 14, cross);
+    const c = continuityProbe(quilt, { cross });
     return {
       positions: Array.from(f.positions),
       normals: Array.from(f.normals),
       indices: Array.from(f.indices),
       g1Joins: c.g1Joins, joins: c.joins,
       medianDeg: c.medianDeg, worstDeg: c.worstDeg, creased: c.creased,
+      sharp: c.sharp, breakAngleDeg: c.breakAngleDeg,
     };
   })(),
   curves,

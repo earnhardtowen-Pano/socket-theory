@@ -35,8 +35,11 @@ import type {
 } from "@car/schema";
 import { add3, evalChain, lineChain, scale3, sub3 } from "@car/num";
 import { FrameState, idCompare, viewToWorld } from "@car/frame";
-import { cellBoundary } from "./boundary.js";
-import { coonsBlend, coonsSu, coonsSv } from "./coons.js";
+import { cellBoundary, type CrossPrescription } from "./boundary.js";
+import {
+  coonsBlend, coonsSu, coonsSv, coonsPhi, coonsPhiU, coonsPhiV,
+  type PhiSample,
+} from "./coons.js";
 import { boundaryCoonsNormal } from "./coons.js";
 import { cross3, norm3 } from "@car/num";
 
@@ -52,6 +55,8 @@ export const DATUM_HALF_LENGTH = 2500;
 export interface RenderFeedOptions {
   /** Quads per side per cell; integer >= 1. Default DEFAULT_RESOLUTION. */
   readonly resolution?: number;
+  /** Tangent-plane prescription; omit for the plain G0 blend. */
+  readonly cross?: CrossPrescription;
 }
 
 function checkResolution(r: number): number {
@@ -66,7 +71,11 @@ function checkResolution(r: number): number {
  * (v-row j outer, u-column i inner, local index j*(n+1)+i), two CCW-from-
  * outside triangles per quad.
  */
-export function tessellateQuilt(spec: QuiltSpec, resolution: number = DEFAULT_RESOLUTION): SurfaceFeed {
+export function tessellateQuilt(
+  spec: QuiltSpec,
+  resolution: number = DEFAULT_RESOLUTION,
+  cross?: CrossPrescription,
+): SurfaceFeed {
   const n = checkResolution(resolution);
   const cells = [...spec.cells].sort((a, b) => idCompare(a.id, b.id));
   const vertsPerCell = (n + 1) * (n + 1);
@@ -79,7 +88,7 @@ export function tessellateQuilt(spec: QuiltSpec, resolution: number = DEFAULT_RE
   for (let ci = 0; ci < cells.length; ci++) {
     const cell = cells[ci];
     if (!cell) continue;
-    const b = cellBoundary(cell, spec);
+    const b = cellBoundary(cell, spec, cross);
     const [s0, s1, s2, s3] = b.sides;
 
     // Boundary sample and derivative tables, one evaluation per grid line.
@@ -96,6 +105,27 @@ export function tessellateQuilt(spec: QuiltSpec, resolution: number = DEFAULT_RE
       d1d.push(s1.gridDeriv(i, n));
     }
 
+    // Cross-field tables, one per side, sampled on the SAME grid. Evaluating
+    // Δ per vertex instead would cost (n+1)² field evaluations per cell where
+    // (n+1) will do: Φ only ever reads each side's field along its own edge.
+    const xv: Pt3[][] = [[], [], [], []];
+    const xd: Pt3[][] = [[], [], [], []];
+    if (b.cross) {
+      for (let k = 0; k < 4; k++) {
+        for (let i = 0; i <= n; i++) {
+          xv[k]!.push(b.cross.value(k, i / n));
+          xd[k]!.push(b.cross.deriv(k, i / n));
+        }
+      }
+    }
+    const phiOf = (i: number, j: number): PhiSample | null => {
+      if (!b.cross) return null;
+      return {
+        value: [xv[0]![i]!, xv[1]![j]!, xv[2]![n - i]!, xv[3]![n - j]!],
+        deriv: [xd[0]![i]!, xd[1]![j]!, xd[2]![n - i]!, xd[3]![n - j]!],
+      };
+    };
+
     const vBase = ci * vertsPerCell;
     for (let j = 0; j <= n; j++) {
       const v = j / n;
@@ -104,16 +134,31 @@ export function tessellateQuilt(spec: QuiltSpec, resolution: number = DEFAULT_RE
         const u = i / n;
         const c0i = c0[i]!, c1i = c1[i]!;
         // Edges are the boundary curves themselves — the watertight seam.
-        const p: Pt3 =
+        const phi = phiOf(i, j);
+        const onEdge = j === 0 || j === n || i === 0 || i === n;
+        let p: Pt3 =
           j === 0 ? c0i :
           j === n ? c1i :
           i === 0 ? d0j :
           i === n ? d1j :
           coonsBlend(c0i, c1i, d0j, d1j, b.corners, u, v);
-        const nrm = norm3(cross3(
-          coonsSu(c0d[i]!, c1d[i]!, d0j, d1j, b.corners, v),
-          coonsSv(c0i, c1i, d0dj, d1dj, b.corners, u),
-        ));
+        // Φ is exactly zero on every edge, so an edge vertex is still the
+        // shared curve bit for bit — the watertight seam is untouched. Its
+        // NORMAL is not: the whole point of the field is that Φ_v is nonzero
+        // there, so the correction goes into the partials everywhere.
+        if (phi && !onEdge) {
+          const f = coonsPhi(phi, u, v);
+          p = [p[0] + f[0], p[1] + f[1], p[2] + f[2]];
+        }
+        let su = coonsSu(c0d[i]!, c1d[i]!, d0j, d1j, b.corners, v);
+        let sv = coonsSv(c0i, c1i, d0dj, d1dj, b.corners, u);
+        if (phi) {
+          const pu = coonsPhiU(phi, u, v);
+          const pv = coonsPhiV(phi, u, v);
+          su = [su[0] + pu[0], su[1] + pu[1], su[2] + pu[2]];
+          sv = [sv[0] + pv[0], sv[1] + pv[1], sv[2] + pv[2]];
+        }
+        const nrm = norm3(cross3(su, sv));
         const at = (vBase + j * (n + 1) + i) * 3;
         positions[at] = p[0]; positions[at + 1] = p[1]; positions[at + 2] = p[2];
         normals[at] = nrm[0]; normals[at + 1] = nrm[1]; normals[at + 2] = nrm[2];
@@ -208,7 +253,7 @@ export function buildRenderFeed(state: FrameState, opts: RenderFeedOptions = {})
   }
 
   return {
-    surfaces: tessellateQuilt(spec, resolution),
+    surfaces: tessellateQuilt(spec, resolution, opts.cross),
     lines: buildLineFeed(entries),
     snaps: [],
   };

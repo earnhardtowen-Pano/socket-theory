@@ -13,16 +13,41 @@
  * four sampled boundary polylines. A collapsed (tapered) side contributes one
  * vertex; its whole grid row is that vertex and the row's quads shed one
  * degenerate triangle each — the taper fan, NaN-free by construction.
+ *
+ * ── THE SECOND EVALUATOR ─────────────────────────────────────────────────
+ *
+ * This is not the same code as `@car/surface`'s Coons blend and never was:
+ * that one is analytic and feeds the render, the lenses and the continuity
+ * probe; this one is discrete, over the shared sample table, and feeds the
+ * print. Two evaluators is a deliberate choice — the conforming union-of-
+ * samples mesh is what makes the STL watertight — but it is also a standing
+ * hazard: raise the surface quality in one and the probe reports a body that
+ * is not the body being printed.
+ *
+ * So the tangent-plane term (`@car/surface`'s Φ) is applied HERE TOO, from
+ * the same field, in the same parameterisation. `coons-agreement.test.ts`
+ * samples interiors through both and asserts they land in the same place;
+ * that test should have existed from the first day there were two of these.
+ *
+ * Φ is exactly zero on all four edges, so the table vertices — the shared
+ * seam — are untouched, and the closed-mesh check is still checking the same
+ * topology it always was.
  */
 
 import type { FeedRange, Id, Pt3, QuiltSpec } from "@car/schema";
 import { lerp3 } from "@car/num";
+import { gBasis, hBasis, type CrossPrescription } from "@car/surface";
 import { compareId } from "./ids.js";
 import { buildSampleTable, type GlobalSampleTable, type SideSamples } from "./table.js";
 
 export interface MeshOptions {
   /** Uniform base samples per chain segment of every curve. Default 8. */
   readonly baseDensity?: number;
+  /**
+   * Tangent-plane prescription. Hand the mesher the SAME field the render and
+   * the probe were handed, or the thing measured is not the thing printed.
+   */
+  readonly cross?: CrossPrescription;
 }
 
 export const DEFAULT_BASE_DENSITY = 8;
@@ -36,6 +61,22 @@ export interface QuiltMesh {
   readonly ranges: readonly FeedRange[];
   /** The shared boundary table — its vertices are positions[0 .. vertexCount). */
   readonly table: GlobalSampleTable;
+  /**
+   * Where the interior vertices start. Below this index a vertex belongs to a
+   * shared CURVE (the table); at or above it, to one patch's interior.
+   */
+  readonly interiorBase: number;
+  /** Cell of interior vertex (index - interiorBase). */
+  readonly interiorCell: readonly Id[];
+  /**
+   * Patch parameter (u,v) of each interior vertex, two floats each.
+   *
+   * Published because without it nothing can relate a printed triangle back
+   * to the surface it came from — which is how two Coons evaluators managed
+   * to coexist for this long without anyone being able to check that they
+   * agree. `coons-agreement.test.ts` is the first caller.
+   */
+  readonly interiorUV: Float64Array;
 }
 
 /** A side re-parameterized to its grid axis: ascending grid coords + table verts. */
@@ -96,6 +137,7 @@ function unionParams(a: GridSide, b: GridSide): number[] {
 
 export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
   const table = buildSampleTable(quilt, opts?.baseDensity ?? DEFAULT_BASE_DENSITY);
+  const cross = opts?.cross;
 
   const pos: number[] = Array.from(table.positions);
   const posOf = (v: number): Pt3 => [pos[3 * v]!, pos[3 * v + 1]!, pos[3 * v + 2]!];
@@ -107,6 +149,9 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
 
   const indices: number[] = [];
   const ranges: FeedRange[] = [];
+  const interiorBase = pos.length / 3;
+  const interiorCell: Id[] = [];
+  const interiorUV: number[] = [];
 
   const cells = [...quilt.cells].sort((a, b) => compareId(a.id, b.id));
   for (const cell of cells) {
@@ -124,6 +169,22 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
     const P10 = plEval(south, posOf, 1);
     const P01 = plEval(north, posOf, 0);
     const P11 = plEval(north, posOf, 1);
+
+    // Cross-field tables on the cell's own union axes. Side 0 and side 1 read
+    // the grid coordinate directly; sides 2 and 3 run against it, so they are
+    // read at 1-u and 1-v — the same convention the analytic evaluator uses,
+    // which is what lets the two agree.
+    const D0: Pt3[] = [], D1: Pt3[] = [], D2: Pt3[] = [], D3: Pt3[] = [];
+    if (cross) {
+      for (const u of U) {
+        D0.push(cross.defect(cell.id, 0, u));
+        D2.push(cross.defect(cell.id, 2, 1 - u));
+      }
+      for (const v of V) {
+        D1.push(cross.defect(cell.id, 1, v));
+        D3.push(cross.defect(cell.id, 3, 1 - v));
+      }
+    }
 
     const nu = U.length;
     const nv = V.length;
@@ -149,7 +210,16 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
               ((1 - u) * (1 - v) * P00[c]! + u * (1 - v) * P10[c]! +
                (1 - u) * v * P01[c]! + u * v * P11[c]!);
           }
+          if (cross) {
+            const gv = gBasis(v), hu = hBasis(u), hv = hBasis(v), gu = gBasis(u);
+            const d0 = D0[i]!, d1 = D1[j]!, d2 = D2[i]!, d3 = D3[j]!;
+            for (let c = 0; c < 3; c++) {
+              q[c]! += gv * d0[c]! + hu * d1[c]! + hv * d2[c]! + gu * d3[c]!;
+            }
+          }
           vert = pushVert([q[0]!, q[1]!, q[2]!]);
+          interiorCell.push(cell.id);
+          interiorUV.push(u, v);
         }
         grid[j * nu + i] = vert;
       }
@@ -176,5 +246,8 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
     indices: new Uint32Array(indices),
     ranges,
     table,
+    interiorBase,
+    interiorCell,
+    interiorUV: new Float64Array(interiorUV),
   };
 }
