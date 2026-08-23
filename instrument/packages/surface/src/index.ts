@@ -30,3 +30,9 @@ export {
   DEFAULT_RESOLUTION,
   type RenderFeedOptions,
 } from "./feed.js";
+export {
+  continuityProbe,
+  type ContinuityOptions,
+  type ContinuityReport,
+  type ContinuityStation,
+} from "./continuity.js";
