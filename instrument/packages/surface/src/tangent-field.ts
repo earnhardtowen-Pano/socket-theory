@@ -414,15 +414,24 @@ export function naturalCross(b: CellBoundary, k: number, s: number): Pt3 {
  *     target = (N·T̂)T̂ + |X⊥|·d̂
  *
  * This is `N + Δraw` for the bisector field, written directly — so a perfect
- * polynomial fit reproduces the bisector body exactly, and the fit residual
- * measures the polynomial and nothing else.
+ * spline fit reproduces the bisector body exactly, and the fit residual
+ * measures the spline and nothing else.
+ *
+ * `fullness` scales the transverse part and only that. It cannot move the
+ * boundary — the boundary is the curve — and it cannot rotate the tangent
+ * plane, because span{C′, λd̂} does not depend on λ. That is what makes crown
+ * free: the whole continuity argument is about which plane the two owners
+ * share, and this changes only how far each of them reaches into it.
  */
-function crossTarget(n: Pt3, tHat: Pt3, bis: { dHat: Pt3; aLen: number }): Pt3 {
+function crossTarget(
+  n: Pt3, tHat: Pt3, bis: { dHat: Pt3; aLen: number }, fullness = 1,
+): Pt3 {
   const along = dot3(n, tHat);
+  const across = bis.aLen * fullness;
   return [
-    along * tHat[0] + bis.aLen * bis.dHat[0],
-    along * tHat[1] + bis.aLen * bis.dHat[1],
-    along * tHat[2] + bis.aLen * bis.dHat[2],
+    along * tHat[0] + across * bis.dHat[0],
+    along * tHat[1] + across * bis.dHat[1],
+    along * tHat[2] + across * bis.dHat[2],
   ];
 }
 
@@ -516,6 +525,13 @@ export function fieldFromAdjacency(
   const fitDegree = Math.max(1, Math.floor(opts.fitDegree ?? DEFAULT_FIT_DEGREE));
   const maxSpans = Math.max(1, Math.floor(opts.maxSpans ?? DEFAULT_MAX_SPANS));
   const fitTolerance = opts.fitTolerance ?? DEFAULT_FIT_TOLERANCE;
+
+  /**
+   * Crown, per cell — how hard this patch leaves its seams, as a multiple of
+   * the natural amount. Absent is 1, which is the Coons blend's own answer and
+   * the only one it has.
+   */
+  const fullnessOf = (cellId: Id): number => adj.quilt.fullness.get(cellId) ?? 1;
 
   const claims = new Map<string, Claim[]>();
   let creasedEdges = 0;
@@ -616,8 +632,8 @@ export function fieldFromAdjacency(
       if (!bisA || !bisB) return null;
       return {
         tau, tangent: cp, dHat: bisA.dHat,
-        targetA: crossTarget(naturalCross(bA, e.a.k, sA), tHat, bisA),
-        targetB: crossTarget(naturalCross(bB, e.b.k, sB), tHat, bisB),
+        targetA: crossTarget(naturalCross(bA, e.a.k, sA), tHat, bisA, fullnessOf(e.a.cellId)),
+        targetB: crossTarget(naturalCross(bB, e.b.k, sB), tHat, bisB, fullnessOf(e.b.cellId)),
       };
     };
 
@@ -715,8 +731,14 @@ export function fieldFromAdjacency(
     if (isZeroPt(tHat)) return ZERO;
     const bis = bisectorFrom(bA, k, s, bB, claim.otherK, sB, tHat);
     if (!bis) return ZERO;
-    // Δraw = |A⊥|(d̂ - Â⊥).
-    return scale3(sub3(bis.dHat, bis.aHat), bis.aLen);
+    // Δraw = |A⊥|(f·d̂ - Â⊥): rotate onto the shared direction, and reach f
+    // times as far into the plane.
+    const f = fullnessOf(cellId);
+    return [
+      bis.aLen * (f * bis.dHat[0] - bis.aHat[0]),
+      bis.aLen * (f * bis.dHat[1] - bis.aHat[1]),
+      bis.aLen * (f * bis.dHat[2] - bis.aHat[2]),
+    ];
   };
 
   const rawDefect = (cellId: Id, k: number, s: number): Pt3 =>

@@ -67,3 +67,26 @@ describe("the gap mark", () => {
     for (const id of q.gaps) expect(q.curves.has(id)).toBe(true);
   });
 });
+
+describe("the fullness verb", () => {
+  it("records, replays and reaches the quilt", () => {
+    const s = boxSession();
+    const ids = [...s.state.cells.keys()].slice(0, 2);
+    s.apply("fullness", { cellIds: ids, amount: 1.4 });
+    const q = computeQuilt(s.state);
+    for (const id of ids) expect(q.fullness.get(id)).toBe(1.4);
+    const doc = s.save();
+    const back = load(doc);
+    expect(computeQuilt(back.state).fullness.get(ids[0]!)).toBe(1.4);
+    // Replay is byte-identical: the verb round-trips through the document.
+    expect(JSON.stringify(back.save())).toBe(JSON.stringify(doc));
+  });
+
+  it("refuses an amount that is not a positive number", () => {
+    const s = boxSession();
+    const id = [...s.state.cells.keys()][0]!;
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => s.apply("fullness", { cellIds: [id], amount: bad })).toThrow();
+    }
+  });
+});

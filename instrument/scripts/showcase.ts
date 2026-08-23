@@ -53,6 +53,7 @@ const upper: QuiltSpec = {
   cells: quilt.cells.filter((c) => !slabCells.has(c.id)),
   curves: quilt.curves,
   creases: quilt.creases,
+  fullness: quilt.fullness,
   gaps: quilt.gaps,
 };
 const upperMesh = meshQuilt(upper, {});

@@ -192,6 +192,11 @@ class SessionImpl implements Session {
         state.group(a.cellIds, a.name, alloc);
         return;
       }
+      case "fullness": {
+        const a = args as VerbArgs["fullness"];
+        state.setFullness(a.cellIds, a.amount);
+        return;
+      }
       case "assign-material": {
         const a = args as VerbArgs["assign-material"];
         state.assignMaterial(a.targetId, { name: a.name, color: a.color }, alloc);

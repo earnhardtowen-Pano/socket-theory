@@ -50,6 +50,7 @@ class Builder {
         cells: this.cells,
         curves: this.curves,
         creases: new Set<Id>(),
+        fullness: new Map<Id, number>(),
         gaps: new Set<Id>(),
       },
       curve: this.curveKey,

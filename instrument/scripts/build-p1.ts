@@ -805,6 +805,15 @@ console.log(line("curve network", `${net.cleanCorners}/${net.corners} corners co
 // that must be invisible. Continuity is judged inside a panel and gap across
 // one, and neither question can be asked without the partition.
 const pieces = panelsOf(quilt);
+// Crown. `fullness` is the first control this frame has over a patch INTERIOR
+// — a Coons patch interpolates four curves and everything between them follows
+// — and it is deliberately NOT applied here. Setting it changes the car's
+// shape by tens of millimetres and that is a design decision, not a build one.
+// The verb is on the shelf; the number is the owner's.
+const crown = [...quilt.fullness.entries()];
+console.log(line("crown", crown.length === 0
+  ? "1.00 everywhere — the Coons blend's own answer, which is the only one it has until somebody sets a fullness"
+  : `${crown.length} cells crowned · ${[...new Set(crown.map(([, v]) => v.toFixed(2)))].join(", ")}`));
 console.log(line("panels", `${pieces.panels.length} pieces — ${bySize(pieces).map((p) => p.cells.length).join(" + ")} cells · ` +
   `${pieces.shutlines} shutline seams · ${pieces.features} feature lines · ${pieces.smooth} smooth`));
 console.log(line("shutline grooves", `${grooved.moved} vertices sunk on ${quilt.gaps.size} gap curves ` +

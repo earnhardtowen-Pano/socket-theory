@@ -682,6 +682,32 @@ export class FrameState {
   }
 
   /**
+   * Set how hard the named cells leave their seams — crown, in the surfacer's
+   * sense, and the first control this frame has ever had over a patch INTERIOR.
+   *
+   * A Coons patch interpolates four curves and everything between them follows;
+   * that is why row 7 of the audit has read "interiors are determined, never
+   * designed" from the beginning, and why the P1's flank reads as a slab. The
+   * amount multiplies the transverse part of the cross-boundary derivative, so
+   * the patch leaves its boundary harder and the middle bulges.
+   *
+   * It cannot move a boundary point — the boundary IS the curve — and it
+   * cannot rotate a tangent plane, because scaling a vector does not change
+   * the plane it spans with another. So it is a shape control that costs
+   * nothing in continuity, which is the only kind worth having here.
+   */
+  setFullness(cellIds: readonly Id[], amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error(`fullness: amount must be a positive number, got ${amount}`);
+    }
+    for (const id of cellIds) {
+      const cell = this.cells.get(id);
+      if (!cell) throw new Error(`fullness: unknown cell ${id}`);
+      cell.fullness = amount;
+    }
+  }
+
+  /**
    * Point one end of a curve's tangent in a new direction, by moving ONE
    * control point.
    *

@@ -126,6 +126,8 @@ export type VerbName =
   | "place-point"     // add a control point to a curve
   | "fit-through-line" // datum by orthogonal least squares
   | "group"           // panel group; borders bind to gap curves
+  | "fullness"        // how hard a panel leaves its seams — crown, not shape
+  | "fullness"        // how hard a panel leaves its seams — crown, not shape
   | "assign-material"
   | "mirror-detach"   // Article VIII asymmetry
   | "crease"          // mark an edge as a deliberate crease / character line
@@ -325,6 +327,20 @@ export interface QuiltSpec {
   readonly curves: ReadonlyMap<Id, CurveChain>;
   readonly creases: ReadonlySet<Id>;
   readonly gaps: ReadonlySet<Id>;
+  /**
+   * How hard each cell leaves its seams, as a multiple of the natural amount.
+   * 1 — or absent — is the Coons blend's own answer, which is the only answer
+   * it has: a patch that interpolates four curves has its interior entirely
+   * determined by them and a designer cannot put crown into it. Above 1 the
+   * patch leaves its boundaries harder and bulges; below 1 it flattens.
+   *
+   * It scales the TRANSVERSE magnitude of the cross-boundary derivative and
+   * nothing else, so it cannot move a boundary point and cannot rotate a
+   * tangent plane — G0 stays bit-identical and G1 stays exact, by the same
+   * argument that lets two owners share a plane while disagreeing about how
+   * far they reach into it.
+   */
+  readonly fullness: ReadonlyMap<Id, number>;
 }
 
 // ---------------------------------------------------------------------------

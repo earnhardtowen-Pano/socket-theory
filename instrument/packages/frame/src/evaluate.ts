@@ -214,6 +214,7 @@ export function computeEvaluatedBuffers(state: FrameState): EvaluatedObject[] {
 export function computeQuilt(state: FrameState): QuiltSpec {
   const mirrors = evaluateMirrors(state);
   const cells: QuiltCell[] = [];
+  const crown = new Map<Id, number>();
   const toQuiltSides = (sides: readonly SideRef[]): [QuiltSide, QuiltSide, QuiltSide, QuiltSide] =>
     sides.map((s) => ({
       curveId: s.curveId, t0: s.t0, t1: s.t1, reversed: s.reversed,
@@ -224,9 +225,14 @@ export function computeQuilt(state: FrameState): QuiltSpec {
     if (!cell) continue;
     const resolved = cell.sides.map((s): SideRef => ({ ...s, curveId: state.resolveCurve(s.curveId) }));
     cells.push({ id: cellId, sides: toQuiltSides(resolved) });
+    if (cell.fullness !== undefined && cell.fullness !== 1) crown.set(cellId, cell.fullness);
   }
   for (const twin of mirrors.twins) {
     cells.push({ id: twin.id, sides: toQuiltSides(twin.sides) });
+    // A twin is regenerated from its master every evaluation, so it inherits
+    // the master's crown — a body is not fuller down one side.
+    const own = crown.get(masterId(twin.id));
+    if (own !== undefined) crown.set(twin.id, own);
   }
   cells.sort((a, b) => idCompare(a.id, b.id));
 
@@ -249,5 +255,5 @@ export function computeQuilt(state: FrameState): QuiltSpec {
     if (source?.crease) creases.add(mId);
     if (source?.gap) gaps.add(mId);
   }
-  return { cells, curves, creases, gaps };
+  return { cells, curves, creases, gaps, fullness: crown };
 }

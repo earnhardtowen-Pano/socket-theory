@@ -56,6 +56,10 @@ export interface Cell {
   groupId?: Id;
   materialId?: Id;
   mirror: MirrorMode;
+  /** How hard this patch leaves its seams, as a multiple of the natural
+   *  amount. Absent means 1 — the Coons blend's own answer. See
+   *  `FrameState.setFullness`. */
+  fullness?: number;
 }
 
 export interface Group {

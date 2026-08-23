@@ -81,6 +81,22 @@ export interface FitThroughLineArgs {
   points: Pt3[];
 }
 
+/**
+ * Crown. The multiplier on how hard the named cells leave their seams.
+ *
+ * The first control this instrument has ever had over a patch INTERIOR: a
+ * Coons patch interpolates four curves and everything between them follows,
+ * which is why the audit's fullness row has read "interiors are determined,
+ * never designed" from the start. Scaling the transverse part of the
+ * cross-boundary derivative bulges the middle without moving a boundary point
+ * or rotating a tangent plane.
+ */
+export interface FullnessArgs {
+  readonly cellIds: readonly Id[];
+  /** 1 is the blend's own answer. Above 1 is fuller, below 1 is flatter. */
+  readonly amount: number;
+}
+
 export interface GroupArgs {
   cellIds: Id[];
   name: string;
@@ -160,6 +176,7 @@ export interface VerbArgs {
   "place-point": PlacePointArgs;
   "fit-through-line": FitThroughLineArgs;
   group: GroupArgs;
+  fullness: FullnessArgs;
   "assign-material": AssignMaterialArgs;
   "mirror-detach": MirrorDetachArgs;
   crease: CreaseArgs;
@@ -399,6 +416,16 @@ export function validateVerbArgs<V extends VerbName>(verb: V, raw: unknown): Ver
         cellIds: checkIdArray(verb, a["cellIds"], "cell", "cellIds"),
         name: checkString(verb, a["name"], "name"),
       });
+    case "fullness": {
+      const amount = a["amount"];
+      if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
+        fail(verb, "amount must be a positive finite number");
+      }
+      return done({
+        cellIds: checkIdArray(verb, a["cellIds"], "cell", "cellIds"),
+        amount: amount as number,
+      });
+    }
     case "assign-material": {
       const targetId = a["targetId"];
       if (typeof targetId !== "string" || !ID_PATTERN.test(targetId)) {
