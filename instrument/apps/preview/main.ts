@@ -79,7 +79,9 @@ if (view === "side") {
   // creased door lines in accent
   for (const c of body.curves.filter((k: { crease: boolean }) => k.crease)) {
     const pts: THREE.Vector3[] = [];
-    for (let i = 0; i < c.pts.length; i += 3) pts.push(new THREE.Vector3(c.pts[i], c.pts[i + 1] * 1.001, c.pts[i + 2]));
+    for (let i = 0; i + 2 < c.pts.length; i += 3) {
+      pts.push(new THREE.Vector3(c.pts[i] ?? 0, (c.pts[i + 1] ?? 0) * 1.001, c.pts[i + 2] ?? 0));
+    }
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff5533 })));
   }
 

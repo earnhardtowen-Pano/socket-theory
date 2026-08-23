@@ -1,0 +1,126 @@
+/**
+ * The real ModelPort: a live @car/history session evaluated through
+ * @car/surface. New files open on a rolling chassis, never empty space
+ * (statute clause 4) — the seed is itself a verb document spliced through
+ * apply-entry, so the catalog grammar is exercised from the first frame.
+ * The authored left rail arrives alone; the mirror law renders its twin.
+ */
+
+import type { CarDocument, Id, RenderFeed } from "@car/schema";
+import { createSession, load, type Session } from "@car/history";
+import { buildRenderFeed } from "@car/surface";
+import type { ModelPort } from "./port";
+import { sortedIds } from "./ids";
+
+/** The starter chassis: two-rail body-on-frame, one grammar, five verbs. */
+export function chassisEntry(): CarDocument {
+  const s = createSession("entry:chassis/body-on-frame");
+  // Left rail only — symmetry law supplies the right one at evaluation.
+  s.apply("tape", { kind: "box", rect: { view: { kind: "side" }, a: [300, 150], b: [3900, 280], depth: 130, at: -715 } });
+  // Crossmembers straddle the centerline: front, mid, rear.
+  s.apply("tape", { kind: "box", rect: { view: { kind: "front" }, a: [-585, 160], b: [585, 270], depth: 120, at: 550 } });
+  s.apply("tape", { kind: "box", rect: { view: { kind: "front" }, a: [-585, 160], b: [585, 270], depth: 120, at: 2050 } });
+  s.apply("tape", { kind: "box", rect: { view: { kind: "front" }, a: [-585, 160], b: [585, 270], depth: 120, at: 3550 } });
+  return s.save();
+}
+
+export interface SessionPort extends ModelPort {
+  /** The live session — the ten-minute script drives this directly. */
+  readonly session: Session;
+  saveDocument(): CarDocument;
+  creaseIds(): ReadonlySet<Id>;
+  /** Last rejected proposal, for the ledger strip. Cleared by the next accept. */
+  lastError(): string | null;
+}
+
+export function makeSessionPort(seedChassis = true): SessionPort {
+  const session = createSession("untitled car");
+  if (seedChassis) {
+    session.apply("apply-entry", { entry: chassisEntry() as never });
+  }
+
+  let cachedFeed: RenderFeed | null = null;
+  let error: string | null = null;
+  const listeners = new Set<() => void>();
+  const invalidate = (): void => {
+    cachedFeed = null;
+    for (const cb of listeners) cb();
+  };
+
+  return {
+    session,
+    feed(): RenderFeed {
+      cachedFeed ??= buildRenderFeed(session.state);
+      return cachedFeed;
+    },
+    propose(verb: string, args: unknown): void {
+      try {
+        session.apply(verb as never, args as never);
+        error = null;
+        invalidate();
+      } catch (e) {
+        // A rejected verb is ledger content, never a crash: the model said no
+        // and the reason is shown (e.g. clause-17 "rotation requires detach").
+        error = e instanceof Error ? e.message : String(e);
+        for (const cb of listeners) cb();
+      }
+    },
+    onChange(cb: () => void): () => void {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    tree(): { cells: string[]; groups: string[]; datums: string[] } {
+      const st = session.state;
+      return {
+        cells: sortedIds([...st.cells.keys()]),
+        groups: sortedIds([...st.groups.keys()]),
+        datums: sortedIds([...st.datums.keys()]),
+      };
+    },
+    describe(id: string): string {
+      const st = session.state;
+      const cell = st.cells.get(id as Id);
+      if (cell) {
+        const bits = [id];
+        if (cell.groupId) bits.push(`group ${st.groups.get(cell.groupId)?.name ?? cell.groupId}`);
+        if (cell.materialId) bits.push(`material ${st.materials.get(cell.materialId)?.name ?? cell.materialId}`);
+        bits.push(cell.mirror === "detached" ? "mirror: detached (recorded asymmetry)" : "mirror: auto");
+        if (cell.parent) bits.push(`from ${cell.parent}`);
+        return bits.join(" · ");
+      }
+      const curve = st.curves.get(id as Id);
+      if (curve) {
+        const bits = [id, `${curve.trims.length} owner${curve.trims.length === 1 ? "" : "s"}`];
+        if (curve.crease) bits.push("deliberate crease");
+        if (curve.gap) bits.push("gap curve");
+        return bits.join(" · ");
+      }
+      const datum = st.datums.get(id as Id);
+      if (datum) return `${id} · ${datum.kind}`;
+      const group = st.groups.get(id as Id);
+      if (group) return `${id} · "${group.name}" · ${group.cellIds.length} cells`;
+      return `${id} · free authored geometry`;
+    },
+    saveDocument(): CarDocument {
+      return session.save();
+    },
+    creaseIds(): ReadonlySet<Id> {
+      const out = new Set<Id>();
+      for (const [cid, c] of session.state.curves) if (c.crease) out.add(cid);
+      return out;
+    },
+    lastError(): string | null {
+      return error;
+    },
+  };
+}
+
+/** Reopen a saved document behind the same port shape. */
+export function openSessionPort(doc: CarDocument): SessionPort {
+  const session = load(doc);
+  const port = makeSessionPort(false);
+  // Rebind: simplest correct path is replaying into a fresh port-backed
+  // session; load() already validated counters. Splice the whole history.
+  port.session.apply("apply-entry", { entry: session.save() as never });
+  return port;
+}

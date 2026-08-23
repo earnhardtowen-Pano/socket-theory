@@ -1,0 +1,108 @@
+/* Teenage Engineering register: near-black ground, hairlines, mono type,
+   one accent. Flat panels, no gradients, no shadows. */
+
+:root {
+  --bg: #0a0a0c;
+  --panel: #0e0e11;
+  --line: #232328;
+  --ink: #d8d8d2;
+  --dim: #77777d;
+  --accent: #ff5533;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app { height: 100%; background: var(--bg); }
+
+body {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+#app {
+  display: grid;
+  grid-template: "tabs tabs tabs" 40px "verbs stage tree" 1fr "ledger ledger ledger" 30px / 132px 1fr 200px;
+}
+
+#tabs {
+  grid-area: tabs;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.brand { color: var(--ink); text-transform: uppercase; }
+.accent { color: var(--accent); }
+
+#viewtabs { display: flex; gap: 2px; margin-left: 12px; }
+#modes { margin-left: auto; display: flex; gap: 2px; }
+
+button {
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--dim);
+  background: none;
+  border: 1px solid var(--line);
+  padding: 5px 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+button:hover { color: var(--ink); }
+button.on { color: var(--accent); border-color: var(--accent); }
+
+#verbs {
+  grid-area: verbs;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+}
+#verbs button { text-align: left; }
+
+#stage { grid-area: stage; position: relative; }
+#canvas { width: 100%; height: 100%; display: block; }
+
+#tree {
+  grid-area: tree;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  overflow-y: auto;
+  padding: 10px 10px;
+}
+.railtitle { color: var(--dim); margin-bottom: 8px; }
+.sect { color: var(--dim); margin: 10px 0 4px; }
+.node { color: var(--ink); padding: 2px 4px; cursor: pointer; }
+.node:hover { color: var(--accent); }
+.node.sel { color: var(--accent); border-left: 2px solid var(--accent); padding-left: 6px; }
+
+#ledger {
+  grid-area: ledger;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 14px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+#ledgerline { color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+#depthbox { margin-left: auto; }
+#depthbox input {
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  width: 58px;
+  text-align: right;
+}
