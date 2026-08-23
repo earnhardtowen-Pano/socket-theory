@@ -403,6 +403,11 @@ const ledger = massLedger({
 const doc = s.save();
 mkdirSync(new URL("../cars", import.meta.url), { recursive: true });
 writeFileSync(new URL("../cars/panoramic-p1.car.json", import.meta.url), JSON.stringify(doc));
+// The instrument ships the car inside its bundle, so the same document is
+// written there in the same breath. Copying it by hand let it drift 61 verbs
+// behind, and the tool then opened a car nobody had built.
+mkdirSync(new URL("../apps/instrument/src/cars", import.meta.url), { recursive: true });
+writeFileSync(new URL("../apps/instrument/src/cars/panoramic-p1.json", import.meta.url), JSON.stringify(doc));
 writeFileSync(new URL("../../panoramic-p1.stl", import.meta.url), writeStlBinary(mesh, "panoramic-p1"));
 
 // replay integrity: the car is a first-class replayable document
