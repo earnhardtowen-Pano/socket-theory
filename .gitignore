@@ -8,3 +8,4 @@ dist/
 # regenerates from `npx tsx scripts/displacement-map.ts`. The PNG beside it is
 # the artefact; the SVG is the intermediate.
 shots/displacement-map.svg
+shots/break-map.svg
