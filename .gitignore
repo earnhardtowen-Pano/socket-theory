@@ -10,3 +10,9 @@ dist/
 shots/displacement-map.svg
 shots/break-map.svg
 shots/lenses.svg
+
+# The bench is a single 1.3 MB file with the whole body base64'd inside it, and
+# the payload it is built from is the same megabyte again. Both regenerate from
+# `npx tsx scripts/export-viewer.ts`; the template beside it is the source.
+instrument/apps/viewer-payload.json
+instrument/apps/bench/bench.html

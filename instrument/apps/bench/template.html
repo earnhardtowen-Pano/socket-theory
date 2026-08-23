@@ -1,0 +1,670 @@
+<title>P1 Surfacing Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* ── the studio ────────────────────────────────────────────────────────────
+   One committed visual world: a dark room with a strip light and a body under
+   it. A light theme would be a different instrument, so the palette is painted
+   explicitly and does not follow the host. */
+:root{
+  --ground:#08080a; --panel:#101015; --panel-2:#16161c; --rule:#26262e;
+  --ink:#e8e8e2; --ink-2:#9a9a92; --ink-3:#63636b;
+  --teal:#2e9aa6; --teal-hi:#4fd0d8; --amber:#eba53c; --red:#ff5433; --shut:#7ad4ff;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --disp:"IBM Plex Sans Condensed","IBM Plex Mono",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--mono);font-size:13px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;overflow:hidden;
+}
+#bench{position:fixed;inset:0;display:grid;grid-template-columns:238px 1fr;grid-template-rows:1fr}
+@media (max-width:820px){#bench{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+
+/* ── the rail ─────────────────────────────────────────────────────────── */
+#rail{
+  background:var(--panel);border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;gap:0;overflow-y:auto;min-height:0;
+}
+.brand{padding:16px 18px 13px;border-bottom:1px solid var(--rule)}
+.brand h1{
+  margin:0;font-family:var(--disp);font-weight:700;font-size:19px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--ink);
+}
+.brand p{margin:5px 0 0;color:var(--ink-3);font-size:10.5px;letter-spacing:.09em}
+.group{padding:11px 18px;border-bottom:1px solid var(--rule)}
+.group>h2{
+  margin:0 0 7px;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:500;
+}
+.lens{
+  display:flex;align-items:baseline;gap:9px;width:100%;text-align:left;
+  background:none;border:0;border-left:2px solid transparent;
+  color:var(--ink-2);font:inherit;font-size:12px;padding:4px 8px;cursor:pointer;
+  border-radius:2px;
+}
+.lens:hover{background:var(--panel-2);color:var(--ink)}
+.lens[aria-pressed="true"]{background:var(--panel-2);color:var(--ink);border-left-color:var(--teal-hi)}
+.lens .key{color:var(--ink-3);font-size:10px;min-width:9px}
+.lens[aria-pressed="true"] .key{color:var(--teal-hi)}
+.lens:focus-visible{outline:1px solid var(--teal-hi);outline-offset:1px}
+.blurb{margin:7px 8px 0;color:var(--ink-3);font-size:10.5px;line-height:1.5}
+label.row{display:flex;align-items:center;gap:9px;padding:4px 8px;color:var(--ink-2);font-size:11.5px;cursor:pointer}
+label.row input{accent-color:var(--teal-hi);margin:0}
+input[type=range]{width:100%;accent-color:var(--teal-hi);margin:2px 0 0}
+.slider{padding:2px 8px 4px}
+.slider span{display:flex;justify-content:space-between;color:var(--ink-3);font-size:10px}
+
+/* ── the stage ────────────────────────────────────────────────────────── */
+#stage{position:relative;min-width:0;min-height:0;background:var(--ground)}
+#gl{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#gl:active{cursor:grabbing}
+#viewbar{
+  position:absolute;left:14px;bottom:12px;display:flex;align-items:center;gap:10px;
+  flex-wrap:wrap;max-width:calc(100% - 360px);
+}
+#viewbar .row{padding:3px 6px}
+#viewbar .lens{padding:3px 8px}
+#hint{margin:0;color:var(--ink-3);font-size:10.5px;letter-spacing:.05em;pointer-events:none}
+#legend{
+  position:absolute;left:16px;top:14px;display:flex;flex-direction:column;gap:5px;
+  pointer-events:none;
+}
+#legend[hidden]{display:none}
+#legend .bar{width:190px;height:9px;border:1px solid var(--rule)}
+#legend .ends{display:flex;justify-content:space-between;color:var(--ink-3);font-size:10px;width:190px}
+#legend .cap{color:var(--ink-2);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+.swatches{display:flex;flex-wrap:wrap;gap:6px 12px}
+.swatch{display:flex;align-items:center;gap:5px;color:var(--ink-2);font-size:10.5px}
+.swatch i{width:16px;height:3px;display:block}
+
+/* ── the readings ─────────────────────────────────────────────────────── */
+#readings{
+  position:absolute;right:14px;top:14px;width:302px;max-height:calc(100% - 28px);
+  overflow-y:auto;background:rgba(16,16,21,.92);border:1px solid var(--rule);
+  padding:14px 15px;backdrop-filter:blur(6px);
+}
+#readings h2{margin:0 0 10px;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+#readings h2:not(:first-child){margin-top:16px;padding-top:13px;border-top:1px solid var(--rule)}
+.r{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:2.5px 0;font-size:11.5px}
+.r dt{color:var(--ink-2);white-space:nowrap}
+.r dd{margin:0;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.r dd em{display:block;font-style:normal;color:var(--ink-3);font-size:10px;letter-spacing:.02em;margin-top:1px}
+.r dd.good{color:var(--teal-hi)}
+.r dd.warn{color:var(--amber)}
+dl{margin:0}
+.note{margin:10px 0 0;color:var(--ink-3);font-size:10.5px;line-height:1.55}
+#loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);letter-spacing:.16em;font-size:11px;text-transform:uppercase}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:820px){
+  #readings{position:static;width:auto;max-height:none;margin:0;border:0;border-top:1px solid var(--rule)}
+  #rail{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--rule)}
+  .group{border-bottom:0;border-right:1px solid var(--rule);min-width:210px}
+}
+</style>
+
+<div id="bench">
+  <aside id="rail">
+    <div class="brand">
+      <h1>P1 Surfacing Bench</h1>
+      <p>Panoramic · analytic surface, not the print mesh</p>
+    </div>
+
+    <div class="group">
+      <h2>Lens</h2>
+      <div id="lenses"></div>
+      <p class="blurb" id="blurb"></p>
+    </div>
+
+    <div class="group">
+      <h2>Light</h2>
+      <div class="slider">
+        <span><em style="font-style:normal">around</em><b id="lightAz">—</b></span>
+        <input id="az" type="range" min="0" max="360" value="205" aria-label="Light rotation">
+      </div>
+      <div class="slider">
+        <span><em style="font-style:normal">height</em><b id="lightEl">—</b></span>
+        <input id="el" type="range" min="-80" max="88" value="34" aria-label="Light height">
+      </div>
+      <p class="blurb">The isophote and draft lenses read this live — turning it is how a surfacer finds a flat spot.</p>
+    </div>
+
+    <div class="group" style="border-bottom:0">
+      <h2>Overlay</h2>
+      <label class="row"><input type="checkbox" id="seamsOn" checked> seams</label>
+      <label class="row"><input type="checkbox" id="seamsBare"> before the field</label>
+      <div class="swatches" style="margin:8px 8px 0">
+        <span class="swatch"><i style="background:var(--shut)"></i>shutline</span>
+        <span class="swatch"><i style="background:var(--amber)"></i>feature</span>
+        <span class="swatch"><i style="background:var(--teal)"></i>smooth</span>
+      </div>
+      <p class="blurb">A shutline is a gap between panels. A feature line is a fold in one. A smooth seam must be invisible.</p>
+    </div>
+
+  </aside>
+
+  <main id="stage">
+    <canvas id="gl"></canvas>
+    <div id="loading">reading the body…</div>
+    <div id="legend" hidden>
+      <span class="cap" id="legendCap"></span>
+      <div class="bar" id="legendBar"></div>
+      <div class="ends"><span id="legendLo"></span><span id="legendHi"></span></div>
+    </div>
+    <div id="viewbar">
+      <label class="row"><input type="checkbox" id="spin"> turntable</label>
+      <button class="lens" id="reset" style="width:auto">reset the camera</button>
+      <p id="hint">drag to orbit · scroll to zoom · shift-drag to pan · 1–7 for lenses</p>
+    </div>
+    <section id="readings">
+      <h2>Continuity</h2>
+      <dl id="dlG1"></dl>
+      <h2>Curvature</h2>
+      <dl id="dlG2"></dl>
+      <h2>The body</h2>
+      <dl id="dlBody"></dl>
+      <p class="note" id="footnote"></p>
+    </section>
+  </main>
+</div>
+
+<script id="payload" type="application/json">__PAYLOAD__</script>
+<script>
+"use strict";
+(function () {
+  const P = JSON.parse(document.getElementById("payload").textContent);
+  const un = (s, T) => {
+    const bin = atob(s), buf = new ArrayBuffer(bin.length), view = new Uint8Array(buf);
+    for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+    return new T(buf);
+  };
+  const positions = un(P.positions, Float32Array);
+  const normals = un(P.normals, Float32Array);
+  const indices32 = un(P.indices, Uint32Array);
+  const indices = new Uint16Array(indices32);      // 18k vertices fits a short
+  const vertPanel = un(P.vertPanel, Uint8Array);
+  const vertCell = un(P.vertCell, Uint16Array);
+  const fCurv = un(P.fields.curvature.data, Uint8Array);
+  const fHigh = un(P.fields.highlight.data, Uint8Array);
+  const seamPos = un(P.seams.positions, Float32Array);
+  const R = P.readings;
+
+  // Per-vertex displacement, from the per-cell figures.
+  const dPhi = new Uint8Array(positions.length / 3);
+  const dPsi = new Uint8Array(positions.length / 3);
+  const phiMax = Math.max(...P.perCell.phiMm, 1e-9);
+  const psiMax = Math.max(...P.perCell.psiMm, 1e-9);
+  const lg = (v, m) => Math.round(255 * Math.min(1, Math.log10(1 + 9 * Math.max(0, v) / m)));
+  for (let i = 0; i < dPhi.length; i++) {
+    dPhi[i] = lg(P.perCell.phiMm[vertCell[i]] || 0, phiMax);
+    dPsi[i] = lg(P.perCell.psiMm[vertCell[i]] || 0, psiMax);
+  }
+
+  // ── model bounds ───────────────────────────────────────────────────────
+  let lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < positions.length; i += 3) {
+    for (let k = 0; k < 3; k++) {
+      if (positions[i + k] < lo[k]) lo[k] = positions[i + k];
+      if (positions[i + k] > hi[k]) hi[k] = positions[i + k];
+    }
+  }
+  const centre = [(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, (lo[2] + hi[2]) / 2];
+  const radius = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) / 2;
+
+  // ── gl ─────────────────────────────────────────────────────────────────
+  const canvas = document.getElementById("gl");
+  const gl = canvas.getContext("webgl2", { antialias: true, alpha: false });
+  if (!gl) {
+    document.getElementById("loading").textContent = "this browser has no WebGL 2";
+    return;
+  }
+
+  const VS = `#version 300 es
+  in vec3 aPos; in vec3 aNor;
+  in float aCurv; in float aHigh; in float aPhi; in float aPsi; in float aPanel;
+  uniform mat4 uMVP; uniform mat3 uNormal;
+  out vec3 vN; out vec3 vW;
+  out float fCurv; out float fHigh; out float fPhi; out float fPsi; out float fPanel;
+  void main(){
+    vN = normalize(uNormal * aNor);
+    vW = aPos;
+    fCurv = aCurv; fHigh = aHigh; fPhi = aPhi; fPsi = aPsi; fPanel = aPanel;
+    gl_Position = uMVP * vec4(aPos, 1.0);
+  }`;
+
+  const FS = `#version 300 es
+  precision highp float;
+  in vec3 vN; in vec3 vW;
+  in float fCurv; in float fHigh; in float fPhi; in float fPsi; in float fPanel;
+  uniform int uMode; uniform vec3 uLight; uniform vec3 uEye;
+  out vec4 outColor;
+
+  // The heat ramp from the printed sheets, so a colour means the same thing
+  // here as it does there.
+  vec3 heat(float t){
+    t = clamp(t, 0.0, 1.0);
+    vec3 a = vec3(0.110,0.435,0.478);
+    vec3 b = vec3(0.235,0.667,0.588);
+    vec3 c = vec3(0.922,0.647,0.176);
+    vec3 d = vec3(1.000,0.314,0.157);
+    vec3 e = vec3(1.000,0.980,0.961);
+    if (t < 0.35) return mix(a,b,t/0.35);
+    if (t < 0.62) return mix(b,c,(t-0.35)/0.27);
+    if (t < 0.82) return mix(c,d,(t-0.62)/0.20);
+    return mix(d,e,(t-0.82)/0.18);
+  }
+
+  // A studio strip light: one long soft source plus a hard kicker. This is what
+  // makes a surface readable — a point light flattens exactly the crown you are
+  // trying to see.
+  float studio(vec3 n, vec3 v){
+    vec3 r = reflect(-v, n);
+    float strip = exp(-40.0 * r.y * r.y) * smoothstep(-0.9, 0.2, r.z);
+    float wide  = exp(-3.0 * r.y * r.y);
+    return 0.9 * strip + 0.18 * wide;
+  }
+
+  void main(){
+    vec3 n = normalize(vN);
+    vec3 v = normalize(uEye - vW);
+    if (dot(n, v) < 0.0) n = -n;
+    float diff = max(0.0, dot(n, normalize(uLight)));
+    float spec = studio(n, v);
+    float shade = 0.10 + 0.52 * diff + spec;
+    // The data lenses carry their meaning in hue. A specular highlight on top of
+    // that is a second signal fighting the first, so they get form-shading only.
+    float form  = 0.34 + 0.66 * diff;
+
+    vec3 col;
+    if (uMode == 0) {                       // shaded
+      col = vec3(0.72,0.72,0.735) * shade;
+    } else if (uMode == 1) {                // isophotes
+      float a = degrees(acos(clamp(dot(n, normalize(uLight)), -1.0, 1.0)));
+      float band = a / 11.25;               // sixteen bands over 180
+      float w = fwidth(band);
+      float line = smoothstep(0.0, 1.4 * w, abs(fract(band) - 0.5) - (0.5 - 1.6 * w))
+                 * smoothstep(2e-5, 4e-4, w);   // a flat face has no isophote
+      vec3 ground = vec3(0.055,0.058,0.070) + vec3(0.34,0.34,0.35) * shade;
+      col = mix(ground, vec3(0.976,0.855,0.596), clamp(line, 0.0, 1.0));
+    } else if (uMode == 2) {                // how fast the normal turns
+      col = heat(fHigh) * (0.55 + 0.45 * form);
+    } else if (uMode == 3) {                // curvature
+      col = heat(fCurv) * (0.55 + 0.45 * form);
+    } else if (uMode == 4) {                // draft against the light direction
+      float d = degrees(asin(clamp(dot(n, normalize(uLight)), -1.0, 1.0)));
+      vec3 c;
+      if (d >= 0.0) c = vec3(0.180,0.329,0.376);
+      else if (d > -45.0) c = mix(vec3(0.180,0.329,0.376), vec3(1.0,0.28,0.18), -d/45.0);
+      else c = vec3(1.0,0.28,0.18);
+      col = c * (0.52 + 0.48 * form);
+    } else if (uMode == 5) {                // Φ — what the tangent field moved
+      col = heat(fPhi) * (0.55 + 0.45 * form);
+    } else {                                // panels
+      int pi = int(fPanel * 255.0 + 0.5);
+      vec3 c = vec3(0.560,0.575,0.600);            // 0 — the big stamping, pewter
+      if (pi == 1) c = vec3(0.180,0.604,0.651);    // teal
+      else if (pi == 2) c = vec3(0.922,0.647,0.235); // amber
+      else if (pi == 3) c = vec3(0.404,0.533,0.706); // dusty blue
+      else if (pi == 4) c = vec3(0.761,0.478,0.396); // clay
+      else if (pi == 5) c = vec3(0.529,0.635,0.494); // sage
+      else if (pi > 5)  c = vec3(0.66,0.60,0.72);    // anything past the table
+      col = c * (0.42 + 0.62 * form);
+    }
+    outColor = vec4(pow(col, vec3(0.85)), 1.0);
+  }`;
+
+  const SEAM_VS = `#version 300 es
+  in vec3 aPos; in vec3 aCol; uniform mat4 uMVP; uniform vec2 uOff; out vec3 vC;
+  void main(){
+    vC = aCol;
+    vec4 p = uMVP * vec4(aPos,1.0);
+    p.z -= 0.00018 * p.w;          // toward the camera: a seam lies ON its surface
+    p.xy += uOff * p.w;           // screen-space nudge, for drawing a line thick
+    gl_Position = p;
+  }`;
+  const SEAM_FS = `#version 300 es
+  precision highp float; in vec3 vC; out vec4 outColor;
+  void main(){ outColor = vec4(vC, 1.0); }`;
+
+  function compile(src, type) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  function program(vs, fs) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(vs, gl.VERTEX_SHADER));
+    gl.attachShader(p, compile(fs, gl.FRAGMENT_SHADER));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  const prog = program(VS, FS);
+  const seamProg = program(SEAM_VS, SEAM_FS);
+
+  function buffer(data, target) {
+    const b = gl.createBuffer();
+    gl.bindBuffer(target || gl.ARRAY_BUFFER, b);
+    gl.bufferData(target || gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    return b;
+  }
+  const bPos = buffer(positions), bNor = buffer(normals);
+  const bCurv = buffer(fCurv), bHigh = buffer(fHigh);
+  const bPhi = buffer(dPhi), bPsi = buffer(dPsi), bPanel = buffer(vertPanel);
+  const bIdx = buffer(indices, gl.ELEMENT_ARRAY_BUFFER);
+
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const attr = (name, buf, size, type, norm) => {
+    const loc = gl.getAttribLocation(prog, name);
+    if (loc < 0) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, size, type, norm, 0, 0);
+  };
+  attr("aPos", bPos, 3, gl.FLOAT, false);
+  attr("aNor", bNor, 3, gl.FLOAT, false);
+  attr("aCurv", bCurv, 1, gl.UNSIGNED_BYTE, true);
+  attr("aHigh", bHigh, 1, gl.UNSIGNED_BYTE, true);
+  attr("aPhi", bPhi, 1, gl.UNSIGNED_BYTE, true);
+  attr("aPsi", bPsi, 1, gl.UNSIGNED_BYTE, true);
+  attr("aPanel", bPanel, 1, gl.UNSIGNED_BYTE, true);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bIdx);
+  gl.bindVertexArray(null);
+
+  // ── seams as line strips, coloured by what they are or how they break ──
+  const KIND_COL = { shutline: [0.478,0.831,1.0], feature: [0.922,0.647,0.235], smooth: [0.18,0.60,0.60] };
+  function seamColours(byDefect) {
+    const col = new Float32Array(seamPos.length);
+    for (const m of P.seams.meta) {
+      let c = KIND_COL[m.kind] || KIND_COL.smooth;
+      if (byDefect) {
+        const d = m.worstBare;
+        const t = Math.min(1, Math.log10(1 + d) / Math.log10(1 + 90));
+        c = [Math.min(1, 0.11 + 1.4 * t), Math.max(0.15, 0.44 - 0.2 * t), Math.max(0.10, 0.48 - 0.42 * t)];
+      }
+      for (let i = m.start; i < m.start + m.count; i++) {
+        col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+      }
+    }
+    return col;
+  }
+  const bSeamPos = buffer(seamPos);
+  let bSeamCol = buffer(seamColours(false));
+  const seamVao = gl.createVertexArray();
+  function bindSeamVao() {
+    gl.bindVertexArray(seamVao);
+    const lp = gl.getAttribLocation(seamProg, "aPos");
+    gl.bindBuffer(gl.ARRAY_BUFFER, bSeamPos);
+    gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp, 3, gl.FLOAT, false, 0, 0);
+    const lc = gl.getAttribLocation(seamProg, "aCol");
+    gl.bindBuffer(gl.ARRAY_BUFFER, bSeamCol);
+    gl.enableVertexAttribArray(lc); gl.vertexAttribPointer(lc, 3, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+  }
+  bindSeamVao();
+
+  // ── camera ─────────────────────────────────────────────────────────────
+  const cam = { yaw: -0.62, pitch: 0.34, dist: radius * 3.55, pan: [0, 0] };
+  const HOME = JSON.parse(JSON.stringify(cam));
+  function mat() {
+    const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    const dir = [cp * sy, cp * cy, sp];
+    const eye = [
+      centre[0] + dir[0] * cam.dist, centre[1] + dir[1] * cam.dist, centre[2] + dir[2] * cam.dist,
+    ];
+    const up = [0, 0, 1];
+    let f = [centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]); f = f.map((v) => v / fl);
+    let s = [f[1] * up[2] - f[2] * up[1], f[2] * up[0] - f[0] * up[2], f[0] * up[1] - f[1] * up[0]];
+    const sl = Math.hypot(s[0], s[1], s[2]); s = s.map((v) => v / sl);
+    const u = [s[1] * f[2] - s[2] * f[1], s[2] * f[0] - s[0] * f[2], s[0] * f[1] - s[1] * f[0]];
+    eye[0] += s[0] * cam.pan[0] + u[0] * cam.pan[1];
+    eye[1] += s[1] * cam.pan[0] + u[1] * cam.pan[1];
+    eye[2] += s[2] * cam.pan[0] + u[2] * cam.pan[1];
+    const t = [centre[0] + s[0]*cam.pan[0] + u[0]*cam.pan[1],
+               centre[1] + s[1]*cam.pan[0] + u[1]*cam.pan[1],
+               centre[2] + s[2]*cam.pan[0] + u[2]*cam.pan[1]];
+    let ff = [t[0]-eye[0], t[1]-eye[1], t[2]-eye[2]];
+    const ffl = Math.hypot(ff[0],ff[1],ff[2]); ff = ff.map(v=>v/ffl);
+    const view = [
+      s[0], u[0], -ff[0], 0, s[1], u[1], -ff[1], 0, s[2], u[2], -ff[2], 0,
+      -(s[0]*eye[0]+s[1]*eye[1]+s[2]*eye[2]),
+      -(u[0]*eye[0]+u[1]*eye[1]+u[2]*eye[2]),
+      (ff[0]*eye[0]+ff[1]*eye[1]+ff[2]*eye[2]), 1,
+    ];
+    const aspect = canvas.width / Math.max(1, canvas.height);
+    const fov = 0.62, near = radius * 0.05, far = radius * 20;
+    const tf = 1 / Math.tan(fov / 2);
+    const rEl = document.getElementById("readings");
+    const over = getComputedStyle(rEl).position === "absolute";
+    const reserve = over ? (rEl.offsetWidth + 28) * (canvas.width / canvas.clientWidth) : 0;
+    const sx = reserve / canvas.width;
+    const proj = [tf/aspect,0,0,0, 0,tf,0,0, sx,0,(far+near)/(near-far),-1, 0,0,(2*far*near)/(near-far),0];
+    const out = new Float32Array(16);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+      let v = 0; for (let k = 0; k < 4; k++) v += proj[k * 4 + j] * view[i * 4 + k];
+      out[i * 4 + j] = v;
+    }
+    return { mvp: out, eye };
+  }
+
+  // ── lenses ─────────────────────────────────────────────────────────────
+  const LENSES = [
+    { id: 0, name: "shaded", blurb: "A studio strip light. What a surfacer looks at first: a highlight that travels evenly is a panel that reads." },
+    { id: 1, name: "isophotes", blurb: "Lines of constant angle to the light. They read continuity one order higher than the surface — unbroken across a seam is G1, no corner is G2." },
+    { id: 2, name: "highlight run", blurb: "How fast the normal turns. Where it crowds, a highlight slows and the eye stops. A feature line is this on purpose." },
+    { id: 3, name: "curvature", blurb: "Mean curvature over the analytic surface. Flat regions have nowhere for a reflection to go." },
+    { id: 4, name: "draft", blurb: "Angle to the pull, which is the light direction here — turn it and watch the undercut move. Local draft only: a face can be drafted and still trapped behind another." },
+    { id: 5, name: "what moved", blurb: "How far the tangent field moved the body from the bare Coons blend. The correction is not a touch-up: it reshapes by centimetres." },
+    { id: 6, name: "panels", blurb: "A panel is a connected component of the cell graph with the shutlines cut. This body is one stamping and four wheels. The four shutlines are the door cut \u2014 one tape line per side, a cut rather than an outline, so the graph never separates." },
+  ];
+  let mode = 0;
+  const railEl = document.getElementById("lenses");
+  const blurbEl = document.getElementById("blurb");
+  LENSES.forEach((L, i) => {
+    const b = document.createElement("button");
+    b.className = "lens"; b.type = "button";
+    b.innerHTML = '<span class="key">' + (i + 1) + '</span><span>' + L.name + '</span>';
+    b.setAttribute("aria-pressed", String(i === 0));
+    b.addEventListener("click", () => setMode(L.id));
+    railEl.appendChild(b);
+  });
+  const legend = document.getElementById("legend");
+  const legendBar = document.getElementById("legendBar");
+  function ramp(t) {
+    const stops = [[0,[28,111,122]],[0.35,[60,170,150]],[0.62,[235,165,45]],[0.82,[255,80,40]],[1,[255,250,245]]];
+    let a = stops[0], b = stops[stops.length - 1];
+    for (let i = 1; i < stops.length; i++) if (t <= stops[i][0]) { a = stops[i-1]; b = stops[i]; break; }
+    const f = b[0] === a[0] ? 0 : (t - a[0]) / (b[0] - a[0]);
+    return "rgb(" + a[1].map((v, i) => Math.round(v + (b[1][i] - v) * f)).join(",") + ")";
+  }
+  legendBar.style.background = "linear-gradient(90deg," +
+    Array.from({ length: 12 }, (_, i) => ramp(i / 11)).join(",") + ")";
+
+  function setMode(m) {
+    mode = m;
+    [...railEl.children].forEach((b, i) => b.setAttribute("aria-pressed", String(LENSES[i].id === m)));
+    const L = LENSES.find((x) => x.id === m);
+    blurbEl.textContent = L.blurb;
+    const scales = {
+      2: ["how fast the normal turns", "still", "turning hard"],
+      3: ["mean curvature", "flat", "tight"],
+      5: ["moved from the bare blend", "0 mm", Math.round(phiMax) + " mm"],
+    };
+    if (scales[m]) {
+      legend.hidden = false;
+      document.getElementById("legendCap").textContent = scales[m][0];
+      document.getElementById("legendLo").textContent = scales[m][1];
+      document.getElementById("legendHi").textContent = scales[m][2];
+    } else legend.hidden = true;
+    draw();
+  }
+
+  // ── input ──────────────────────────────────────────────────────────────
+  let drag = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (drag.pan) {
+      cam.pan[0] -= dx * cam.dist * 0.0014;
+      cam.pan[1] += dy * cam.dist * 0.0014;
+    } else {
+      cam.yaw -= dx * 0.006;
+      cam.pitch = Math.max(-1.45, Math.min(1.45, cam.pitch + dy * 0.006));
+    }
+    draw();
+  });
+  const stop = (e) => { drag = null; };
+  canvas.addEventListener("pointerup", stop);
+  canvas.addEventListener("pointercancel", stop);
+  canvas.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    cam.dist = Math.max(radius * 0.9, Math.min(radius * 9, cam.dist * Math.exp(e.deltaY * 0.0012)));
+    draw();
+  }, { passive: false });
+
+  const az = document.getElementById("az"), el = document.getElementById("el");
+  function light() {
+    const a = (+az.value) * Math.PI / 180, e = (+el.value) * Math.PI / 180;
+    document.getElementById("lightAz").textContent = az.value + "°";
+    document.getElementById("lightEl").textContent = el.value + "°";
+    return [Math.cos(e) * Math.sin(a), Math.cos(e) * Math.cos(a), Math.sin(e)];
+  }
+  az.addEventListener("input", draw); el.addEventListener("input", draw);
+
+  const seamsOn = document.getElementById("seamsOn");
+  const seamsBare = document.getElementById("seamsBare");
+  seamsOn.addEventListener("change", draw);
+  seamsBare.addEventListener("change", () => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, bSeamCol);
+    gl.bufferData(gl.ARRAY_BUFFER, seamColours(seamsBare.checked), gl.STATIC_DRAW);
+    draw();
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    Object.assign(cam, JSON.parse(JSON.stringify(HOME))); draw();
+  });
+  const spin = document.getElementById("spin");
+  let spinning = 0;
+  spin.addEventListener("change", () => {
+    if (spin.checked) { spinning = requestAnimationFrame(tick); }
+    else { cancelAnimationFrame(spinning); spinning = 0; }
+  });
+  function tick() { cam.yaw += 0.0035; draw(); spinning = requestAnimationFrame(tick); }
+
+  addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT") return;
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= LENSES.length) setMode(LENSES[n - 1].id);
+    if (e.key === "r" || e.key === "R") document.getElementById("reset").click();
+    if (e.key === "s" || e.key === "S") { seamsOn.checked = !seamsOn.checked; draw(); }
+  });
+
+  // ── draw ───────────────────────────────────────────────────────────────
+  function resize() {
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  }
+  function draw() {
+    resize();
+    const { mvp, eye } = mat();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0.031, 0.031, 0.039, 1);
+    gl.enable(gl.DEPTH_TEST);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.useProgram(prog);
+    gl.uniformMatrix4fv(gl.getUniformLocation(prog, "uMVP"), false, mvp);
+    gl.uniformMatrix3fv(gl.getUniformLocation(prog, "uNormal"), false,
+      new Float32Array([1,0,0, 0,1,0, 0,0,1]));
+    gl.uniform1i(gl.getUniformLocation(prog, "uMode"), mode);
+    gl.uniform3fv(gl.getUniformLocation(prog, "uLight"), new Float32Array(light()));
+    gl.uniform3fv(gl.getUniformLocation(prog, "uEye"), new Float32Array(eye));
+    gl.bindVertexArray(vao);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+
+    if (seamsOn.checked) {
+      gl.useProgram(seamProg);
+      gl.uniformMatrix4fv(gl.getUniformLocation(seamProg, "uMVP"), false, mvp);
+      gl.bindVertexArray(seamVao);
+      const uOff = gl.getUniformLocation(seamProg, "uOff");
+      const px = [2 / gl.canvas.width, 2 / gl.canvas.height];
+      const strips = (want) => {
+        for (const m of P.seams.meta) {
+          if ((m.kind === "shutline") !== want) continue;
+          gl.drawArrays(gl.LINE_STRIP, m.start, m.count);
+        }
+      };
+      gl.uniform2f(uOff, 0, 0);
+      strips(false);
+      // A shutline is a gap in the metal, not a line on it. Drawn last and with
+      // weight, so it never loses to a feature line lying along the same seam.
+      for (const [dx, dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]) {
+        gl.uniform2f(uOff, dx * px[0], dy * px[1]);
+        strips(true);
+      }
+      gl.uniform2f(uOff, 0, 0);
+      gl.bindVertexArray(null);
+    }
+  }
+
+  // ── readings ───────────────────────────────────────────────────────────
+  const rows = (el, list) => {
+    document.getElementById(el).innerHTML = list.map((r) =>
+      '<div class="r"><dt>' + r[0] + '</dt><dd class="' + (r[2] || "") + '">' + r[1] +
+      (r[3] ? '<em>' + r[3] + '</em>' : "") + '</dd></div>'
+    ).join("");
+  };
+  const deg = (v) => v < 1e-3 ? v.toExponential(1) + "°" : v.toFixed(3) + "°";
+  rows("dlG1", [
+    ["smooth joins", R.g1Joins + " / " + R.joins, R.g1Joins === R.joins ? "good" : "warn"],
+    ["median break", deg(R.g1Median), "good"],
+    ["worst break", deg(R.g1Worst), R.g1Worst < 0.016 ? "good" : "warn"],
+    ["before the field", R.g1BareJoins + " / " + R.joins, "", "worst " + R.g1BareWorst.toFixed(1) + "°"],
+    ["corners coplanar", R.cleanCorners + " / " + R.corners, R.cleanCorners === R.corners ? "good" : "warn"],
+  ]);
+  rows("dlG2", [
+    ["within 1% along a join", R.g2Joins + " / " + R.joins],
+    ["median relative gap", (R.g2MedianRel * 100).toFixed(4) + "%", "good"],
+    ["p90 relative gap", (R.g2P90Rel * 100).toFixed(3) + "%", R.g2P90Rel < 0.005 ? "good" : "warn"],
+    ["at a corner", "G1 holds", "warn", "G2 never can"],
+  ]);
+  rows("dlBody", [
+    ["panels", String(R.panelCount)],
+    ["seams", String(R.shutlineSeams + R.creasedSeams + R.smoothSeams), "",
+      R.shutlineSeams + " shut · " + R.creasedSeams + " feature · " + R.smoothSeams + " smooth"],
+    ["field moved it", R.phiMedian.toFixed(1) + " mm", "",
+      "median · " + R.phiWorst.toFixed(0) + " mm worst"],
+    ["curvature added", R.psiMedian.toFixed(2) + " mm", "",
+      "median · " + R.psiWorst.toFixed(0) + " mm worst"],
+    ["needs print support", (R.supportFraction * 100).toFixed(0) + "%", "warn", "of the area"],
+    ["triangles", P.triangleCount.toLocaleString("en-GB")],
+  ]);
+  document.getElementById("footnote").textContent =
+    "Every reading is taken corner to corner: the probe adds stations at each decade " +
+    "down to a hundred-millionth of an edge, because the band next to a corner is the " +
+    "only place a break can survive. The arches are cut in the print mesh, not here.";
+
+  const fromHash = () => {
+    const n = parseInt((location.hash.match(/^#(\d)$/) || [])[1], 10);
+    return Number.isFinite(n) && n >= 1 && n <= LENSES.length ? n - 1 : 0;
+  };
+  setMode(fromHash());
+  addEventListener("hashchange", () => setMode(fromHash()));
+  document.getElementById("loading").remove();
+  addEventListener("resize", draw);
+  draw();
+})();
+</script>
