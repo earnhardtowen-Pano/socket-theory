@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeSessionPort } from "../src/sessionPort";
-import { pushPullDelta, TapeBoxTool } from "../src/tools";
+import { gapAt, pushPullDelta, TapeBoxTool } from "../src/tools";
 import { gridCandidate, snapResolve } from "../src/snap";
 
 describe("session port (the real model behind the seam)", () => {
@@ -22,6 +22,27 @@ describe("session port (the real model behind the seam)", () => {
     port.propose("crease", { curveId: "curve#9999" });
     expect(port.lastError()).toBeTruthy();
     expect(port.session.log.length).toBe(before + 1); // nothing recorded
+  });
+
+  it("a designer can reach the gap mark, not only the crease", () => {
+    // A verb nobody can call is not shipped. The gap mark existed in the frame
+    // and in the verb set before it existed in the instrument, which meant the
+    // only way to set one was to edit a build script.
+    const port = makeSessionPort(false);
+    port.propose("tape", { kind: "box", rect: { view: { kind: "side" }, a: [0, 0], b: [100, 80], depth: 60, at: -30 } });
+    const curveId = [...port.session.state.curves.keys()][0]!;
+
+    expect(gapAt(null).proposal).toBeUndefined();
+    expect(gapAt({ kind: "cell", id: "cell#0" } as never).proposal).toBeUndefined();
+    const hit = gapAt({ kind: "curve", id: curveId } as never);
+    expect(hit.proposal).toEqual({ verb: "gap", args: { curveId } });
+
+    port.propose(hit.proposal!.verb, hit.proposal!.args);
+    expect(port.lastError()).toBeNull();
+    expect(port.gapIds().has(curveId)).toBe(true);
+    // ...and it is a different mark from a crease, all the way to the viewport.
+    expect(port.creaseIds().has(curveId)).toBe(false);
+    expect(port.describe(curveId)).toContain("gap curve");
   });
 
   it("describe never throws, selection or not", () => {

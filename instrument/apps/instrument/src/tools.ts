@@ -11,7 +11,8 @@ import type { PickHit } from "./pick";
 import type { PushPullTarget } from "./port";
 import { inPlaneAxes, viewNormal } from "./view";
 
-export type ToolName = "select" | "tape-box" | "tape-line" | "push-pull" | "pinch" | "crease";
+export type ToolName =
+  | "select" | "tape-box" | "tape-line" | "push-pull" | "pinch" | "crease" | "gap";
 
 export interface Ghost {
   readonly kind: "rect" | "line";
@@ -206,7 +207,7 @@ export class PinchTool {
 }
 
 // ---------------------------------------------------------------------------
-// select / crease: click resolution over picks.
+// select / crease / gap: click resolution over picks.
 // ---------------------------------------------------------------------------
 
 export function selectAt(hit: PickHit | null): ToolResult {
@@ -216,4 +217,18 @@ export function selectAt(hit: PickHit | null): ToolResult {
 export function creaseAt(hit: PickHit | null): ToolResult {
   if (!hit || hit.kind !== "curve") return { status: "crease: pick a curve" };
   return { proposal: { verb: "crease", args: { curveId: hit.id } }, selection: hit.id };
+}
+
+/**
+ * Mark a curve as a panel gap — a shutline.
+ *
+ * The mark next to crease, not a variant of it. A crease is a tangent break in
+ * one continuous panel; a gap is where the panel stops and another starts.
+ * They coincide often — a door cut is usually both — and the statute keeps
+ * them apart because they do different work: a crease breaks flow, a gap does
+ * not (amendment A2), and only a gap gets engraved as a shutline.
+ */
+export function gapAt(hit: PickHit | null): ToolResult {
+  if (!hit || hit.kind !== "curve") return { status: "gap: pick a curve" };
+  return { proposal: { verb: "gap", args: { curveId: hit.id } }, selection: hit.id };
 }

@@ -15,7 +15,7 @@ import { pickAt } from "./pick";
 import { gridCandidate, snapResolve, type SnapCandidate } from "./snap";
 import { gridPitchFor, orthoViewOf, screenToView, worldToView, type CamState, type OrthoName, type ViewName } from "./view";
 import {
-  creaseAt, selectAt, PinchTool, PushPullTool, TapeBoxTool, TapeLineTool,
+  creaseAt, gapAt, selectAt, PinchTool, PushPullTool, TapeBoxTool, TapeLineTool,
   type DepthSetting, type ToolName, type ToolResult,
 } from "./tools";
 
@@ -74,7 +74,7 @@ const ledgerLine = document.getElementById("ledgerline")!;
 const pitchEl = document.getElementById("pitch")!;
 
 const VIEWS: ViewName[] = ["side", "plan", "front", "section", "inspect"];
-const TOOLS: ToolName[] = ["select", "tape-box", "tape-line", "push-pull", "pinch", "crease"];
+const TOOLS: ToolName[] = ["select", "tape-box", "tape-line", "push-pull", "pinch", "crease", "gap"];
 
 const startView = new URLSearchParams(location.search).get("view") as ViewName | null;
 let currentView: ViewName = startView && (VIEWS as string[]).includes(startView) ? startView : "side";
@@ -144,7 +144,7 @@ function targetsCrossed(a: Pt2, b: Pt2): Id[] {
 // --- rendering ---------------------------------------------------------------
 function paint(): void {
   viewport.resize(size());
-  viewport.setFeed(port.feed(), port.creaseIds());
+  viewport.setFeed(port.feed(), port.creaseIds(), port.gapIds());
   if (currentView === "inspect") viewport.renderInspect(size());
   else {
     const cam = cams[currentView as OrthoName];
@@ -315,6 +315,7 @@ canvas.addEventListener("pointerup", (e) => {
   }
   else if (tool === "select") applyResult(selectAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
   else if (tool === "crease") applyResult(creaseAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
+  else if (tool === "gap") applyResult(gapAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
 });
 
 canvas.addEventListener("wheel", (e) => {

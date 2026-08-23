@@ -17,6 +17,9 @@ const SURFACE = 0xd8d8d2;
 const EDGE = 0x55555c;
 const LINE = 0xc9c9c2;
 const ACCENT = 0xff5533;
+/** A gap curve. Cool against the crease's hot, because they are different
+ *  marks and a body reads wrong if you cannot tell them apart at a glance. */
+const GAPLINE = 0x4db8c8;
 const GRID_MAJOR = 0x232328;
 const GRID_MINOR = 0x17171b;
 
@@ -100,8 +103,13 @@ export class Viewport {
     })));
   }
 
-  /** Rebuild scene content from the feed. Creased ranges draw in accent. */
-  setFeed(feed: RenderFeed, creases: ReadonlySet<Id>): void {
+  /**
+   * Rebuild scene content from the feed. Creased ranges draw in accent, gap
+   * ranges in the cool line — and a curve carrying BOTH draws as a gap, since
+   * a shutline that also happens to be a character line is still somewhere you
+   * can see through.
+   */
+  setFeed(feed: RenderFeed, creases: ReadonlySet<Id>, gaps: ReadonlySet<Id> = new Set()): void {
     for (const child of [...this.feedGroup.children]) {
       this.feedGroup.remove(child);
       (child as THREE.Mesh).geometry?.dispose?.();
@@ -136,9 +144,10 @@ export class Viewport {
 
     const plain: number[] = [];
     const accent: number[] = [];
+    const gapped: number[] = [];
     const pos = feed.lines.positions;
     for (const r of feed.lines.ranges) {
-      const bucket = creases.has(r.id) ? accent : plain;
+      const bucket = gaps.has(r.id) ? gapped : creases.has(r.id) ? accent : plain;
       for (let i = r.start; i < r.start + r.count; i++) bucket.push(pos[i]!);
     }
     const addLines = (data: number[], color: number): void => {
@@ -149,6 +158,7 @@ export class Viewport {
     };
     addLines(plain, LINE);
     addLines(accent, ACCENT);
+    addLines(gapped, GAPLINE);
   }
 
   setGhost(ghost: Ghost | null, view: OrthoView, at: number): void {

@@ -29,6 +29,7 @@ export interface SessionPort extends ModelPort {
   readonly session: Session;
   saveDocument(): CarDocument;
   creaseIds(): ReadonlySet<Id>;
+  gapIds(): ReadonlySet<Id>;
   /** Last rejected proposal, for the ledger strip. Cleared by the next accept. */
   lastError(): string | null;
   /**
@@ -136,6 +137,11 @@ export function makeSessionPort(seedChassis = true, fromDoc?: CarDocument): Sess
     creaseIds(): ReadonlySet<Id> {
       const out = new Set<Id>();
       for (const [cid, c] of session.state.curves) if (c.crease) out.add(cid);
+      return out;
+    },
+    gapIds(): ReadonlySet<Id> {
+      const out = new Set<Id>();
+      for (const [cid, c] of session.state.curves) if (c.gap) out.add(cid);
       return out;
     },
     lastError(): string | null {
