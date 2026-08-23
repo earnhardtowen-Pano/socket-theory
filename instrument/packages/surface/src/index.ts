@@ -121,6 +121,7 @@ export {
 } from "./curvature-join.js";
 export {
   continuityProbe,
+  joinStations,
   networkObstruction,
   type ContinuityOptions,
   type ContinuityReport,

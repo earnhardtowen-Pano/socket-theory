@@ -140,6 +140,80 @@ bisector form, and **4.4e-7 /mm** in the spline form the body actually ships
 
 ---
 
+## Zero break — and the probe that could not see one
+
+Owen: *"I need the manifolds to have zero break in them. Continuity is the
+whole game."* Where that landed:
+
+```
+                          before            after
+G1, corner to corner      22/62 joins       62/62 joins under 1°
+                          median 2.1°       median 1.6e-15°
+                          worst 51.5°       worst 7.9e-4°
+unmarked breaks           38                0
+curve network             92/128 coplanar   124/124, worst 2.9e-3°
+overall length            4475 mm           4400 mm (as authored)
+G2 along a join           17/62 within 1%   59/62 · median rel 0.0015% · p90 0.106%
+```
+
+Four things had to be true at once, and only one of them was surfacing.
+
+**The probe was blind by construction.** It sampled nine evenly spaced
+stations per join, the first at a tenth of an edge. The correction fades out
+inside a band next to each corner, and that band is the ONLY place a G1 defect
+can survive — so the probe was looking everywhere except where the answer was.
+It read 2.3e-14° on a body whose real worst was **eight degrees**, one twentieth
+of an edge from a corner. The stations now add a decade at a time down to a
+hundred-millionth of an edge. A probe that cannot see a defect is worse than no
+probe, because it gets quoted.
+
+The distribution and the extremes come from different station sets, on purpose:
+two dozen stations crammed into the last thousandth of an edge make a median a
+statement about corners rather than about the join. Median and p90 read the
+evenly spaced stations; worst reads all of them.
+
+**Thirty-eight breaks were the wheels.** Every one of the "sharper than 48°,
+unmarked" joins was a tyre shoulder — a flank meeting the tread at exactly 90°,
+authored that way by the `wheel` verb and never marked. The field was correctly
+refusing them on the break-angle law; the document simply did not say why. They
+are creased now, which moves nothing and admits everything.
+
+**The nose and the tail are panels, and panels have edges.** All eight boundary
+curves of the two end cells break by 43–90°. Six were over the law and showed
+up as unmarked breaks. The other two are the tail panel's sides into the
+quarters, and they were worse: 44° in the middle and 63° at both ends, so a
+median reads 44° and they slipped under the 48° law by four degrees — and then
+the field, believing them smooth, bent the tail panel **133 mm out of its own
+plane** trying to make a 63° corner tangent-continuous. That was the +75 mm on
+the overall length. Marking them put the car back at 4400 mm.
+
+**The fade band is the defect, so it is sized per corner.** It used to be one
+width for every corner of every side. But a side's two corners are different
+corners — one may be a vertex the network turns cleanly and the other one it
+cannot — and inside the band the correction is only partly applied, so the band
+IS the break. Each end is now scaled by how far its own corner is from closing,
+against the same 48° that decides whether a join is a feature at all, with a
+floor of a ten-thousandth. On a faired network that is twelve microns of a
+metre-long edge, and the worst break on the body is **7.9e-4°** — twenty times
+inside the tightest Class-A G1 tolerance, measured at a station a hundred
+million times narrower.
+
+`fair-corners` had shipped as capability in Stage A and nobody had driven it.
+The P1 build runs it now: 92/128 corners → 124/124, converged in two passes and
+unchanged by five more.
+
+### What is still not G2, and why it never will be here
+
+At a corner the curvature correction is **required** to vanish — Ψ has to, or
+it leaks onto the neighbouring side, exactly as Φ does. So every corner on every
+body is G1 and not G2, whatever the network does, and the worst cross-curvature
+gap on the P1 (1.4e-2 /mm) is at a vertex rather than on a join. Closing it
+would need the curve network to be curvature-continuous at the vertex, which is
+a strictly stronger condition than the coplanarity `fair-corners` delivers, and
+there is no verb for it.
+
+---
+
 ## What the correction costs in shape
 
 Every number above is about agreement at a seam. **None of them says where the

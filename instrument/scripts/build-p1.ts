@@ -486,6 +486,12 @@ const wheel = (cx: number, radius: number, halfWidth: number, yIn: number): void
   // The four cross-car curves were dragged at both ends by those fits; each
   // is a straight line across the wheel and should say so.
   for (const id of made) if (acrossCar(id)) straighten(id);
+  // The eight arcs are where a flank meets the tread, and a tyre's shoulder is
+  // a hard edge — 90° by construction, not by accident. They were the whole of
+  // the P1's "38 joins sharper than 48°, unmarked": the field was skipping them
+  // on the break-angle law and the document never said why. Marking them makes
+  // the document say it, and leaves the body with no unmarked break anywhere.
+  for (const id of made) if (!acrossCar(id)) s.apply("crease", { curveId: id });
 };
 // Track and tire width come from the solve and the chassis fixture, not from
 // the eye. The first pass typed 660 and 118 in by hand: 32 mm inboard of
@@ -499,6 +505,51 @@ if (process.env['NOWHEELS'] !== '1') {
   wheel(FRONT_AXLE_X, FRONT_R, FRONT_HALF, FRONT_CENTRE - FRONT_HALF);
   wheel(REAR_AXLE_X, REAR_R, REAR_HALF, REAR_CENTRE - REAR_HALF);
 }
+
+// --- the nose and tail are panels, and panels have edges -------------------
+// The two ends of the original block are flat cross-car panels at x = 0 and
+// x = 4400. All eight of their boundary curves break by 43–90°, which is a hard
+// edge on any car — a bumper split, a tailgate aperture — and not one of them
+// said so.
+//
+// Six were over the 48° break-angle law, so the field was already refusing
+// them and they showed up in the build line as "sharper than 48°, unmarked": a
+// break the tool could see and the document could not. The other two are the
+// tail panel's sides into the quarters, and they are worse. They break 44° in
+// the middle and 63° at both ends, so a median reads 44° and they slip under
+// the law by four degrees — and then the field, believing them smooth, bends
+// the tail panel 133 mm out of its own plane trying to make a 63° corner
+// tangent-continuous. That is the +75 mm the overall-dimension line reports.
+//
+// Marking them moves no geometry. It changes what the document admits.
+const flatEnds = [...s.state.cells.values()].filter((c) => {
+  let lo = Infinity, hi = -Infinity;
+  for (const sd of c.sides) {
+    const cu = s.state.curves.get(s.state.resolveCurve(sd.curveId));
+    if (!cu) return false;
+    for (let i = 0; i <= 4; i++) {
+      const x = evalChain(cu.chain, i / 4)[0];
+      if (x < lo) lo = x;
+      if (x > hi) hi = x;
+    }
+  }
+  return hi - lo < 1;   // every boundary point in one cross-car plane
+});
+for (const c of flatEnds) for (const sd of c.sides) s.apply("crease", { curveId: sd.curveId });
+
+// --- fair the corners ------------------------------------------------------
+// A patch has no freedom at a corner: its tangent plane there is spanned by the
+// two curves meeting at the vertex, so two patches across a shared curve agree
+// at that corner only if the NETWORK turns it cleanly. Where it does not, no
+// surfacing pass can close the join and the correction has to fade out — which
+// is a break, however narrow the band it hides in.
+//
+// `fair-corners` rotates the two adjacent end tangents the minimum amount that
+// brings the two tangent planes into ONE plane. Minimal on purpose: the
+// junctions break by 15.6° median as authored and straightening them would
+// restyle the car, while coplanarity needs 1.58° and is invisible. Two passes,
+// then the residual is reported rather than iterated at silently.
+s.apply("fair-corners", { maxBreakDeg: DEFAULT_CREASE_ANGLE });
 
 // --- panels and material ---------------------------------------------------
 const topCellIds = [...s.state.cells.keys()].filter((id) => {
@@ -672,19 +723,33 @@ console.log(line("triangles", String(mesh.indices.length / 3)));
 // tell an authored crease from a defect; this asks the surfaces directly.
 const before = continuityProbe(quilt);
 const cont = continuityProbe(quilt, { cross });
+// The probe crowds both corners of every join down to a millionth of an edge,
+// because the fade band is the only place a G1 defect can survive and nine
+// evenly spaced stations never look inside it. Reported in exponential form:
+// "0.00°" is what a defect of eight degrees looked like before the stations
+// were fixed.
 console.log(line("G1 continuity", `${cont.g1Joins}/${cont.joins} joins under 1° · ` +
-  `median ${cont.medianDeg.toFixed(2)}° · worst ${cont.worstDeg.toFixed(2)}°`));
+  `median ${cont.medianDeg.toExponential(1)}° · worst ${cont.worstDeg.toExponential(1)}° ` +
+  `(corner to corner)`));
 console.log(line("  was, unfielded", `${before.g1Joins}/${before.joins} · ` +
-  `median ${before.medianDeg.toFixed(2)}° · worst ${before.worstDeg.toFixed(2)}°`));
+  `median ${before.medianDeg.toExponential(1)}° · worst ${before.worstDeg.toFixed(1)}°`));
 console.log(line("  joins excluded", `${cont.creased} creased (authored) + ${cont.sharp} sharper than ${cont.breakAngleDeg}° (unmarked)`));
 // G2. Under G1 the only free coefficient of the second fundamental form on a
 // join is the curvature ACROSS it; this is that one number, matched.
 const g2 = curvatureJoinProbe(quilt, { cross });
 const g2before = curvatureJoinProbe(quilt);
-console.log(line("G2 curvature", `${g2.g2Joins}/${g2.joins} joins within 1% · ` +
-  `median gap ${g2.medianGap.toExponential(1)} /mm · worst ${g2.worstGap.toExponential(1)} /mm`));
+console.log(line("G2 curvature", `${g2.g2Joins}/${g2.joins} joins within 1% along their length · ` +
+  `median rel ${(g2.medianRelative * 100).toFixed(4)}% · p90 ${(g2.p90Relative * 100).toFixed(3)}% · ` +
+  `median gap ${g2.medianGap.toExponential(1)} /mm`));
 console.log(line("  was, unfielded", `${g2before.g2Joins}/${g2before.joins} · ` +
-  `median gap ${g2before.medianGap.toExponential(1)} /mm · worst ${g2before.worstGap.toExponential(1)} /mm`));
+  `median rel ${(g2before.medianRelative * 100).toFixed(2)}% · median gap ${g2before.medianGap.toExponential(1)} /mm`));
+// Every corner on every body is G1 and not G2, and that is structural rather
+// than a miss: Δ² has to vanish at a corner or it leaks onto the neighbouring
+// side, exactly as Δ does. Closing it would need the curve network to be
+// curvature-continuous at the vertex, which is a stronger condition than the
+// coplanarity `fair-corners` delivers and has no verb yet.
+console.log(line("  at the corners", `G1 holds; G2 does not — worst gap ${g2.worstGap.toExponential(1)} /mm ` +
+  `at a vertex, where the curvature correction is required to vanish`));
 // How far the surfacing moved the body. Every number above is about agreement
 // at a seam; none of them says where the surface went, and a correction can
 // drive every join to machine zero while moving a panel by a hand's width.

@@ -42,6 +42,7 @@ import { boundaryCoonsEdgeJet, inwardOf, normalCurvatureAt } from "./coons.js";
 import {
   edgeDefectProfile, medianOf, quiltAdjacency, sideParamOf, uvOnSide,
 } from "./adjacency.js";
+import { joinStations } from "./continuity.js";
 import { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 
 export interface CurvatureStation {
@@ -67,12 +68,15 @@ export interface CurvatureJoinReport {
   /** Absolute cross-curvature gap, 1/mm. */
   readonly medianGap: number;
   readonly p90Gap: number;
+  /** Worst anywhere on a join INCLUDING its corners, where the curvature
+   *  correction is required to vanish and the mismatch is the raw one. */
   readonly worstGap: number;
   /** Relative gap — what a curvature comb shows — as a fraction. */
   readonly medianRelative: number;
   readonly p90Relative: number;
   readonly worstRelative: number;
-  /** Joins whose worst relative gap is under `g2Tolerance`. */
+  /** Joins whose worst relative gap ALONG THEIR LENGTH is under
+   *  `g2Tolerance`. Corners are excluded — see the note where it is counted. */
   readonly g2Joins: number;
   readonly worst: CurvatureStation | null;
   /**
@@ -108,6 +112,8 @@ export function curvatureJoinProbe(
   const tol = opts.g2Tolerance ?? DEFAULT_G2_TOL;
   const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
   const adj = quiltAdjacency(quilt);
+  const { uniform, all: stations } = joinStations(n);
+  const spread = new Set(uniform);
 
   const cellsById = new Map<Id, (typeof quilt.cells)[number]>();
   for (const c of quilt.cells) cellsById.set(c.id, c);
@@ -144,6 +150,7 @@ export function curvatureJoinProbe(
   let worst: CurvatureStation | null = null;
   let joins = 0, creased = 0, sharp = 0, g2Joins = 0;
   let tangentAgreement = 0;
+  let worstGapAny = 0, worstRelAny = 0;
 
   for (const edge of adj.edges) {
     if (edge.creased) { creased++; continue; }
@@ -155,8 +162,8 @@ export function curvatureJoinProbe(
     const sB = bB.sides[edge.b.k]!;
     joins++;
     let worstRel = 0;
-    for (let m = 1; m <= n; m++) {
-      const t = edge.lo + ((edge.hi - edge.lo) * m) / (n + 1);
+    for (const f of stations) {
+      const t = edge.lo + (edge.hi - edge.lo) * f;
       const tHat = norm3(sA.deriv(sideParamOf(sA, t)));
       if (tHat[0] === 0 && tHat[1] === 0 && tHat[2] === 0) continue;
       const A = read(edge.a.cellId, edge.a.k, sideParamOf(sA, t), tHat);
@@ -166,9 +173,20 @@ export function curvatureJoinProbe(
       const gap = nabs(A.curv - B.curv);
       const scale = Math.max(nabs(A.curv), nabs(B.curv));
       const rel = scale > 0 ? gap / scale : 0;
-      gaps.push(gap);
-      rels.push(rel);
-      if (rel > worstRel) worstRel = rel;
+      // Distribution from the evenly spaced stations, extremes from all of
+      // them — see the note on `joinStations`. A median taken over two dozen
+      // stations crammed into the last thousandth of an edge describes the
+      // corner, not the join.
+      if (spread.has(f)) { gaps.push(gap); rels.push(rel); }
+      // `worstRel` decides whether this JOIN counts as G2, and it is read over
+      // the join's length. The corner stations are excluded from it on purpose
+      // and reported separately: at a corner the curvature correction must
+      // vanish — Ψ has to, or it leaks onto the neighbouring side — so every
+      // corner on every body is G1 and not G2, whatever the network does. A
+      // count that folds that in says only "this body has corners".
+      if (spread.has(f) && rel > worstRel) worstRel = rel;
+      if (gap > worstGapAny) worstGapAny = gap;
+      if (rel > worstRelAny) worstRelAny = rel;
       if (worst === null || gap > worst.gap) {
         worst = {
           curveId: edge.curveId, cellA: edge.a.cellId, cellB: edge.b.cellId,
@@ -189,9 +207,9 @@ export function curvatureJoinProbe(
     joins, creased, sharp,
     samples: gaps.length,
     medianGap: pct(gaps, 0.5), p90Gap: pct(gaps, 0.9),
-    worstGap: gaps.length === 0 ? 0 : Math.max(...gaps),
+    worstGap: worstGapAny,
     medianRelative: pct(rels, 0.5), p90Relative: pct(rels, 0.9),
-    worstRelative: rels.length === 0 ? 0 : Math.max(...rels),
+    worstRelative: worstRelAny,
     g2Joins, worst, tangentAgreement,
     note:
       "Cross-join normal curvature II(ê,ê), 1/mm, compared between the two " +

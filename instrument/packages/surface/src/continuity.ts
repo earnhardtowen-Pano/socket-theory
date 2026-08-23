@@ -29,7 +29,7 @@
  */
 
 import type { Id, Pt3, QuiltSpec } from "@car/schema";
-import { add3, cross3, dot3, len3, natan2, norm3, scale3, sub3 } from "@car/num";
+import { add3, cross3, dot3, len3, natan2, norm3, npow, scale3, sub3 } from "@car/num";
 import { cellBoundary, type CellBoundary, type CrossPrescription } from "./boundary.js";
 import { boundaryCoonsNormal, boundaryCoonsPartials } from "./coons.js";
 import { edgeDefectProfile, medianOf, quiltAdjacency, sideParamOf, uvOnSide } from "./adjacency.js";
@@ -90,6 +90,53 @@ export interface ContinuityOptions {
 }
 
 const DEFAULT_SAMPLES = 9;
+
+/**
+ * Station fractions along a join: evenly spaced, PLUS a logarithmic crowd into
+ * both corners.
+ *
+ * WHY THE CROWD, AND WHY IT IS NOT OPTIONAL. The correction fades out inside a
+ * band of the edge next to each corner — that is where the vertex enclosure
+ * problem is absorbed, and it is therefore the only place a G1 defect can
+ * survive. Nine evenly spaced stations start at a tenth of the edge and never
+ * look inside a fade band narrower than that, so the probe was structurally
+ * incapable of seeing the thing it exists to find. On the P1 it read 2.3e-14°
+ * while the real worst was 8°, one twentieth of an edge from a corner.
+ *
+ * A probe that cannot see a defect is worse than no probe, because it gets
+ * quoted. So the stations run down to a millionth of an edge at both ends, and
+ * the number that comes out is the worst anywhere on the join.
+ */
+export function joinStations(n: number): { uniform: number[]; all: number[] } {
+  const uniform: number[] = [];
+  for (let m = 1; m <= n; m++) uniform.push(m / (n + 1));
+  const out = new Set<number>(uniform);
+  // Decades into each corner. Eight reaches a hundred-millionth of an edge —
+  // ten microns on a metre — which is two decades inside the narrowest band
+  // the field will build, so the peak of a fade is measured and not assumed.
+  for (let k = 1; k <= 8; k++) {
+    for (const mult of [1, 3]) {
+      const f = mult * npow(10, -k);
+      if (f > 0 && f < 0.5) { out.add(f); out.add(1 - f); }
+    }
+  }
+  return { uniform, all: [...out].sort((a, b) => a - b) };
+}
+
+/**
+ * WHICH STATIONS FEED WHICH NUMBER, and why they are not the same set.
+ *
+ * The corner crowd is two dozen stations packed into the last thousandth of an
+ * edge. Feeding it to a median makes the median a statement about corners
+ * rather than about the join — on a two-cell fixture it moved from 1e-15° to
+ * 25°, which describes the sampling and not the surface. So the distribution
+ * (median, p90) is read from the EVENLY SPACED stations, which are
+ * representative of arc length, and the extremes (worst, and whether a join
+ * counts as G1) are read from ALL of them, which is where a defect can hide.
+ *
+ * Neither half is optional. Uniform stations alone cannot see a fade band
+ * narrower than a tenth of an edge; corner stations alone describe a corner.
+ */
 const DEFAULT_G1_TOL_DEG = 1;
 
 /**
@@ -117,6 +164,8 @@ export function continuityProbe(
   opts: ContinuityOptions = {},
 ): ContinuityReport {
   const n = opts.samplesPerJoin ?? DEFAULT_SAMPLES;
+  const { uniform, all: stations } = joinStations(n);
+  const spread = new Set(uniform);
   const tol = opts.g1ToleranceDeg ?? DEFAULT_G1_TOL_DEG;
   const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
 
@@ -163,8 +212,8 @@ export function continuityProbe(
 
     joins++;
     let worstHere = 0;
-    for (let m = 1; m <= n; m++) {
-      const t = edge.lo + ((edge.hi - edge.lo) * m) / (n + 1);   // interior only
+    for (const f of stations) {
+      const t = edge.lo + (edge.hi - edge.lo) * f;               // interior only
       const [ua, va] = uvOnSide(edge.a.k, sideParamOf(sA, t));
       const [ub, vb] = uvOnSide(edge.b.k, sideParamOf(sB, t));
       const nA = boundaryCoonsNormal(bA, ua, va);
@@ -174,7 +223,7 @@ export function continuityProbe(
       // — the same rule the curvature lens landed on.
       if (isZero(nA) || isZero(nB)) continue;
       const deg = angleBetween(nA, nB);
-      angles.push(deg);
+      if (spread.has(f)) angles.push(deg);
       if (deg > worstHere) worstHere = deg;
       if (worst === null || deg > worst.angleDeg) {
         worst = {
@@ -195,7 +244,10 @@ export function continuityProbe(
   return {
     joins, creased, sharp, breakAngleDeg: breakAngle, disjoint,
     samples: angles.length,
-    worstDeg: sorted.length === 0 ? 0 : sorted[sorted.length - 1]!,
+    // From EVERY station, not just the evenly spaced ones: the worst is the
+    // number the corner crowd exists to find, and `angles` deliberately holds
+    // only the spread. `worst` below is the same reading with its location.
+    worstDeg: worst === null ? 0 : worst.angleDeg,
     medianDeg: at(0.5),
     p90Deg: at(0.9),
     worst,
@@ -350,7 +402,10 @@ export function networkObstruction(
     corners: angles.length,
     medianDeg: at(0.5),
     p90Deg: at(0.9),
-    worstDeg: sorted.length === 0 ? 0 : sorted[sorted.length - 1]!,
+    // From EVERY station, not just the evenly spaced ones: the worst is the
+    // number the corner crowd exists to find, and `angles` deliberately holds
+    // only the spread. `worst` below is the same reading with its location.
+    worstDeg: worst === null ? 0 : worst.angleDeg,
     cleanCorners: clean,
     toleranceDeg: tol,
     worst,

@@ -140,14 +140,14 @@
 import type { Id, Pt3, QuiltSpec } from "@car/schema";
 import {
   bsplineAt, bsplineAt3, bsplineDerivAt, bsplineDerivAt3,
-  chainDeriv, chainDeriv2, clamp, cross3, dot3, len3, norm3, scale3, sub3,
+  chainDeriv, chainDeriv2, clamp, cross3, dot3, len3, natan2, norm3, scale3, sub3,
 } from "@car/num";
 import {
   cellBoundary, type BoundarySide, type CellBoundary, type CrossPrescription,
 } from "./boundary.js";
 import {
-  boundaryCoonsEdgeJet, boundaryCoonsMixedNatural, boundaryCoonsPartials,
-  inwardOf, normalCurvatureAt,
+  boundaryCoonsEdgeJet, boundaryCoonsMixedNatural, boundaryCoonsNormal,
+  boundaryCoonsPartials, inwardOf, normalCurvatureAt,
 } from "./coons.js";
 import {
   edgeDefectProfile,
@@ -166,10 +166,23 @@ import {
 
 export interface CrossFieldOptions {
   /**
-   * Half-width of the corner fade, in the side's own loop parameter. The
-   * correction is at full strength on [fade, 1-fade].
+   * WIDEST the corner fade may be, in the side's own loop parameter. Each end
+   * of each side gets its own width, scaled by how far that corner actually is
+   * from closing — see `cornerFadeFloor`.
    */
   readonly cornerFade?: number;
+  /**
+   * Narrowest the fade may be, as a fraction of `cornerFade`.
+   *
+   * A corner the network turns cleanly needs no band at all — there is nothing
+   * to fade — but the band cannot be zero, because Δ and its first two
+   * derivatives have to vanish at the corner and only the window makes them.
+   * So there is a floor, and the residual G1 defect a body carries is
+   * proportional to it: on the P1 about 66° × the width, which at the default
+   * is under a hundredth of a degree, an order inside the tightest Class-A G1
+   * tolerance and four hundred times better than one width for every corner.
+   */
+  readonly cornerFadeFloor?: number;
   /**
    * Below this, the two patches' transverse directions are treated as having
    * no plane to share (they point the same way — a fold).
@@ -207,6 +220,10 @@ export interface CrossFieldOptions {
 }
 
 const DEFAULT_CORNER_FADE = 0.12;
+const DEFAULT_CORNER_FADE_FLOOR = 1e-4;
+/** How close to a corner the obstruction is read. Not 0: a corner can be
+ *  degenerate, and a degenerate corner has no normal to compare. */
+const CORNER_EPS = 1e-5;
 /** Central-difference step for Δraw′ — bisector form only; the polynomial
  *  form differentiates its own coefficients. */
 const FD_STEP = 1e-4;
@@ -349,23 +366,33 @@ const smootherstepPrime = (x: number): number => {
   return 30 * t * t * (t - 1) * (t - 1);
 };
 
-/** The corner window. 0 (with zero slope) at s=0 and s=1, 1 across the middle. */
-export function cornerWindow(s: number, fade: number): number {
-  if (fade <= 0) return s <= 0 || s >= 1 ? 0 : 1;
+/**
+ * The corner window. 0 (with zero slope) at s=0 and s=1, 1 across the middle.
+ *
+ * THE TWO ENDS ARE SIZED SEPARATELY, and that is the point. A side's two
+ * corners are different corners: one may be a vertex the curve network turns
+ * cleanly and the other a vertex it cannot. Giving both the same band makes the
+ * clean one carry a defect it does not have — the band IS the defect, since
+ * inside it the correction is only partly applied — and on the P1 that was
+ * eight degrees of break sitting a twentieth of an edge from a corner that was
+ * coplanar to a thousandth of a degree.
+ */
+export function cornerWindow(s: number, fade: number, fadeEnd = fade): number {
   if (s <= 0 || s >= 1) return 0;
   const a = Math.min(fade, 0.5);
-  if (s < a) return smootherstep(s / a);
-  if (s > 1 - a) return smootherstep((1 - s) / a);
+  const b = Math.min(fadeEnd, 0.5);
+  if (a > 0 && s < a) return smootherstep(s / a);
+  if (b > 0 && s > 1 - b) return smootherstep((1 - s) / b);
   return 1;
 }
 
 /** dρ/ds, analytic — so the C¹ vanishing at the corners is exact, not FD noise. */
-export function cornerWindowDeriv(s: number, fade: number): number {
-  if (fade <= 0) return 0;
+export function cornerWindowDeriv(s: number, fade: number, fadeEnd = fade): number {
   if (s <= 0 || s >= 1) return 0;
   const a = Math.min(fade, 0.5);
-  if (s < a) return smootherstepPrime(s / a) / a;
-  if (s > 1 - a) return -smootherstepPrime((1 - s) / a) / a;
+  const b = Math.min(fadeEnd, 0.5);
+  if (a > 0 && s < a) return smootherstepPrime(s / a) / a;
+  if (b > 0 && s > 1 - b) return -smootherstepPrime((1 - s) / b) / b;
   return 0;
 }
 
@@ -479,6 +506,7 @@ export function fieldFromAdjacency(
   const fade = opts.cornerFade ?? DEFAULT_CORNER_FADE;
   const minSep = opts.minSeparation ?? DEFAULT_MIN_SEPARATION;
   const minTrans = opts.minTransverse ?? DEFAULT_MIN_TRANSVERSE;
+  const fadeFloor = opts.cornerFadeFloor ?? DEFAULT_CORNER_FADE_FLOOR;
 
   const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
   const classifySamples = opts.classifySamples ?? DEFAULT_CLASSIFY_SAMPLES;
@@ -694,8 +722,57 @@ export function fieldFromAdjacency(
   const rawDefect = (cellId: Id, k: number, s: number): Pt3 =>
     memo("r", cellId, k, s, () => rawDefectUncached(cellId, k, s));
 
+  /**
+   * The tangent-plane defect at one end of a side, in degrees, read on the
+   * UNCORRECTED patches — which is not an approximation, because every
+   * correction vanishes at the corners by construction.
+   */
+  const cornerDefectDeg = (cellId: Id, k: number, end: 0 | 1): number => {
+    const s = end === 0 ? CORNER_EPS : 1 - CORNER_EPS;
+    const at = locate(cellId, k, s);
+    if (!at) return breakAngle;
+    const bB = adj.boundaries.get(at.claim.otherCell);
+    if (!bB) return breakAngle;
+    const sB = sideParamOf(bB.sides[at.claim.otherK]!, at.t);
+    if (sB < 0 || sB > 1) return breakAngle;
+    const [ua, va] = uvOnSide(k, s);
+    const [ub, vb] = uvOnSide(at.claim.otherK, sB);
+    const nA = boundaryCoonsNormal(at.b, ua, va);
+    const nB = boundaryCoonsNormal(bB, ub, vb);
+    // A degenerate corner has no normal and nothing to say; fade it fully
+    // rather than guess.
+    if (isZeroPt(nA) || isZeroPt(nB)) return breakAngle;
+    return (natan2(len3(cross3(nA, nB)), dot3(nA, nB)) * 180) / Math.PI;
+  };
+
+  /**
+   * The two fade widths of one side, in its own loop parameter.
+   *
+   * Scaled by how far each corner is from closing, against the same break
+   * angle that decides whether a join is a feature at all. A corner at the
+   * break angle gets the full band; a corner the fairing has closed gets the
+   * floor. The two are clamped so they cannot meet in the middle and leave the
+   * side with no full-strength stretch.
+   */
+  const fadeCache = new Map<string, readonly [number, number]>();
+  const fadesOf = (cellId: Id, k: number): readonly [number, number] => {
+    const key = `${cellId}#${k}`;
+    const hit = fadeCache.get(key);
+    if (hit) return hit;
+    const width = (d: number): number =>
+      fade * Math.min(1, Math.max(fadeFloor, d / breakAngle));
+    let lo = width(cornerDefectDeg(cellId, k, 0));
+    let hi = width(cornerDefectDeg(cellId, k, 1));
+    const total = lo + hi;
+    if (total > 0.9) { lo = (lo / total) * 0.9; hi = (hi / total) * 0.9; }
+    const out = [lo, hi] as const;
+    fadeCache.set(key, out);
+    return out;
+  };
+
   const defect = (cellId: Id, k: number, s: number): Pt3 => {
-    const w = cornerWindow(s, fade);
+    const [lo, hi] = fadesOf(cellId, k);
+    const w = cornerWindow(s, lo, hi);
     if (w === 0) return ZERO;
     return scale3(rawDefect(cellId, k, s), w);
   };
@@ -749,8 +826,9 @@ export function fieldFromAdjacency(
 
   const defectDerivUncached = (cellId: Id, k: number, s: number): Pt3 => {
     if (s <= 0 || s >= 1) return ZERO;
-    const w = cornerWindow(s, fade);
-    const wp = cornerWindowDeriv(s, fade);
+    const [lo, hi] = fadesOf(cellId, k);
+    const w = cornerWindow(s, lo, hi);
+    const wp = cornerWindowDeriv(s, lo, hi);
     if (w === 0 && wp === 0) return ZERO;
     const raw = rawDefect(cellId, k, s);
     const out: [number, number, number] = [raw[0] * wp, raw[1] * wp, raw[2] * wp];
@@ -873,7 +951,8 @@ export function fieldFromAdjacency(
           const sm = f.samples[si]!;
           const t = f.edge.lo + sm.tau * (f.edge.hi - f.edge.lo);
           const sOwn = sideParamOf(side, t);
-          if (cornerWindow(sOwn, fade) === 0) continue;
+          const [wLo, wHi] = fadesOf(cellId, k);
+          if (cornerWindow(sOwn, wLo, wHi) === 0) continue;
           const parts = exactSecondParts(cellId, k, sOwn);
           if (!parts) continue;
           const normal = sharedNormal(
@@ -917,7 +996,8 @@ export function fieldFromAdjacency(
     memo("s", cellId, k, s, () => rawSecondUncached(cellId, k, s));
 
   const secondDefect = (cellId: Id, k: number, s: number): Pt3 => {
-    const w = cornerWindow(s, fade);
+    const [lo, hi] = fadesOf(cellId, k);
+    const w = cornerWindow(s, lo, hi);
     if (w === 0) return ZERO;
     return scale3(rawSecond(cellId, k, s), w);
   };

@@ -8,7 +8,7 @@ looking like a model and starts looking like a fact.
 
 THE RUN
 ------------------------------------------------------------
-  verbs in history               206
+  verbs in history               231
   cells / curves                 68 / 86
   quilt cells with mirror        80
   triangles printed              27612

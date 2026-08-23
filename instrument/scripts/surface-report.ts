@@ -74,24 +74,26 @@ rule("2. JOINS — do the patches meet?");
 console.log(`  ${adj.edges.length} shared edges · ${after.joins} smooth · ` +
   `${after.creased} creased (authored) · ${after.sharp} sharper than ${after.breakAngleDeg}° (unmarked)`);
 console.log("");
-console.log("  " + pad("", 12) + rp("G1 joins", 12) + rp("median", 10) + rp("worst", 10) +
+console.log("  " + pad("", 12) + rp("G1 joins", 12) + rp("median", 11) + rp("worst", 11) +
   rp("κ gap median", 15) + rp("κ gap worst", 14));
 const jrow = (label: string, c: typeof before, g: typeof g2before): void => {
   console.log("  " + pad(label, 12) + rp(`${c.g1Joins}/${c.joins}`, 12) +
-    rp(`${c.medianDeg.toFixed(2)}°`, 10) + rp(`${c.worstDeg.toFixed(2)}°`, 10) +
+    rp(`${c.medianDeg.toExponential(1)}°`, 11) + rp(`${c.worstDeg.toExponential(1)}°`, 11) +
     rp(`${g.medianGap.toExponential(1)}/mm`, 15) + rp(`${g.worstGap.toExponential(1)}/mm`, 14));
 };
 jrow("bare blend", before, g2before);
 jrow("with field", after, g2after);
 console.log(`  ${pad("", 12)}${rp(`${g2after.g2Joins}/${g2after.joins} joins within 1% relative`, 46)}` +
   `  · median ${(g2after.medianRelative * 100).toFixed(3)}% · p90 ${(g2after.p90Relative * 100).toFixed(2)}%`);
-console.log(`\n  The probe samples each join at tenths, so with a corner fade of ` +
-  `${(0.12 * 100).toFixed(0)}% of an\n  edge, one station per end sits inside the band where the field ` +
-  `deliberately\n  does not act. The median is the figure for the body of a join; the p90 is\n` +
-  `  the figure for its ends.`);
+console.log(`\n  Every reading above is taken corner to corner: the probe adds stations at\n` +
+  `  each decade down to a hundred-millionth of an edge, because the fade band\n` +
+  `  next to a corner is the only place a G1 defect can survive and nine evenly\n` +
+  `  spaced stations never look inside it. The median is read from the evenly\n` +
+  `  spaced stations, which are representative of arc length; the worst is read\n` +
+  `  from all of them, which is where a defect can hide.`);
 if (after.worst) {
   console.log(`\n  worst join   ${after.worst.cellA} | ${after.worst.cellB} on ${after.worst.curveId} ` +
-    `— ${after.worst.angleDeg.toFixed(2)}° at [${after.worst.at.map((v) => Math.round(v)).join(", ")}]`);
+    `— ${after.worst.angleDeg.toExponential(1)}° at [${after.worst.at.map((v) => Math.round(v)).join(", ")}]`);
 }
 
 // ── 2b. what the correction costs in shape ────────────────────────
