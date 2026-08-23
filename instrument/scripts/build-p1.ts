@@ -525,11 +525,25 @@ const NOZZLE_MM = 0.4;
 // Dense enough that consecutive samples sit closer than the groove is wide,
 // or the groove comes out scalloped and that is a sampling artefact.
 const GROOVE_SAMPLES = 400;
-// Shutlines engrave as grooves (charge §10). The scale is the print's, not
-// the car's: a 4 mm door gap at 1:24 is 0.17 mm and simply does not exist
-// coming off a 0.4 mm nozzle, so the groove is sized from the printer and
-// back-scaled. Topology is untouched, so the closed check below is still
-// checking the thing that gets printed.
+// Grooves engrave the CREASE set, and that is not the same thing as the
+// shutlines this comment used to claim. Amendment A2 is explicit that a
+// deliberate crease and a panel gap are different marks with different flow
+// consequences, and clause 24 has panels on either side of a gap referencing
+// the same authored GAP curve. `FrameState.markGap` is there for it. What is
+// not there is a verb to reach it — `VerbName` is the closed ratified set and
+// has `crease` but no `gap` — so no curve in any document can be a gap today,
+// and the groove pass falls back to creases. The consequence on this car is
+// visible in the hand: it engraves a groove down the beltline and the sill,
+// which are character lines and not places a door opens.
+//
+// Not fixed here. Adding a verb amends the statute, and that is the owner's.
+// The proposal is written out in SURFACING.md under "Put to the owner"; until
+// then the code says what it does instead of what it wishes it did.
+//
+// The scale is the print's, not the car's: a 4 mm door gap at 1:24 is 0.17 mm
+// and simply does not exist coming off a 0.4 mm nozzle, so the groove is sized
+// from the printer and back-scaled. Topology is untouched, so the closed check
+// below is still checking the thing that gets printed.
 const shutlines: Pt3[] = [];
 for (const id of quilt.creases) {
   const chain = quilt.curves.get(id);
@@ -673,7 +687,8 @@ const net = networkObstruction(quilt);
 console.log(line("curve network", `${net.cleanCorners}/${net.corners} corners coplanar to ${net.toleranceDeg}° · ` +
   `median ${net.medianDeg.toFixed(3)}° · worst ${net.worstDeg.toFixed(1)}°` +
   (net.worst ? ` at [${net.worst.at.map((v) => Math.round(v)).join(", ")}]` : "")));
-console.log(line("shutline grooves", `${grooved.moved} vertices sunk — ${grooved.note}`));
+console.log(line("engraved grooves", `${grooved.moved} vertices sunk on ${quilt.creases.size} CREASE curves ` +
+  `(${quilt.gaps.size} gap curves — no verb can author one; see SURFACING.md) — ${grooved.note}`));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
 console.log(line("shading", `${DEFAULT_CREASE_ANGLE}° smoothing groups · ${shaded.split} vertices split on hard edges`));
 console.log(line("replay round-trip", String(same)));

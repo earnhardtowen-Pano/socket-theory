@@ -271,6 +271,17 @@ SolveResult contract added to @car/schema) are frozen and pushed.
   needed the mesher to publish which patch parameter each interior vertex came
   from, which nothing could ask for before. An unaskable question is a missing
   test in disguise.
+- **The statute knew, and the wiring did not.** Clause 21's candor — "shared
+  boundaries buy position, not tangency" — was the correct description of the
+  code for as long as it stood, and it anticipated the fix as "a legal future
+  extension of the cell's data". The extension needed no cell data: the field
+  is a function of the quilt, so the frozen seam never moved. Meanwhile the
+  reverse fault was sitting next to it. Amendment A2 and clause 24 both turn
+  on a panel GAP being a different mark from a crease, `FrameState.markGap`
+  exists to set it, and the ratified verb set has no way to call it — so no
+  car can have a gap curve and the groove pass engraves creases while calling
+  them shutlines. Reading the statute for what it requires, rather than for
+  what it forbids, is what found that.
 - **Grooves are scaled from the printer, not the car** — retrieved practice
   (every model-maker knows it), constructed here. A 4 mm door gap at 1:24 is
   0.17 mm and does not exist off a 0.4 mm nozzle. Sizing from the nozzle and

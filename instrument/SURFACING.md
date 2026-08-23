@@ -219,6 +219,48 @@ every interior vertex, which nothing could ask for before.
   curve type is still a uniform chain of cubics; there is still no way to
   author a hole.
 
+## Put to the owner — one proposed amendment
+
+**A10 (extends the verb set — the gap mark).** The statute already
+distinguishes a panel gap from a deliberate crease and depends on the
+distinction: clause 24 has panels either side of a gap referencing *the same
+authored gap curve*, and amendment A2 rules that shutlines do **not** break
+flow unless coincident with a character line, the gap curve being interior to
+its parent flow solve. `FrameState.markGap` exists and `QuiltSpec` carries a
+`gaps` set for exactly this.
+
+What does not exist is a way to reach it. `VerbName` is the closed ratified
+set; it has `crease` and no `gap`. So **no curve in any document can be a gap
+today**, `quilt.gaps` is empty on every car, and the groove pass — which the
+charge scopes as shutline engraving — falls back to the crease set.
+
+The consequence is visible in the hand. The P1 engraves a 0.80 mm groove down
+its beltline and its sill, which are character lines, not places a door opens.
+Its actual door cut is engraved too, correctly, but only because it happens to
+be creased as well.
+
+The proposal is one verb, exactly parallel to `crease`:
+
+```
+| "gap"   // mark a curve as a panel gap — a shutline, not a tangent break
+```
+
+with `state.markGap(curveId)`, and two consequences downstream: grooves
+engrave `quilt.gaps` rather than `quilt.creases`, and the tangent field keeps
+correcting across a gap (A2 says a shutline does not break flow) while
+continuing to leave creases alone. Adding a verb amends a ratified closed set,
+so it is not taken here.
+
+A second thing worth the owner's eye, not an amendment: **clause 21's candor
+on Coons has been partly overtaken.** It reads "shared boundaries buy
+position, not tangency", and anticipates interior control as "a legal future
+extension of the cell's data, not a new patch program". Shared boundaries now
+buy tangency and curvature — and the extension turned out to need no cell data
+at all, because the field is derived from the quilt rather than stored in it.
+What clause 21 says about *fullness* still stands unchanged: this gives the
+continuity solver interior control, not the designer. Nobody can yet author
+how full a panel is between its boundaries.
+
 ## What is not claimed
 
 Parity with Alias. This is one stage of a road whose fourth stage is thirty
