@@ -50,7 +50,13 @@ export interface Engine {
    * previously meshed finer keeps its finer triangulation.
    */
   meshShape(handle: Handle, linearDeflection: number): MeshData;
-  /** STEP AP203 text via STEPControl_Writer. Starts with "ISO-10303-21". */
+  /**
+   * STEP text via STEPControl_Writer (this build's default schema:
+   * AUTOMOTIVE_DESIGN / AP214, OCCT 7.4 processor). Starts with
+   * "ISO-10303-21". Byte-deterministic: the FILE_NAME time_stamp (wall
+   * clock) is pinned to the epoch and the PRODUCT name's per-session
+   * transfer counter is stripped — the only two regions OCCT varies.
+   */
   stepExport(handle: Handle): string;
 }
 
