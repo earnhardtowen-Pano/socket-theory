@@ -5,8 +5,10 @@
  * verbs, repaint on change.
  */
 
-import type { Id, OrthoView, Pt2 } from "@car/schema";
-import { makeSessionPort } from "./sessionPort";
+import type { CarDocument, Id, OrthoView, Pt2 } from "@car/schema";
+import { computeQuilt } from "@car/frame";
+import { closedMeshCheck, meshQuilt, writeStlBinary } from "@car/mesh";
+import { makeSessionPort, openSessionPort, type SessionPort } from "./sessionPort";
 import { Viewport } from "./viewport";
 import { pickAt } from "./pick";
 import { gridCandidate, snapResolve, type SnapCandidate } from "./snap";
@@ -16,13 +18,36 @@ import {
   type DepthSetting, type ToolName, type ToolResult,
 } from "./tools";
 
-const port = makeSessionPort(true);
+const STORE_KEY = "panoramic.car";
+const LOAD_FLAG = "panoramic.load";
+
+function bootPort(): SessionPort {
+  // Storage can be absent or throwing (private mode, sandboxed thumbnails):
+  // every touch is guarded, and a broken saved document falls back to fresh.
+  try {
+    if (localStorage.getItem(LOAD_FLAG) === "1") {
+      localStorage.removeItem(LOAD_FLAG);
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) return openSessionPort(JSON.parse(raw) as CarDocument);
+    }
+  } catch {
+    // fall through to a fresh site
+  }
+  return makeSessionPort(true);
+}
+
+const port = bootPort();
 const app = document.getElementById("app")!;
 app.innerHTML = `
   <header id="tabs">
     <span class="brand">PANORAMIC<span class="accent"> ●</span> FRAME INSTRUMENT</span>
     <nav id="viewtabs"></nav>
     <span id="modes">
+      <button id="undoBtn" class="toggle">UNDO</button>
+      <button id="saveBtn" class="toggle">SAVE</button>
+      <button id="openBtn" class="toggle">OPEN</button>
+      <button id="newBtn" class="toggle">NEW</button>
+      <button id="printBtn" class="toggle">PRINT</button>
       <button id="smooth" class="toggle">SMOOTH</button>
       <button id="zebraBtn" class="toggle">ZEBRA</button>
     </span>
@@ -296,6 +321,101 @@ canvas.addEventListener("wheel", (e) => {
   }
   repaintSoon();
 }, { passive: false });
+
+/**
+ * Offer a generated file to the viewer: the artifact host mediates it through
+ * the downloads capability (viewer confirms); local dev falls back to a plain
+ * blob download. Never silent, never guaranteed — outcomes land in the ledger.
+ */
+async function offerFile(filename: string, data: string | ArrayBuffer, okNote: string): Promise<void> {
+  const use = (window as { claude?: { use?: (n: string) => Promise<unknown> } }).claude?.use;
+  if (use) {
+    try {
+      const downloads = (await use("downloads")) as
+        | { save: (r: { filename: string; data: string | ArrayBuffer }) => Promise<unknown> }
+        | null;
+      if (downloads) {
+        await downloads.save({ filename, data });
+        ledger(okNote);
+        return;
+      }
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      ledger(code === "declined" ? "save declined" : `save failed — ${code ?? String(e)}`);
+      return;
+    }
+  }
+  try {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data as BlobPart]));
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    ledger(okNote);
+  } catch {
+    ledger("save — downloads unavailable in this context");
+  }
+}
+
+document.getElementById("undoBtn")!.addEventListener("click", () => {
+  ledger(port.undo()
+    ? `undone — ${port.session.log.length} verbs in history`
+    : "undo — at the floor: the site never opens on empty space");
+  refreshTree();
+  repaintSoon();
+});
+
+document.getElementById("saveBtn")!.addEventListener("click", () => {
+  const doc = port.saveDocument();
+  const json = JSON.stringify(doc);
+  let stored = false;
+  try {
+    localStorage.setItem(STORE_KEY, json);
+    stored = true;
+  } catch { /* storage unavailable here */ }
+  const note = stored
+    ? `saved — ${doc.verbs.length} verbs; OPEN restores it on this device`
+    : `saved as a file — ${doc.verbs.length} verbs (device storage unavailable here)`;
+  void offerFile(`${doc.title.replace(/\s+/g, "-")}.car.json`, json, note);
+});
+
+document.getElementById("openBtn")!.addEventListener("click", () => {
+  try {
+    if (!localStorage.getItem(STORE_KEY)) {
+      ledger("open — nothing saved on this device yet");
+      return;
+    }
+    localStorage.setItem(LOAD_FLAG, "1");
+    location.reload();
+  } catch {
+    ledger("open — storage unavailable in this context");
+  }
+});
+
+document.getElementById("newBtn")!.addEventListener("click", () => {
+  try { localStorage.removeItem(LOAD_FLAG); } catch { /* fine */ }
+  location.reload();
+});
+
+document.getElementById("printBtn")!.addEventListener("click", () => {
+  const quilt = computeQuilt(port.session.state);
+  const mesh = meshQuilt(quilt, {});
+  const report = closedMeshCheck(mesh);
+  const tris = mesh.indices.length / 3;
+  const verdict = `print — closed mesh ${String(report.closed).toUpperCase()} · ${tris} triangles · ${port.session.log.length} verbs of history`;
+  if (!report.closed) {
+    ledger(`${verdict} · ${report.violations.length} violations — not printable yet`);
+    return;
+  }
+  const stl = writeStlBinary(mesh, "panoramic-v1");
+  // The host's download allowlist has no .stl — ship the bytes as .stl.txt;
+  // rename after saving and every slicer reads it.
+  void offerFile(
+    "panoramic-v1.stl.txt",
+    stl.buffer.slice(0) as ArrayBuffer,
+    `${verdict} · STL saved as .stl.txt — rename to .stl for the slicer`,
+  );
+});
 
 document.getElementById("smooth")!.addEventListener("click", (e) => {
   viewport.smooth = !viewport.smooth;

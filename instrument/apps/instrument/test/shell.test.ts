@@ -31,6 +31,17 @@ describe("session port (the real model behind the seam)", () => {
     }
   });
 
+  it("undo replays history without the last verb, down to the seed floor", () => {
+    const port = makeSessionPort(true);
+    const seeded = port.tree().cells.length;
+    port.propose("tape", { kind: "box", rect: { view: { kind: "side" }, a: [0, 400], b: [600, 800], depth: 500, at: -250 } });
+    expect(port.tree().cells.length).toBe(seeded + 6);
+    expect(port.undo()).toBe(true);
+    expect(port.tree().cells.length).toBe(seeded);
+    expect(port.undo()).toBe(false); // the site never opens on empty space
+    expect(port.tree().cells.length).toBe(seeded);
+  });
+
   it("the saved document round-trips through the port", () => {
     const port = makeSessionPort(true);
     port.propose("tape", { kind: "box", rect: { view: { kind: "side" }, a: [0, 300], b: [500, 700], depth: 400, at: -200 } });

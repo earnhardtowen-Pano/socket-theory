@@ -31,12 +31,27 @@ export interface SessionPort extends ModelPort {
   creaseIds(): ReadonlySet<Id>;
   /** Last rejected proposal, for the ledger strip. Cleared by the next accept. */
   lastError(): string | null;
+  /**
+   * Undo the last verb by replaying history without it — the document IS the
+   * replayable source of truth, so undo is derivation, not bookkeeping.
+   * Returns false at the floor (the chassis seed stays; the site never opens
+   * on empty space).
+   */
+  undo(): boolean;
 }
 
-export function makeSessionPort(seedChassis = true): SessionPort {
-  const session = createSession("untitled car");
-  if (seedChassis) {
-    session.apply("apply-entry", { entry: chassisEntry() as never });
+export function makeSessionPort(seedChassis = true, fromDoc?: CarDocument): SessionPort {
+  let session: Session;
+  let undoFloor = 0;
+  if (fromDoc) {
+    session = load(fromDoc);
+    undoFloor = 1; // assume a seed-shaped first verb; never undo to empty
+  } else {
+    session = createSession("untitled car");
+    if (seedChassis) {
+      session.apply("apply-entry", { entry: chassisEntry() as never });
+      undoFloor = 1;
+    }
   }
 
   let cachedFeed: RenderFeed | null = null;
@@ -48,10 +63,24 @@ export function makeSessionPort(seedChassis = true): SessionPort {
   };
 
   return {
-    session,
+    get session(): Session {
+      return session;
+    },
     feed(): RenderFeed {
       cachedFeed ??= buildRenderFeed(session.state);
       return cachedFeed;
+    },
+    undo(): boolean {
+      const doc = session.save();
+      if (doc.verbs.length <= undoFloor) return false;
+      const fresh = createSession(doc.title);
+      for (const rec of doc.verbs.slice(0, -1)) {
+        fresh.apply(rec.verb, rec.args as never);
+      }
+      session = fresh;
+      error = null;
+      invalidate();
+      return true;
     },
     propose(verb: string, args: unknown): void {
       try {
@@ -128,12 +157,7 @@ export function makeSessionPort(seedChassis = true): SessionPort {
   };
 }
 
-/** Reopen a saved document behind the same port shape. */
+/** Reopen a saved document behind the same port shape (replay + integrity check). */
 export function openSessionPort(doc: CarDocument): SessionPort {
-  const session = load(doc);
-  const port = makeSessionPort(false);
-  // Rebind: simplest correct path is replaying into a fresh port-backed
-  // session; load() already validated counters. Splice the whole history.
-  port.session.apply("apply-entry", { entry: session.save() as never });
-  return port;
+  return makeSessionPort(false, doc);
 }
