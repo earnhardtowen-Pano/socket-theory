@@ -13,8 +13,8 @@
  *
  * Lines: every shared curve (mirrored curves included) and every datum,
  * sampled at fixed density into a GL_LINES pair soup; per-curve FeedRange
- * start/count in POINT units (positions offset / 3 — three.js setDrawRange
- * on LineSegments).
+ * start/count index POSITIONS in FLOAT units, per the frozen schema and every
+ * consumer (viewport, pick, snap).
  *
  * Snaps: empty for now — published by the demand/packaging lanes later.
  *
@@ -174,15 +174,19 @@ function buildLineFeed(entries: readonly LineEntry[]): LineFeed {
     if (!entry || m === undefined) continue;
     const pts: Pt3[] = [];
     for (let k = 0; k <= m; k++) pts.push(evalChain(entry.chain, k / m));
-    const start = pointCursor;
+    // FeedRange for lines indexes POSITIONS (floats), per the frozen schema —
+    // every consumer (viewport, pick, snap) reads it that way. Emitting point
+    // units here scrambled the line overlay: the first whole car drawn made it
+    // obvious, the boxes before it did not.
+    const start = pointCursor * 3;
     for (let k = 0; k < m; k++) {
       const a = pts[k]!, b = pts[k + 1]!;
       let at = pointCursor * 3;
       positions[at++] = a[0]; positions[at++] = a[1]; positions[at++] = a[2];
-      positions[at++] = b[0]; positions[at++] = b[1]; positions[at] = b[2];
+      positions[at++] = b[0]; positions[at++] = b[1]; positions[at++] = b[2];
       pointCursor += 2;
     }
-    ranges.push({ id: entry.id, start, count: 2 * m });
+    ranges.push({ id: entry.id, start, count: 2 * m * 3 });
   }
   return { positions, ranges };
 }

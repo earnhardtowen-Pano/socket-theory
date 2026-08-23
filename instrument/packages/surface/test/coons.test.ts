@@ -123,3 +123,22 @@ describe("Coons evaluation (the one surface evaluator)", () => {
     expect(f1.lines.ranges.length).toBeGreaterThanOrEqual(state.curves.size);
   });
 });
+
+describe("line feed ranges", () => {
+  it("index positions in FLOAT units, as the schema says and every consumer reads", () => {
+    const { state } = box();
+    const feed = buildRenderFeed(state);
+    for (const r of feed.lines.ranges) {
+      expect(r.start % 3).toBe(0);
+      expect(r.count % 3).toBe(0);
+      expect(r.start + r.count).toBeLessThanOrEqual(feed.lines.positions.length);
+      // every sampled point must land inside the box that produced it
+      for (let i = r.start; i < r.start + r.count; i += 3) {
+        expect(feed.lines.positions[i]!).toBeGreaterThanOrEqual(-1);
+        expect(feed.lines.positions[i]!).toBeLessThanOrEqual(401);
+        expect(feed.lines.positions[i + 2]!).toBeGreaterThanOrEqual(-1);
+        expect(feed.lines.positions[i + 2]!).toBeLessThanOrEqual(301);
+      }
+    }
+  });
+});

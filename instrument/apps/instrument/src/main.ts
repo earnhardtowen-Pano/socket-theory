@@ -23,6 +23,10 @@ const STORE_KEY = "panoramic.car";
 const LOAD_FLAG = "panoramic.load";
 
 function bootPort(): SessionPort {
+  // ?car=p1 opens the Panoramic P1 straight away — a shareable link to a car.
+  if (new URLSearchParams(location.search).get("car") === "p1") {
+    return openSessionPort(p1Doc as unknown as CarDocument);
+  }
   // Storage can be absent or throwing (private mode, sandboxed thumbnails):
   // every touch is guarded, and a broken saved document falls back to fresh.
   try {
