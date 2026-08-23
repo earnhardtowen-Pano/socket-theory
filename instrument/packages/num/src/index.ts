@@ -649,3 +649,9 @@ export function bsplineDerivAt3(
   }
   return [px, py, pz];
 }
+
+// Exact polynomial algebra — degree elevation, the Bernstein product rule,
+// knot insertion and Bézier extraction. Kept in its own file because it is a
+// different kind of thing from the rest of this package: nothing in it
+// approximates anything.
+export * from "./poly.js";
