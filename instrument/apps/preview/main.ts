@@ -93,10 +93,20 @@ if (view === "side") {
   rim.position.set(6000, 4000, 2000);
   scene.add(rim);
 
-  const cam = new THREE.PerspectiveCamera(30, w / h, 10, 60000);
+  const which = new URLSearchParams(location.search).get("cam") ?? "front34";
+  const rigs: Record<string, { pos: [number, number, number]; look: [number, number, number]; fov: number }> = {
+    front34: { pos: [-3400, -5200, 2100], look: [2100, 0, 480], fov: 30 },
+    rear34: { pos: [7600, -5000, 2300], look: [2200, 0, 500], fov: 30 },
+    low: { pos: [-2600, -4200, 700], look: [2300, 0, 620], fov: 34 },
+    plan: { pos: [2200, -10, 9000], look: [2200, 0, 0], fov: 26 },
+    front: { pos: [-9000, 0, 900], look: [2200, 0, 700], fov: 22 },
+    rear: { pos: [13000, 0, 1100], look: [2200, 0, 700], fov: 22 },
+  };
+  const rig = rigs[which] ?? rigs["front34"]!;
+  const cam = new THREE.PerspectiveCamera(rig.fov, w / h, 10, 60000);
   cam.up.set(0, 0, 1);
-  cam.position.set(-3200, -6100, 2500);
-  cam.lookAt(2150, 0, 480);
+  cam.position.set(rig.pos[0], rig.pos[1], rig.pos[2]);
+  cam.lookAt(rig.look[0], rig.look[1], rig.look[2]);
   renderer.render(scene, cam);
 }
 

@@ -74,3 +74,29 @@ SolveResult contract added to @car/schema) are frozen and pushed.
   authoring, not solver orientation variables. Honest scope, revisit on need.
 - **Blindness layer three** — the rename-fuzz behavioral test: renaming every
   part label yields an identical solve modulo the renaming.
+
+## P3 — findings from authoring a whole car
+
+- **T-junction on an unsplit opposite face meshes open** (reproducible, open).
+  Minimal case: one box, then split BOTH flanks with a single vertical tape
+  line. The four long fore-aft curves end up with three trims each — the
+  top/bottom face keeps `[0,1]` while the two flank children hold `[0,0.5]`
+  and `[0.5,1]` — and `closedMeshCheck` reports 12 open edges on the ±Z faces
+  and the flank children. The P1's own body carries many T-junctions and
+  meshes closed, so this is configuration-specific, not general. Recorded here
+  rather than worked around silently; the flow fixture uses a plain box so it
+  tests flow and not this.
+- **Symmetry is a property you keep on purpose.** Splitting one flank of a
+  centred body, crowning a single side edge, or tapering one plan corner all
+  make the body asymmetric — and the mirror law immediately says so by
+  emitting twins that then mesh open. Three separate authoring bugs announced
+  themselves this way. The law is a better proofreader than the eye.
+- **Ids come from the model, never from a count.** `curves.size` tracked the
+  allocator only while nothing had split. Reading ids back from the state (or
+  diffing the key set around a verb) is the only durable way.
+- **Flow belongs on the derived mesh, not at curve junctions.** A tape split
+  subdivides a curve's trims rather than the curve, so a sectioned body has
+  almost no two-curve junctions to fair; the kink lives across the shared
+  curve, between patches. Taubin λ|μ relaxation with creases pinned puts the
+  solve where the kink actually is, keeps topology (so a closed body stays
+  printable), and stays a derivation.

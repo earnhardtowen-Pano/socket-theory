@@ -13,6 +13,7 @@ export default defineConfig({
       "@car/constrain": p("./packages/constrain/src/index.ts"),
       "@car/surface": p("./packages/surface/src/index.ts"),
       "@car/mesh": p("./packages/mesh/src/index.ts"),
+      "@car/flow": p("./packages/flow/src/index.ts"),
       "@car/demand": p("./packages/demand/src/index.ts"),
       "@car/types": p("./packages/types/src/index.ts"),
       "@car/pack": p("./packages/pack/src/index.ts"),
