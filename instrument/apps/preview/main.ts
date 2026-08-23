@@ -1,56 +1,101 @@
 import * as THREE from "three";
 import body from "./body.json";
 
-const tag0 = document.getElementById("tag")!;
-tag0.innerHTML =
-  `PANORAMIC · FRAME INSTRUMENT<span class="accent"> ●</span> NIGHT BUILD\n` +
-  `BLOCKED BODY — VERBS &gt; QUILT &gt; CONFORMING MESH\n` +
-  `CELLS ${body.cells}   TRIANGLES ${body.triangles}   CLOSED MESH ${String(body.closed).toUpperCase()}`;
+const view = new URLSearchParams(location.search).get("view") ?? "persp";
+
+const tag = document.getElementById("tag")!;
+const line = (t: string) => t;
+if (view === "side") {
+  tag.innerHTML =
+    line(`PANORAMIC · FRAME INSTRUMENT<span class="accent"> ●</span> SIDE ELEVATION`) + "\n" +
+    line(`SHARED CURVES ${body.curves.length} — CREASES IN ACCENT — ENGINE-CUT ARCHES`) + "\n" +
+    line(`MM GRID · ${body.stats.verbs} VERBS IN HISTORY`);
+} else {
+  tag.innerHTML =
+    line(`PANORAMIC · FRAME INSTRUMENT<span class="accent"> ●</span> WORKED BODY`) + "\n" +
+    line(`VERB-SCULPTED QUILT + OCCT BOOLEAN ARCHES`) + "\n" +
+    line(`CELLS ${body.stats.cells} · TRIS ${body.stats.upperTris + body.stats.slabTris} · CLOSED ${String(body.stats.upperClosed && body.stats.slabClosed).toUpperCase()}`);
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0a0c);
 
 const w = window.innerWidth, h = window.innerHeight;
-const camera = new THREE.PerspectiveCamera(32, w / h, 10, 60000);
-camera.up.set(0, 0, 1);
-camera.position.set(-3600, -5600, 2900);
-camera.lookAt(2100, 0, 550);
-
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(w, h);
 renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
 
-// grid — hairline, mm ground plane at Z=0
-const grid = new THREE.GridHelper(12000, 60, 0x26262b, 0x1a1a1f);
-grid.rotation.x = Math.PI / 2;
-grid.position.set(2100, 0, 0);
-scene.add(grid);
+function meshOf(data: { positions: number[]; indices: number[] }, color: number): THREE.Mesh {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(data.positions), 3));
+  geo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(data.indices), 1));
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, metalness: 0.05, roughness: 0.62, flatShading: true }));
+}
 
-const geo = new THREE.BufferGeometry();
-geo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(body.positions), 3));
-geo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(body.indices), 1));
-geo.computeVertexNormals();
+const upper = meshOf(body.upper, 0xd8d8d2);
+const slab = meshOf(body.slab, 0xb9b9b4);
 
-const mat = new THREE.MeshStandardMaterial({
-  color: 0xd8d8d2, metalness: 0.05, roughness: 0.65, flatShading: true,
-});
-const mesh = new THREE.Mesh(geo, mat);
-scene.add(mesh);
+if (view === "side") {
+  // The instrument's native view: hairline curves on the mm grid, no fill.
+  // GridHelper lies in XZ — exactly the side-elevation plane; park it behind
+  // the body relative to the -Y camera.
+  const grid = new THREE.GridHelper(12000, 120, 0x232328, 0x17171b);
+  grid.position.set(2100, 400, 560);
+  scene.add(grid);
 
-const edges = new THREE.LineSegments(
-  new THREE.EdgesGeometry(geo, 30),
-  new THREE.LineBasicMaterial({ color: 0x55555c }),
-);
-scene.add(edges);
+  for (const c of body.curves) {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < c.pts.length; i += 3) pts.push(new THREE.Vector3(c.pts[i], c.pts[i + 1], c.pts[i + 2]));
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({ color: c.crease ? 0xff5533 : 0xc9c9c2 });
+    scene.add(new THREE.Line(geo, mat));
+  }
+  const slabEdges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(slab.geometry, 8),
+    new THREE.LineBasicMaterial({ color: 0xc9c9c2 }),
+  );
+  scene.add(slabEdges);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-const key = new THREE.DirectionalLight(0xffffff, 1.4);
-key.position.set(-4000, -6000, 7000);
-scene.add(key);
-const rim = new THREE.DirectionalLight(0x8899ff, 0.5);
-rim.position.set(6000, 4000, 2000);
-scene.add(rim);
+  // Symmetric frustum centered on the body's midpoint — the camera sits on
+  // the car's left; if the nose reads right, the +Y camera flips it.
+  const cam = new THREE.OrthographicCamera(-2450, 2450, 1400, -1400, 10, 20000);
+  cam.up.set(0, 0, 1);
+  cam.position.set(2100, -8000, 560);
+  cam.lookAt(2100, 0, 560);
+  cam.updateProjectionMatrix();
+  renderer.render(scene, cam);
+} else {
+  const grid = new THREE.GridHelper(12000, 60, 0x26262b, 0x1a1a1f);
+  grid.rotation.x = Math.PI / 2;
+  grid.position.set(2100, 0, 0);
+  scene.add(grid);
 
-renderer.render(scene, camera);
+  scene.add(upper, slab);
+  scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(upper.geometry, 30), new THREE.LineBasicMaterial({ color: 0x55555c })));
+  scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(slab.geometry, 30), new THREE.LineBasicMaterial({ color: 0x4c4c52 })));
+
+  // creased door lines in accent
+  for (const c of body.curves.filter((k: { crease: boolean }) => k.crease)) {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i < c.pts.length; i += 3) pts.push(new THREE.Vector3(c.pts[i], c.pts[i + 1] * 1.001, c.pts[i + 2]));
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xff5533 })));
+  }
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 1.4);
+  key.position.set(-4000, -6000, 7000);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x8899ff, 0.5);
+  rim.position.set(6000, 4000, 2000);
+  scene.add(rim);
+
+  const cam = new THREE.PerspectiveCamera(30, w / h, 10, 60000);
+  cam.up.set(0, 0, 1);
+  cam.position.set(-3200, -6100, 2500);
+  cam.lookAt(2150, 0, 480);
+  renderer.render(scene, cam);
+}
+
 document.title = "ready";
