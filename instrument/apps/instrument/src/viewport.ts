@@ -59,7 +59,16 @@ export class Viewport {
    * carries is the same either way.
    */
   smooth = false;
+  /**
+   * Paint each cell in the material it was ASSIGNED, rather than one clay
+   * grey. Off by default and it must stay that way: clay is the working view,
+   * because a shape reads best undecorated and a colour can hide a hollow.
+   * On, it answers the one question clay cannot — which panel is glass, which
+   * is trim, which nobody has said anything about yet.
+   */
+  materials = false;
   creaseAngle = DEFAULT_CREASE_ANGLE;
+  private materialMat: THREE.MeshStandardMaterial;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -81,6 +90,12 @@ export class Viewport {
     });
     this.smoothMat = new THREE.MeshStandardMaterial({
       color: SURFACE, metalness: 0.08, roughness: 0.42, flatShading: false,
+    });
+    // Vertex colours rather than one material per cell: the feed is a single
+    // indexed buffer and splitting it into 106 draw calls to say six things
+    // would be paying for the wrong abstraction.
+    this.materialMat = new THREE.MeshStandardMaterial({
+      vertexColors: true, metalness: 0.10, roughness: 0.48, flatShading: false,
     });
     this.scene.add(this.handleGroup);
   }
@@ -109,7 +124,12 @@ export class Viewport {
    * a shutline that also happens to be a character line is still somewhere you
    * can see through.
    */
-  setFeed(feed: RenderFeed, creases: ReadonlySet<Id>, gaps: ReadonlySet<Id> = new Set()): void {
+  setFeed(
+    feed: RenderFeed,
+    creases: ReadonlySet<Id>,
+    gaps: ReadonlySet<Id> = new Set(),
+    materials: ReadonlyMap<Id, { name: string; color: string }> = new Map(),
+  ): void {
     for (const child of [...this.feedGroup.children]) {
       this.feedGroup.remove(child);
       (child as THREE.Mesh).geometry?.dispose?.();
@@ -127,9 +147,37 @@ export class Viewport {
     sgeo.setAttribute("position", new THREE.Float32BufferAttribute(Float32Array.from(positions), 3));
     sgeo.setAttribute("normal", new THREE.Float32BufferAttribute(Float32Array.from(normals), 3));
     sgeo.setIndex(new THREE.Uint32BufferAttribute(Uint32Array.from(indices), 1));
+    // Material view: one colour per vertex, joined to the cells through the
+    // feed's own ranges. A cell nobody has assigned draws in the clay grey, so
+    // "not yet decided" is visible as itself rather than as a default paint.
+    const wantMaterials = this.materials && !this.zebra && materials.size > 0;
+    if (wantMaterials) {
+      const colors = new Float32Array((positions.length / 3) * 3);
+      const clay = new THREE.Color(SURFACE);
+      for (let i = 0; i < colors.length; i += 3) {
+        colors[i] = clay.r; colors[i + 1] = clay.g; colors[i + 2] = clay.b;
+      }
+      const c = new THREE.Color();
+      for (const r of feed.surfaces.ranges) {
+        const m = materials.get(r.id);
+        if (!m) continue;
+        c.set(m.color);
+        for (let t = r.start; t < r.start + r.count; t++) {
+          // The SHADED index buffer, not the feed's: smoothing groups split
+          // vertices, so the same triangle names different vertices in each.
+          // Triangle order is preserved, which is what makes a range still
+          // mean the same cell.
+          const v = indices[t]! * 3;
+          colors[v] = c.r; colors[v + 1] = c.g; colors[v + 2] = c.b;
+        }
+      }
+      sgeo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    }
     const mesh = new THREE.Mesh(
       sgeo,
-      this.zebra ? this.zebraMat : shaded ? this.smoothMat : this.surfaceMat,
+      this.zebra ? this.zebraMat
+        : wantMaterials ? this.materialMat
+        : shaded ? this.smoothMat : this.surfaceMat,
     );
     this.feedGroup.add(mesh);
     // The overlay belongs to the blocked view only. Under smoothing groups the

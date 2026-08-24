@@ -6,11 +6,19 @@
  * The authored left rail arrives alone; the mirror law renders its twin.
  */
 
-import type { CarDocument, Id, RenderFeed } from "@car/schema";
+import type { CarDocument, Id, Pt3, RenderFeed } from "@car/schema";
 import { createSession, load, type Session } from "@car/history";
+import { evalChain } from "@car/num";
 import { buildRenderFeed } from "@car/surface";
 import type { ModelPort } from "./port";
 import { sortedIds } from "./ids";
+
+/**
+ * How far a picked point may sit from a curve and still count as ON it. The
+ * viewport picks within six pixels; at the loosest zoom that is 240 mm, and a
+ * point further out than that was a miss, not a coarse hit.
+ */
+const MAX_PICK_MM = 240;
 
 /** The starter chassis: two-rail body-on-frame, one grammar, five verbs. */
 export function chassisEntry(): CarDocument {
@@ -158,6 +166,85 @@ export function makeSessionPort(seedChassis = true, fromDoc?: CarDocument): Sess
           out.push({ seg, idx: idx as 0 | 1 | 2 | 3, at: [p[0], p[1], p[2]] });
         });
       });
+      return out;
+    },
+    /**
+     * The chain parameter of a picked point.
+     *
+     * Coarse sample then bisect the winning bracket: the pick lands on a
+     * rendered polyline and the answer wanted is on the exact chain, so
+     * starting from the nearest of 64 stations and refining is both faster and
+     * more honest than pretending the polyline's own parameter is the curve's.
+     *
+     * A point further from the curve than the pick tolerance could ever have
+     * been is not on it, and says so rather than snapping to an end.
+     */
+    curveParamAt(curveId: Id, at: Pt3): number | null {
+      const curve = session.state.curves.get(session.state.resolveCurve(curveId));
+      if (!curve) return null;
+      const d2 = (t: number): number => {
+        const q = evalChain(curve.chain, t);
+        const dx = q[0] - at[0], dy = q[1] - at[1], dz = q[2] - at[2];
+        return dx * dx + dy * dy + dz * dz;
+      };
+      const N = 64;
+      let best = 0, bestD = Infinity;
+      for (let i = 0; i <= N; i++) {
+        const d = d2(i / N);
+        if (d < bestD) { bestD = d; best = i / N; }
+      }
+      let lo = Math.max(0, best - 1 / N), hi = Math.min(1, best + 1 / N);
+      for (let i = 0; i < 40; i++) {
+        const a = lo + (hi - lo) / 3, b = hi - (hi - lo) / 3;
+        if (d2(a) < d2(b)) hi = b; else lo = a;
+      }
+      const t = 0.5 * (lo + hi);
+      return Math.sqrt(d2(t)) > MAX_PICK_MM ? null : t;
+    },
+    /**
+     * Where a split is LEGAL on this curve, in its own parameter.
+     *
+     * A cell has four sides by statute, so a split under a claim that straddles
+     * it is refused — which means the legal set is not an interval, it is the
+     * discrete set of trim boundaries where a station already crosses. Nothing
+     * in the shell could know that, so SPLIT proposed the raw click and the
+     * frame refused nearly every one: correct, and unusable by hand.
+     *
+     * Ends excluded; the frame refuses those separately and for its own reason.
+     */
+    curveSplitPoints(curveId: Id): number[] {
+      const id = session.state.resolveCurve(curveId);
+      const claims: [number, number][] = [];
+      for (const cell of session.state.cells.values()) {
+        for (const side of cell.sides) {
+          if (session.state.resolveCurve(side.curveId) !== id) continue;
+          claims.push([Math.min(side.t0, side.t1), Math.max(side.t0, side.t1)]);
+        }
+      }
+      const out = new Set<number>();
+      for (const [a, b] of claims) {
+        for (const p of [a, b]) {
+          if (p <= 1e-9 || p >= 1 - 1e-9) continue;
+          if (claims.some(([lo, hi]) => p > lo + 1e-9 && p < hi - 1e-9)) continue;
+          out.add(p);
+        }
+      }
+      return [...out].sort((x, y) => x - y);
+    },
+    cellMaterials(): ReadonlyMap<Id, { name: string; color: string }> {
+      const out = new Map<Id, { name: string; color: string }>();
+      for (const [cid, cell] of session.state.cells) {
+        if (cell.materialId === undefined) continue;
+        const m = session.state.materials.get(cell.materialId);
+        if (!m) continue;
+        out.set(cid, { name: m.name, color: m.color });
+        // The twin wears the master's material, by the same law that gives it
+        // the master's geometry: a twin is a function of its master and is
+        // regenerated every evaluation, so it can carry no assignment of its
+        // own. Without this the wheels are the only cells on the car with no
+        // material — because they are the only ones authored down one side.
+        out.set(`${cid}~m` as Id, { name: m.name, color: m.color });
+      }
       return out;
     },
   };

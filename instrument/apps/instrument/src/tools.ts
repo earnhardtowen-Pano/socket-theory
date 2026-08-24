@@ -12,7 +12,8 @@ import type { PushPullTarget } from "./port";
 import { inPlaneAxes, viewNormal } from "./view";
 
 export type ToolName =
-  | "select" | "tape-box" | "tape-line" | "push-pull" | "pinch" | "crease" | "gap" | "fair";
+  | "select" | "tape-box" | "tape-line" | "push-pull" | "pinch"
+  | "crease" | "gap" | "split" | "fair";
 
 export interface Ghost {
   readonly kind: "rect" | "line";
@@ -232,6 +233,57 @@ export function gapAt(hit: PickHit | null): ToolResult {
   if (!hit || hit.kind !== "curve") return { status: "gap: pick a curve" };
   return { proposal: { verb: "gap", args: { curveId: hit.id } }, selection: hit.id };
 }
+
+/**
+ * Split a shared curve where you clicked, so a mark can own part of it (A13).
+ *
+ * The gesture that panel gaps needed and did not have. A door outline is a
+ * CLOSED LOOP of gap-marked curves, and closing one round a door means
+ * marking the beltline between the two shuts and not beyond them — which is
+ * impossible while the beltline is one curve from nose to tail. Split it at
+ * each shut and the middle stretch is a curve of its own that GAP can take.
+ *
+ * Two things it refuses, both from the frame rather than from here: an end
+ * (there is nothing to split) and a parameter some cell claims across (a cell
+ * has four sides by statute, and the refusal names the cell). Both come back
+ * as ledger text, which is where a refusal belongs.
+ *
+ * Splitting moves nothing. Every point of every cell boundary lands where it
+ * landed before, bit for bit — `split-curve.test` samples them all and gets
+ * them all back — so this is safe on a cut body in a way that SHAPING is not.
+ */
+export function splitAt(
+  hit: PickHit | null,
+  paramOf: (curveId: Id, at: Pt3) => number | null,
+  legalPoints: (curveId: Id) => number[],
+): ToolResult {
+  if (!hit || hit.kind !== "curve") return { status: "split: pick a curve" };
+  const t = paramOf(hit.id, hit.at);
+  if (t === null) return { status: "split: that point is not on the curve" };
+
+  // SNAP, because the legal set is discrete and a person cannot see it. Where
+  // a cell claims across the click there is nothing to accept, so proposing
+  // the raw parameter would be proposing a refusal — correct and useless. The
+  // nearest place a station already crosses is what was meant.
+  const legal = legalPoints(hit.id);
+  if (legal.length === 0) {
+    return { status: "split: nothing crosses this curve yet — tape a station across it first" };
+  }
+  let at = legal[0]!;
+  for (const p of legal) if (Math.abs(p - t) < Math.abs(at - t)) at = p;
+  if (at <= SPLIT_END_MM_T || at >= 1 - SPLIT_END_MM_T) {
+    return { status: "split: the only crossing here is at an end, and an end has nothing to split" };
+  }
+  const moved = Math.abs(at - t);
+  const note = moved < 1e-6
+    ? `split: ${hit.id} at ${at.toFixed(4)}`
+    : `split: ${hit.id} at ${at.toFixed(4)} — snapped ${(moved * 100).toFixed(1)}% along to the nearest crossing`;
+  return { proposal: { verb: "split-curve", args: { curveId: hit.id, t: at } }, selection: hit.id, status: note };
+}
+
+/** How close to an end is too close. The frame refuses at 1e-9; this refuses
+ *  earlier and says why, because a one-nanometre stub is not what was meant. */
+const SPLIT_END_MM_T = 0.02;
 
 /**
  * Bring crossing curves coplanar at every vertex the network turns badly.

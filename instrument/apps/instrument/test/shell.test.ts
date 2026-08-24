@@ -1,7 +1,121 @@
 import { describe, expect, it } from "vitest";
 import { makeSessionPort } from "../src/sessionPort";
-import { fairCorners, gapAt, pushPullDelta, TapeBoxTool } from "../src/tools";
+import { fairCorners, gapAt, pushPullDelta, splitAt, TapeBoxTool } from "../src/tools";
 import { gridCandidate, snapResolve } from "../src/snap";
+import { evalChain } from "@car/num";
+import type { Id, Pt3 } from "@car/schema";
+
+/** A taped box, and the one edge that runs its length. */
+function boxPort(): { port: ReturnType<typeof makeSessionPort>; long: Id } {
+  const port = makeSessionPort(false);
+  port.propose("tape", {
+    kind: "box",
+    rect: { view: { kind: "side" }, a: [0, 0], b: [1200, 400], depth: 600, at: -300 },
+  });
+  const long = [...port.session.state.curves.keys()].find((id) => {
+    const c = port.session.state.curves.get(id)!;
+    const a = evalChain(c.chain, 0), b = evalChain(c.chain, 1);
+    return Math.abs(b[0] - a[0]) > 1000;
+  })!;
+  return { port, long };
+}
+
+describe("split — A13 reaches a designer's hand", () => {
+  // The verb has existed since the wheel arches and the only way to call it
+  // was to edit a build script. A verb nobody can invoke is not shipped.
+
+  it("turns a click on a curve into a parameter on that curve", () => {
+    const { port, long } = boxPort();
+    const chain = port.session.state.curves.get(long)!.chain;
+    const at = evalChain(chain, 0.37);
+    const t = port.curveParamAt!(long, at);
+    expect(t).not.toBeNull();
+    expect(t!).toBeCloseTo(0.37, 6);
+  });
+
+  it("says a point off the curve is off the curve, rather than snapping", () => {
+    const { port, long } = boxPort();
+    expect(port.curveParamAt!(long, [600, 9000, 9000] as Pt3)).toBeNull();
+  });
+
+  it("refuses everything that is not a curve pick, and says why", () => {
+    const paramOf = () => 0.5;
+    const legal = () => [0.5];
+    const curve = { kind: "curve", id: "curve#0" } as never;
+    expect(splitAt(null, paramOf, legal).status).toMatch(/pick a curve/);
+    expect(splitAt({ kind: "cell", id: "cell#0" } as never, paramOf, legal).status).toMatch(/pick a curve/);
+    expect(splitAt(curve, () => null, legal).status).toMatch(/not on the curve/);
+    expect(splitAt(curve, paramOf, () => []).status).toMatch(/nothing crosses/);
+    expect(splitAt(curve, paramOf, () => [0.005]).status).toMatch(/at an end/);
+  });
+
+  it("snaps to the nearest crossing, because the legal set is discrete", () => {
+    // The whole reason the tool takes the legal set at all. A cell claiming
+    // across a split is refused, so a raw click is a refusal nine times in ten
+    // and the frame's "cell#41 claims across" is true and useless to a hand.
+    const curve = { kind: "curve", id: "curve#7" } as never;
+    const r = splitAt(curve, () => 0.44, () => [0.2, 0.5, 0.8]);
+    expect(r.proposal).toEqual({ verb: "split-curve", args: { curveId: "curve#7", t: 0.5 } });
+    expect(r.status).toMatch(/snapped 6.0% along/);
+    // A click already on a crossing says so without the snap note.
+    expect(splitAt(curve, () => 0.5, () => [0.2, 0.5, 0.8]).status).not.toMatch(/snapped/);
+  });
+
+  it("splits for real, and the split moves nothing", () => {
+    const { port, long } = boxPort();
+    // Cut the box first: a cell claiming across the split is refused by law.
+    for (const id of [...port.session.state.cells.keys()]) {
+      port.propose("tape", {
+        kind: "line",
+        line: { view: { kind: "side" }, a: [600, -200], b: [600, 600], lineClass: "tape" },
+        targets: [id],
+      });
+    }
+    const before = port.feed().surfaces.positions.slice();
+    const curves = port.session.state.curves.size;
+
+    const chain = port.session.state.curves.get(long)!.chain;
+    const r = splitAt(
+      { kind: "curve", id: long, at: evalChain(chain, 0.5) } as never,
+      (id, at) => port.curveParamAt!(id, at),
+      (id) => port.curveSplitPoints!(id),
+    );
+    expect(r.proposal?.verb).toBe("split-curve");
+    port.propose(r.proposal!.verb, r.proposal!.args);
+    expect(port.lastError()).toBeNull();
+    expect(port.session.state.curves.size).toBe(curves + 1);
+
+    // The whole claim of A13: bookkeeping changed, geometry did not.
+    const after = port.feed().surfaces.positions;
+    expect(after.length).toBe(before.length);
+    for (let i = 0; i < before.length; i++) expect(after[i]!).toBeCloseTo(before[i]!, 6);
+  });
+
+  it("passes the frame's refusal through as ledger text, not a crash", () => {
+    const { port, long } = boxPort();   // no cut: a cell claims the whole edge
+    port.propose("split-curve", { curveId: long, t: 0.5 });
+    expect(port.lastError()).toMatch(/claims .* across/);
+  });
+});
+
+describe("material — what a panel is made of, in the viewport", () => {
+  it("is empty for a car that has never assigned one", () => {
+    const { port } = boxPort();
+    expect(port.cellMaterials!().size).toBe(0);
+  });
+
+  it("reports name and colour per cell once assigned", () => {
+    const { port } = boxPort();
+    const cell = [...port.session.state.cells.keys()][0]!;
+    port.propose("assign-material", { targetId: cell, name: "screen glass", color: "#1b2226" });
+    expect(port.lastError()).toBeNull();
+    const mats = port.cellMaterials!();
+    expect(mats.get(cell)).toEqual({ name: "screen glass", color: "#1b2226" });
+    // ...and the twin wears it too, or the only unpainted cells on a car are
+    // the ones authored down a single side.
+    expect(mats.get(`${cell}~m` as Id)).toEqual({ name: "screen glass", color: "#1b2226" });
+  });
+});
 
 describe("session port (the real model behind the seam)", () => {
   it("opens on a rolling chassis, never empty space", () => {

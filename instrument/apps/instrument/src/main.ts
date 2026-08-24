@@ -15,7 +15,8 @@ import { pickAt } from "./pick";
 import { gridCandidate, snapResolve, type SnapCandidate } from "./snap";
 import { gridPitchFor, orthoViewOf, screenToView, worldToView, type CamState, type OrthoName, type ViewName } from "./view";
 import {
-  creaseAt, fairCorners, gapAt, selectAt, PinchTool, PushPullTool, TapeBoxTool, TapeLineTool,
+  creaseAt, fairCorners, gapAt, selectAt, splitAt,
+  PinchTool, PushPullTool, TapeBoxTool, TapeLineTool,
   type DepthSetting, type ToolName, type ToolResult,
 } from "./tools";
 
@@ -55,6 +56,7 @@ app.innerHTML = `
       <button id="p1Btn" class="toggle">P1</button>
       <button id="printBtn" class="toggle">PRINT</button>
       <button id="smooth" class="toggle">SMOOTH</button>
+      <button id="matBtn" class="toggle">MATERIAL</button>
       <button id="zebraBtn" class="toggle">ZEBRA</button>
     </span>
   </header>
@@ -74,7 +76,7 @@ const ledgerLine = document.getElementById("ledgerline")!;
 const pitchEl = document.getElementById("pitch")!;
 
 const VIEWS: ViewName[] = ["side", "plan", "front", "section", "inspect"];
-const TOOLS: ToolName[] = ["select", "tape-box", "tape-line", "push-pull", "pinch", "crease", "gap", "fair"];
+const TOOLS: ToolName[] = ["select", "tape-box", "tape-line", "push-pull", "pinch", "crease", "gap", "split", "fair"];
 
 const startView = new URLSearchParams(location.search).get("view") as ViewName | null;
 let currentView: ViewName = startView && (VIEWS as string[]).includes(startView) ? startView : "side";
@@ -144,7 +146,7 @@ function targetsCrossed(a: Pt2, b: Pt2): Id[] {
 // --- rendering ---------------------------------------------------------------
 function paint(): void {
   viewport.resize(size());
-  viewport.setFeed(port.feed(), port.creaseIds(), port.gapIds());
+  viewport.setFeed(port.feed(), port.creaseIds(), port.gapIds(), port.cellMaterials?.() ?? new Map());
   if (currentView === "inspect") viewport.renderInspect(size());
   else {
     const cam = cams[currentView as OrthoName];
@@ -209,6 +211,7 @@ for (const t of TOOLS) {
       "tape-line": "two clicks; hold S for sketch class",
       "push-pull": "drag a face or curve; hold N for the view normal",
       "pinch": "grab a curve near a contact point and move it; hold N for the view normal",
+      "split": "click a curve where it should divide; it snaps to the nearest crossing, and moves nothing",
     };
     ledger(`${t} — ${hints[t] ?? "ready"}`);
   };
@@ -316,6 +319,13 @@ canvas.addEventListener("pointerup", (e) => {
   else if (tool === "select") applyResult(selectAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
   else if (tool === "crease") applyResult(creaseAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
   else if (tool === "gap") applyResult(gapAt(pickAt(port.feed(), view, pv, 6 * cam.mmPerPx)));
+  else if (tool === "split") {
+    applyResult(splitAt(
+      pickAt(port.feed(), view, pv, 6 * cam.mmPerPx),
+      (id, at) => port.curveParamAt?.(id, at) ?? null,
+      (id) => port.curveSplitPoints?.(id) ?? [],
+    ));
+  }
   // FAIR acts on the whole network, so any click in the viewport runs it —
   // there is no "this corner" to pick, and pretending otherwise would teach
   // the wrong model of what it does.
@@ -437,6 +447,19 @@ document.getElementById("printBtn")!.addEventListener("click", () => {
     stl.buffer.slice(0) as ArrayBuffer,
     `${verdict} · STL saved as .stl.txt — rename to .stl for the slicer`,
   );
+});
+
+document.getElementById("matBtn")!.addEventListener("click", (e) => {
+  viewport.materials = !viewport.materials;
+  (e.currentTarget as HTMLElement).classList.toggle("on", viewport.materials);
+  const assigned = port.cellMaterials?.() ?? new Map();
+  const names = [...new Set([...assigned.values()].map((m) => m.name))];
+  ledger(viewport.materials
+    ? assigned.size === 0
+      ? "material — nothing assigned yet; the body is still clay"
+      : `material — ${assigned.size} cells in ${names.length}: ${names.join(", ")}`
+    : "material off — clay, which is the working view");
+  repaintSoon();
 });
 
 document.getElementById("smooth")!.addEventListener("click", (e) => {
