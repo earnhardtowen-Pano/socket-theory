@@ -493,6 +493,91 @@ every interior vertex, which nothing could ask for before.
 
 ---
 
+## Mirror symmetry — the lens nothing had, and what it found
+
+A car authored down both sides ought to BUILD down both sides. Nothing in the
+package asked. G1 reads a seam, G2 reads a curvature, the closed-mesh check
+reads a topology, and not one of them compares a car to its own reflection —
+so a left-right disagreement was invisible to every probe and glaring to a
+person. `mirrorSymmetry` (in `@car/mesh`) is a distance in millimetres from
+every vertex to the nearest vertex of the mirrored body, grid-hashed, and both
+build reports print it now.
+
+It found three things, in order of how badly they wanted finding.
+
+**One: the mirror law duplicates half a car over a hair.** A cell on
+`mirror: "auto"` gets a twin generated whenever its reflection is not already
+present *to the quantiser's precision*. The MX-5's body is authored on both
+sides and never needed the law; the moment anything made the two flanks differ
+by a micron, 53 body cells acquired phantom twins laid over the real ones and
+the print mesh opened 784 edges. That is the "768 edges" the beltline was
+blamed for and never caused. The body is `mirror-detach`ed before any cut now,
+by descent through the six box faces; the wheels, which genuinely are authored
+one side only, stay on the law.
+
+**Two: `fair-corners` was restyling cars and diverging.** Three defects, all
+in the same place, all measured on the MX-5 and none visible on the P1 (whose
+network is gentler and converges in one pass):
+
+  · *No ceiling on a swing.* A11 promises "coplanarity needs about 1.6° and is
+    invisible". The plane gap bounds a swing at gap/2 — a theorem, now a test —
+    and at a wheel-arch mouth breaking 26° that bound is 13°. The pass asked
+    for 12°, moved the flank out 66 mm, and cost sixteen G1 joins: it made the
+    network look better and the SURFACE worse. `maxSwingDeg` defaults to 6°;
+    wider moves are dropped, counted and reported.
+  · *An unstable iteration.* Two passes left the flanks 0.70 mm apart and three
+    passes 7.8 mm. The second pass now rotates only ends the first did not, at
+    a shrinking ceiling and a widening tolerance — a later pass exists to fix
+    what a NEIGHBOUR's move disturbed, not to re-litigate its own.
+  · *A corner read a hair off the corner.* Conditioned like 1/ε, so 2 × 10⁻¹²
+    mm of rounding between two mirrored flanks came back as 0.15° of plan and
+    flipped a 1° tolerance on one side of the car only. It reads AT the corner
+    now, and falls back to ε only where the corner itself is degenerate.
+
+With all three the MX-5's curve network builds mirror-exact: **0.0000 mm.**
+
+**Three, and unfixed: the tangent field is not equivariant under reflection.**
+This is the finding that matters and it is on BOTH cars.
+
+```
+                    bare Coons blend      after the field
+P1                  0.0000 mm             0.9418 mm   ·   82 of 13,816 vertices
+MX-5                0.0000 mm             7.0425 mm   · 3,434 of 25,904 vertices
+```
+
+The curve network is symmetric to the last bit and the G0 blend over it is
+symmetric to the last bit. Apply `tangentField` and the two flanks disagree by
+up to 7 mm. G1 still reads 1.6 × 10⁻¹⁵° and the mesh is still closed — the
+continuity is not what broke. The SHAPE is.
+
+What it is not, each ruled out by measurement rather than argument:
+
+| suspect | test | result |
+|---|---|---|
+| the polynomial fit | `polynomial: false` — raw bisector, no fit at all | 1.54 mm, unchanged |
+| the span ladder | `maxSpans` 1 … 32 | 7.09 … 7.04 mm, flat |
+| the corner window | `cornerFadeFloor: 1` | 7.06 mm, unchanged |
+| the fold guard | `minSeparation` 10⁻⁹ … 3 × 10⁻² | 7.04 mm across the sweep |
+| break-angle classification | 20° … 50° | 3.9 … 7.0 mm, never zero |
+| the G2 layer alone | order 1 vs order 2 | 1.54 → 7.04; both orders carry it |
+
+So it is in the core construction, not in any fit, threshold or tolerance —
+and the most likely remaining candidate is the one thing that is NOT
+reflection-invariant about a Coons patch: its side indexing. Φ attached to
+side `k` decays across the opposite parameter, and `u` and `v` are not
+interchangeable once a decay profile is attached to each edge. Two mirrored
+cells whose shared edge lands on a different `k` would then blend the same
+correction differently. That is a hypothesis with a clear test and it is not
+tested yet.
+
+Until it is, the honest statement is: **the surface's shape is not a function
+of the curve network alone.** Its continuity is, exactly and by construction,
+and that is the guarantee this project rests on. But two networks identical up
+to reflection produce bodies that differ by millimetres, and a Class-A body
+cannot be left- and right-hand different.
+
+---
+
 ## What is still open
 
 - **The 36 network corners.** Some are genuine features that should be
@@ -509,6 +594,13 @@ every interior vertex, which nothing could ask for before.
 - **Stage 2 (NURBS curves) and Stage 3 (trimmed topology)** are untouched. The
   curve type is still a uniform chain of cubics; there is still no way to
   author a hole.
+- **The field's reflection asymmetry**, above. Measured, bounded, and the six
+  cheapest explanations ruled out; the cause is not yet found.
+- **The control net disagrees with the evaluator on the MX-5** — 6.9 × 10¹ mm
+  worst against a gate of 10⁻⁹, where the P1 reads 3 × 10⁻¹². The MX-5 is the
+  first car whose cell sides span several chain segments, which is the obvious
+  place to look. The build report prints it against its gate rather than
+  hiding it, and the export claim does not hold on this car until it is fixed.
 
 ## Put to the owner — one proposed amendment
 

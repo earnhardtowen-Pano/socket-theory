@@ -17,7 +17,7 @@
 import type { CarDocument, Id, IdKind, JsonValue, VerbName, VerbRecord } from "@car/schema";
 import { DOCUMENT_VERSION, makeAllocator, type IdAllocator } from "@car/schema";
 import { computeQuilt, FrameState } from "@car/frame";
-import { cornerFairing } from "@car/surface";
+import { DEFAULT_FAIR_TOLERANCE_DEG, DEFAULT_MAX_SWING_DEG, cornerFairing } from "@car/surface";
 
 /** Fairing passes per `fair-corners`. See the verb's note on why it is fixed. */
 const FAIR_PASSES = 2;
@@ -230,10 +230,44 @@ class SessionImpl implements Session {
         // A fixed count keeps the verb a deterministic function of the state;
         // iterating to convergence would make the result depend on a
         // tolerance, and the residual is reported instead of chased.
+        //
+        // AND THE LATER PASS IS DELIBERATELY DEAFER THAN THE FIRST, in three
+        // ways, because without them the sequence is a fixed-point iteration on
+        // an ill-conditioned map and it diverges. Measured on the MX-5, whose
+        // body is authored symmetric to the last bit: two passes left the two
+        // flanks 0.70 mm apart and three passes 7.8 mm, and left-right
+        // disagreement at that size is a defect a person can see in a
+        // reflection.
+        //
+        // The mechanism, traced end to end: `cornerFairing` reads a plane gap
+        // a hair off the corner, which is conditioned like 1/epsilon, so the
+        // 2e-12 mm of rounding between two mirrored flanks comes back as 3e-4
+        // degrees in the first pass and 0.15 degrees by the second — and a
+        // corner sitting at 1.15 degrees against a 1 degree tolerance then
+        // fairs on one side of the car and not the other. So:
+        //
+        //   · each end is rotated AT MOST ONCE — the later pass is for corners
+        //     a NEIGHBOUR's move disturbed, not for re-litigating its own;
+        //   · its swing ceiling shrinks — a disturbance is smaller than what
+        //     caused it, and saying so is what makes the sequence contract;
+        //   · its tolerance widens — a corner within noise of the threshold is
+        //     not evidence of anything, and chasing it is what flips.
+        const settled = new Set<string>();
         for (let pass = 0; pass < FAIR_PASSES; pass++) {
-          const plan = cornerFairing(computeQuilt(state), { breakAngleDeg: a.maxBreakDeg });
-          if (plan.moves.length === 0) break;
-          for (const m of plan.moves) state.setEndTangent(m.curveId, m.chainEnd, m.direction);
+          const plan = cornerFairing(computeQuilt(state), {
+            breakAngleDeg: a.maxBreakDeg,
+            // The later pass corrects a DISTURBANCE the earlier one caused, and
+            // a disturbance is smaller than its cause. Shrinking the ceiling
+            // says so, and it is what keeps the sequence contracting.
+            maxSwingDeg: DEFAULT_MAX_SWING_DEG / (pass + 1),
+            toleranceDeg: DEFAULT_FAIR_TOLERANCE_DEG * (pass + 1),
+          });
+          const fresh = plan.moves.filter((m) => !settled.has(`${m.curveId}#${m.chainEnd}`));
+          if (fresh.length === 0) break;
+          for (const m of fresh) {
+            state.setEndTangent(m.curveId, m.chainEnd, m.direction);
+            settled.add(`${m.curveId}#${m.chainEnd}`);
+          }
         }
         return;
       }

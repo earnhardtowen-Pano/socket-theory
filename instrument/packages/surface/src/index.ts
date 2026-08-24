@@ -47,6 +47,8 @@ export {
   type DegenerateReport,
 } from "./degenerate.js";
 export {
+  DEFAULT_FAIR_TOLERANCE_DEG,
+  DEFAULT_MAX_SWING_DEG,
   cornerFairing,
   type FairingOptions,
   type FairingPlan,

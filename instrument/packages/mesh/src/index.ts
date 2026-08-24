@@ -29,6 +29,11 @@ export {
 } from "./closed.js";
 export { writeStlBinary, type StlMesh } from "./stl.js";
 export {
+  mirrorSymmetry,
+  type MirrorSymmetry,
+  type MirrorSymmetryOptions,
+} from "./symmetry.js";
+export {
   creaseNormals,
   DEFAULT_CREASE_ANGLE,
   type CreaseNormalResult,

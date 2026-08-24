@@ -15,7 +15,8 @@ import { computeQuilt } from "@car/frame";
 import { chainEnd, chainStart, dist3 } from "@car/num";
 import { closedMeshCheck, meshQuilt } from "@car/mesh";
 import {
-  continuityProbe, cornerFairing, networkObstruction, DEFAULT_CREASE_ANGLE,
+  continuityProbe, cornerFairing, networkObstruction,
+  DEFAULT_CREASE_ANGLE, DEFAULT_MAX_SWING_DEG,
 } from "@car/surface";
 import type { Id } from "@car/schema";
 
@@ -72,6 +73,52 @@ describe("corner fairing: what it refuses", () => {
     const id = [...s.state.curves.keys()][0]!;
     expect(() => s.state.setEndTangent(id, 0, [0, 0, 0])).toThrow();
     expect(() => s.state.setEndTangent(id, 0, [NaN, 0, 0])).toThrow();
+  });
+});
+
+describe("corner fairing: the ceiling", () => {
+  // A11 promises a fix, not a restyle: "coplanarity needs about 1.6 degrees
+  // and is invisible". Nothing enforced that, and on a network that breaks
+  // 26 degrees at a wheel-arch mouth the same code asked for 12 — which moved
+  // that car's flank out 66 mm and cost it sixteen G1 joins. So there is a
+  // number now, and these are the three halves of what it means.
+  //
+  // `EVERYTHING` is deliberately NOT used here: with a 179-degree break angle
+  // every corner of the fixture is a fault and every swing is tens of degrees,
+  // so the ceiling drops the lot and there is nothing left to measure. The
+  // ceiling and the break angle are two different refusals and testing them
+  // together tests neither.
+
+  it("never proposes a swing wider than its ceiling", () => {
+    const plan = cornerFairing(computeQuilt(buildFixture("welded-push").state));
+    expect(plan.moves.length).toBeGreaterThan(0);
+    for (const m of plan.moves) expect(m.swingDeg).toBeLessThanOrEqual(DEFAULT_MAX_SWING_DEG);
+  });
+
+  it("drops what it cannot do invisibly, and says how much it dropped", () => {
+    // At a ceiling of a tenth of a degree essentially nothing survives, and
+    // the report has to account for every move it computed and threw.
+    const q = computeQuilt(buildFixture("welded-push").state);
+    const full = cornerFairing(q);
+    const tight = cornerFairing(q, { maxSwingDeg: 0.1 });
+    expect(tight.moves.length).toBeLessThan(full.moves.length);
+    expect(tight.overswung).toBe(full.moves.length + full.overswung - tight.moves.length);
+    expect(tight.worstDroppedDeg).toBeGreaterThan(0.1);
+    // A dropped move leaves its corner open. It does not leave it WORSE.
+    expect(tight.open).toBe(full.open);
+  });
+
+  it("bounds every swing by half its corner's own plane gap", () => {
+    // Not a tuning choice — a theorem. The tangent lies in one patch's plane,
+    // the target normal bisects the two, so the rotation into the shared plane
+    // is asin(|from . nStar|), and |from . nStar| <= sin(gap/2). A move that
+    // breaks this is arithmetic, not geometry.
+    const plan = cornerFairing(computeQuilt(buildFixture("welded-push").state));
+    expect(plan.moves.length).toBeGreaterThan(0);
+    for (const m of plan.moves) {
+      expect(m.swingDeg).toBeLessThanOrEqual(m.gapDeg / 2 + 1e-9);
+      expect(m.requests).toBeGreaterThan(0);
+    }
   });
 });
 

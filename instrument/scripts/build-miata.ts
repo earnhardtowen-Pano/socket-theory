@@ -38,7 +38,7 @@ import {
   DEFAULT_CREASE_ANGLE,
 } from "@car/surface";
 import {
-  closedMeshCheck, creaseNormals, engraveGrooves, meshQuilt, writeStlBinary,
+  closedMeshCheck, creaseNormals, engraveGrooves, meshQuilt, mirrorSymmetry, writeStlBinary,
 } from "@car/mesh";
 import { dist3, evalChain } from "@car/num";
 
@@ -211,6 +211,16 @@ const shoulderZ = track(620, 860, 845, 780);
 const rockerY = scaled(ROCKER_Y);
 const rockerZ = track(232, 128, 128, 246);
 
+// The body is authored on BOTH sides, so it must not also be MIRRORED. A cell
+// left on "auto" gets a twin generated whenever its reflection is not already
+// present to the quantiser's precision — and the moment anything makes the two
+// flanks differ by a hair, half the car is silently duplicated on top of
+// itself. That is what the "768 edges" attributed to the beltline actually
+// was. Detaching the six box faces before any cut puts the whole body outside
+// the mirror law by descent; the wheels, which ARE authored one side only,
+// stay on it.
+for (const id of [...s.state.cells.keys()] as Id[]) s.apply("mirror-detach", { cellId: id });
+
 const longEdges = [...s.state.curves.keys()].filter((id) => {
   const c = s.state.curves.get(id as Id)!;
   const a0 = evalChain(c.chain, 0), a1 = evalChain(c.chain, 1);
@@ -323,22 +333,47 @@ const segmentAt = (id: Id, forward: boolean): void => {
   }
 };
 
-// THE BELTLINE PLAN IS NOT RESHAPED, and it should be.
-//
+// ── the beltline, on the same seven spans ─────────────────────────────────
 // One cubic through four stations cannot be 150 mm wide at the nose aperture
-// and out to full width by the front axle, so the beltline is only 749 mm
-// where the arch lip has to be 807 — and the car is therefore widest at its
-// SILL rather than its shoulder, which is backwards. Giving the beltline the
-// same seven spans the rocker has fixes exactly that (837 mm by x = 1053,
-// held to x = 2792, measured) and it opens 768 edges in the print mesh.
+// AND out to full width by the front axle. It was 749 mm where the arch lip
+// has to be 807, so the car came out widest at its SILL, with a skirt hanging
+// out under the doors. A car is widest at its shoulder; seven spans is what
+// lets it be, and `shoulderPlanY` above is that plan.
 //
-// It is pre-cut, so it is not the defect recorded in
-// `packages/mesh/test/split-move.test.ts`, and splitting the beltline back
-// into single-segment pieces afterwards does not help either. I did not
-// isolate it. The arches are what was asked for and the arches do not do
-// this, so the car ships with them and without this, and the sill carries a
-// flare it should not have. Saying so beats quietly shipping a body whose
-// widest point is under the doors.
+// It goes in HERE, beside the rocker and before any cut, for the reason the
+// whole file turns on: shaping a shared curve after its cells are cut opens
+// the print mesh. An earlier attempt put this after the stations and lost 768
+// edges, which read as a second defect and was the same one.
+//
+// The HEIGHT is not re-authored — it is sampled off the cubic that is already
+// there and handed back unchanged, so this move is a plan change and nothing
+// else. Typing a new z table would have made two changes and left the report
+// unable to say which one did what.
+for (const shoulder of shoulderIds) {
+  const sign = Math.sign(curveMean(shoulder)[1]) || 1;
+  const chain0 = s.state.curves.get(s.state.resolveCurve(shoulder))!.chain;
+  const forward = evalChain(chain0, 0)[0]! < evalChain(chain0, 1)[0]!;
+  // z(x) off the curve as authored, by bisection on x — the chain is one
+  // cubic here and x is monotone along it.
+  const zAt = (x: number): number => {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 60; i++) {
+      const mid = 0.5 * (lo + hi);
+      if ((evalChain(chain0, mid)[0]! < x) === forward) lo = mid; else hi = mid;
+    }
+    return evalChain(chain0, 0.5 * (lo + hi))[2]!;
+  };
+
+  segmentAt(shoulder, forward);
+  const n = s.state.curves.get(s.state.resolveCurve(shoulder))!.chain.segs.length;
+  if (n !== 7) throw new Error(`shoulder has ${n} segments, expected 7`);
+  fitChain(shoulder, (seg, local) => {
+    const j = forward ? seg : 6 - seg;
+    const k = forward ? local : 1 - local;
+    const x = ARCH_X[j]! + (ARCH_X[j + 1]! - ARCH_X[j]!) * k;
+    return [x, sign * shoulderPlanY(x), zAt(x)];
+  });
+}
 
 for (const rocker of rockerIds) {
   const sign = Math.sign(curveMean(rocker)[1]) || 1;
@@ -671,6 +706,7 @@ for (const cell of flatEnds) {
 
 s.apply("fair-corners", { maxBreakDeg: DEFAULT_CREASE_ANGLE });
 
+
 // ── 3. surface and measure ────────────────────────────────────────────────
 const quilt = computeQuilt(s.state);
 const adj = quiltAdjacency(quilt);
@@ -709,6 +745,11 @@ for (let i = 2; i < seated.length; i += 3) minZ = Math.min(minZ, seated[i]!);
 for (let i = 2; i < seated.length; i += 3) seated[i] = seated[i]! - minZ;
 const printed = { positions: seated, indices: mesh.indices, ranges: mesh.ranges };
 const check = closedMeshCheck(printed);
+// Does a car authored down both sides BUILD down both sides? Nothing asked
+// until the fairing pass restyled one flank by 8.9 mm and every other probe
+// called the body clean, because none of them compares a car to its own
+// reflection. This one does, in millimetres.
+const sym = mirrorSymmetry(printed);
 
 // The control net, and whether it is the same body. This is the whole claim
 // of the export stage and it is worth re-asking on a car the machinery has
@@ -757,6 +798,7 @@ const dims = (d: readonly number[]) => d.map((v) => Math.round(v)).join(" × ") 
 // forgetting." This line was forgetting, so "as authored" and "as built" were
 // the same number and the field looked like it moved nothing.
 const bareMesh = meshQuilt(quilt, { baseDensity: 20, cross: null });
+const symBare = mirrorSymmetry(bareMesh);
 const asBuilt = size(mesh);
 const asAuthored = size(bareMesh);
 
@@ -785,5 +827,7 @@ line("seams", `${panels.shutlines} shut · ${panels.features} feature · ${panel
 line("control net", `(${degU},${degV}) · ${tiles.toLocaleString("en-GB")} tiles · ${control.toLocaleString("en-GB")} control points`);
 line("  net vs evaluator", `${netWorst.toExponential(1)} mm worst, against a gate of 1e-9`);
 line("closed mesh", `${check.closed} (${check.violations.length} violations)`);
+line("mirror symmetry", `worst ${sym.worst.toFixed(4)} mm · ${sym.over} of ${sym.vertices.toLocaleString("en-GB")} vertices over ${sym.tolerance} mm`);
+line("  bare blend", `worst ${symBare.worst.toFixed(4)} mm — the field's contribution is the difference`);
 line("triangles", `${(mesh.indices.length / 3).toLocaleString("en-GB")}`);
 console.log("\nwrote cars/mx5-na.car.json and mx5-na.stl\n");

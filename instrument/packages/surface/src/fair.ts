@@ -18,6 +18,19 @@
  * about 1.6° and is invisible. Coplanarity is what the surfacing needs;
  * tangency is a stronger condition nobody asked for.
  *
+ * AND THERE IS A CEILING ON IT, because "invisible" is a claim and a claim
+ * needs a number. A corner's plane gap bounds the swing at gap/2 exactly — the
+ * tangent lies in one patch's plane, the target normal bisects the two, so the
+ * rotation into the shared plane is at most half the gap — and on a network
+ * that breaks 26° at a wheel-arch mouth that bound is 13°, which moves the
+ * flank out 66 mm and is a restyle by any name. Measured on the MX-5: with no
+ * ceiling the wheel-arch mouths asked for 12 degrees, the body came out
+ * 1756 mm wide against a published 1675, and G1 fell from 74 joins of 86 to
+ * 59 — the fairing made the surface WORSE while making the network look
+ * better. So a move wider than `maxSwingDeg` is DROPPED and counted. The
+ * corner stays open and the report says how many; a body that is honestly
+ * 160/172 coplanar beats one that is 142/172 with a dozen tangents thrown.
+ *
  * WHAT IT WILL NOT TOUCH:
  *  - corners turning sharper than the break angle — those are features, and the
  *    same constant that stops the tangent field rounding off a wheel box stops
@@ -55,11 +68,23 @@ export interface TangentMove {
   readonly direction: Pt3;
   /** How far the tangent swings to get there, degrees. The price. */
   readonly swingDeg: number;
+  /**
+   * How many corners asked for this end. Reported because a plan for a
+   * symmetric car must be symmetric, and the first thing to check when it is
+   * not is whether the two sides were asked the same number of times.
+   */
+  readonly requests: number;
+  /** The widest plane gap this end was asked to close, degrees. What it buys. */
+  readonly gapDeg: number;
 }
 
 export interface FairingPlan {
   /** ID-sorted, one per (curve, end); several requests are averaged. */
   readonly moves: readonly TangentMove[];
+  /** Moves computed and then dropped for swinging wider than the ceiling. */
+  readonly overswung: number;
+  /** The widest swing that was dropped, degrees. */
+  readonly worstDroppedDeg: number;
   /** Corners that were not already coplanar. */
   readonly open: number;
   /** Of those, corners this plan actually closes. */
@@ -81,12 +106,30 @@ export interface FairingOptions {
   readonly breakAngleDeg?: number;
   /** A corner this close to coplanar is left alone. */
   readonly toleranceDeg?: number;
+  /**
+   * The ceiling on one tangent's swing. A corner needing more than this is
+   * left open rather than restyled. Default 6 degrees: the P1 asks 1.6, the
+   * welded-push fixture up to about 5, and the MX-5's wheel-arch mouths asked
+   * for 12 — which moved its flank out 66 mm and cost sixteen G1 joins.
+   */
+  readonly maxSwingDeg?: number;
   /** How close to the corner to read. Not 0: a corner can be degenerate. */
   readonly epsilon?: number;
   readonly samplesPerJoin?: number;
 }
 
-const DEFAULT_TOLERANCE_DEG = 1;
+export const DEFAULT_FAIR_TOLERANCE_DEG = 1;
+export const DEFAULT_MAX_SWING_DEG = 6;
+/**
+ * How far along the seam to retry when the corner ITSELF has no normal.
+ *
+ * The corner is read AT the corner, because reading it a hair along is
+ * conditioned like 1/epsilon and turns the rounding between two mirrored
+ * flanks into a tenth of a degree of plan — which then fairs one side of a
+ * symmetric car and not the other. A degenerate corner still has to be read
+ * somewhere, so it falls back to here, and a corner degenerate at both is
+ * skipped rather than guessed at.
+ */
 const DEFAULT_EPSILON = 1e-5;
 const DEFAULT_SAMPLES = 9;
 
@@ -119,18 +162,19 @@ function adjacentAt(b: CellBoundary, k: number, atLoopStart: boolean):
 
 export function cornerFairing(quilt: QuiltSpec, opts: FairingOptions = {}): FairingPlan {
   const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
-  const tol = opts.toleranceDeg ?? DEFAULT_TOLERANCE_DEG;
+  const tol = opts.toleranceDeg ?? DEFAULT_FAIR_TOLERANCE_DEG;
+  const maxSwing = opts.maxSwingDeg ?? DEFAULT_MAX_SWING_DEG;
   const eps = opts.epsilon ?? DEFAULT_EPSILON;
   const n = opts.samplesPerJoin ?? DEFAULT_SAMPLES;
   const adj = quiltAdjacency(quilt);
 
   // Requests against one chain end, accumulated then averaged.
-  const asks = new Map<string, { curveId: Id; chainEnd: 0 | 1; sum: Pt3; from: Pt3 }>();
+  const asks = new Map<string, { curveId: Id; chainEnd: 0 | 1; sum: Pt3; from: Pt3; n: number; gap: number }>();
   let open = 0, fairable = 0, features = 0, midCurve = 0, mirrored = 0;
 
   const request = (
     b: CellBoundary, k: number, atLoopStart: boolean, nStar: Pt3,
-    u: number, v: number,
+    u: number, v: number, gap: number,
   ): boolean => {
     const adjacent = adjacentAt(b, k, atLoopStart);
     if (isMirrorId(adjacent.curveId)) { mirrored++; return false; }
@@ -150,8 +194,8 @@ export function cornerFairing(quilt: QuiltSpec, opts: FairingOptions = {}): Fair
 
     const key = `${adjacent.curveId}#${chainEnd}`;
     const hit = asks.get(key);
-    if (hit) hit.sum = add3(hit.sum, to);
-    else asks.set(key, { curveId: adjacent.curveId, chainEnd, sum: to, from });
+    if (hit) { hit.sum = add3(hit.sum, to); hit.n += 1; hit.gap = Math.max(hit.gap, gap); }
+    else asks.set(key, { curveId: adjacent.curveId, chainEnd, sum: to, from, n: 1, gap });
     return true;
   };
 
@@ -164,14 +208,23 @@ export function cornerFairing(quilt: QuiltSpec, opts: FairingOptions = {}): Fair
     const sB = bB.sides[edge.b.k]!;
 
     for (const end of [0, 1] as const) {
-      const t = edge.lo + (edge.hi - edge.lo) * (end === 0 ? eps : 1 - eps);
+      const t = end === 0 ? edge.lo : edge.hi;
       const saLoop = sideParamOf(sA, t);
       const sbLoop = sideParamOf(sB, t);
       const [ua, va] = uvOnSide(edge.a.k, saLoop);
       const [ub, vb] = uvOnSide(edge.b.k, sbLoop);
-      const nA = boundaryCoonsNormal(bA, ua, va);
-      const nB = boundaryCoonsNormal(bB, ub, vb);
-      if (isZero(nA) || isZero(nB)) continue;
+      let nA = boundaryCoonsNormal(bA, ua, va);
+      let nB = boundaryCoonsNormal(bB, ub, vb);
+      let [uA, vA, uB, vB] = [ua, va, ub, vb];
+      if (isZero(nA) || isZero(nB)) {
+        // Degenerate at the corner: step in and read there instead.
+        const tIn = edge.lo + (edge.hi - edge.lo) * (end === 0 ? eps : 1 - eps);
+        [uA, vA] = uvOnSide(edge.a.k, sideParamOf(sA, tIn));
+        [uB, vB] = uvOnSide(edge.b.k, sideParamOf(sB, tIn));
+        nA = boundaryCoonsNormal(bA, uA, vA);
+        nB = boundaryCoonsNormal(bB, uB, vB);
+        if (isZero(nA) || isZero(nB)) continue;
+      }
       const gap = angleDeg(nA, nB);
       if (gap <= tol) continue;                 // already coplanar
       open++;
@@ -184,28 +237,38 @@ export function cornerFairing(quilt: QuiltSpec, opts: FairingOptions = {}): Fair
       // `end` is a parameter end of the SHARED curve; which loop end of each
       // side that is depends on the side's own direction, so ask rather than
       // assume. A reversed side runs the other way round the loop.
-      const okA = request(bA, edge.a.k, saLoop < 0.5, nStar, ua, va);
-      const okB = request(bB, edge.b.k, sbLoop < 0.5, nStar, ub, vb);
+      const okA = request(bA, edge.a.k, saLoop < 0.5, nStar, uA, vA, gap);
+      const okB = request(bB, edge.b.k, sbLoop < 0.5, nStar, uB, vB, gap);
       if (okA && okB) fairable++;
     }
   }
 
   const moves: TangentMove[] = [];
+  let overswung = 0, worstDroppedDeg = 0;
   for (const key of [...asks.keys()].sort()) {
     const ask = asks.get(key)!;
     if (len3(ask.sum) === 0) continue;
     const direction = norm3(ask.sum);
+    const swingDeg = angleDeg(ask.from, direction);
+    if (swingDeg > maxSwing) {
+      overswung++;
+      if (swingDeg > worstDroppedDeg) worstDroppedDeg = swingDeg;
+      continue;
+    }
     moves.push({
       curveId: ask.curveId,
       chainEnd: ask.chainEnd,
       direction,
-      swingDeg: angleDeg(ask.from, direction),
+      swingDeg,
+      requests: ask.n,
+      gapDeg: ask.gap,
     });
   }
 
   const swings = moves.map((m) => m.swingDeg).sort((a, b) => a - b);
   return {
     moves,
+    overswung, worstDroppedDeg,
     open, fairable, features, midCurve, mirrored,
     worstSwingDeg: swings.length === 0 ? 0 : swings[swings.length - 1]!,
     medianSwingDeg: swings.length === 0 ? 0 : swings[Math.floor(swings.length / 2)]!,

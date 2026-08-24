@@ -34,6 +34,7 @@ import {
   engraveGrooves,
   meshQuilt,
   writeStlBinary,
+  mirrorSymmetry,
 } from "@car/mesh";
 import { massLedger, provenanceReport } from "@car/lens";
 import { evalChain } from "@car/num";
@@ -620,6 +621,11 @@ for (let i = 2; i < seated.length; i += 3) minZ = Math.min(minZ, seated[i]!);
 for (let i = 2; i < seated.length; i += 3) seated[i] = seated[i]! - minZ;
 const mesh = { positions: seated, indices: raw.indices, ranges: raw.ranges };
 const report = closedMeshCheck(mesh);
+// Does a car authored down both sides BUILD down both sides? See the MX-5's
+// report and `packages/mesh/src/symmetry.ts` — the P1 is authored symmetric
+// too, and until this line existed nothing had ever asked either of them.
+const sym = mirrorSymmetry(mesh);
+const symBare = mirrorSymmetry(meshQuilt(quilt, { baseDensity: 20, cross: null }));
 // MESHDEBUG=1 turns "100 violations" into "here is where". An open mesh is
 // a count and nothing else by default, and a count cannot be debugged; this
 // says which kinds, how many vertices, and — the one that actually locates it
@@ -819,6 +825,8 @@ console.log(line("panels", `${pieces.panels.length} pieces — ${bySize(pieces).
 console.log(line("shutline grooves", `${grooved.moved} vertices sunk on ${quilt.gaps.size} gap curves ` +
   `(${quilt.creases.size} creased curves are character lines and are NOT engraved) — ${grooved.note}`));
 console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
+console.log(line("mirror symmetry", `worst ${sym.worst.toFixed(4)} mm · ${sym.over} of ${sym.vertices.toLocaleString("en-GB")} vertices over ${sym.tolerance} mm`));
+console.log(line("  bare blend", `worst ${symBare.worst.toFixed(4)} mm — the field's contribution is the difference`));
 console.log(line("shading", `${DEFAULT_CREASE_ANGLE}° smoothing groups · ${shaded.split} vertices split on hard edges`));
 console.log(line("replay round-trip", String(same)));
 // Fender coverage: how far each tire stands proud of the body beside it.
