@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import { tessellateQuilt, tangentField } from "@car/surface";
-import type { CarDocument } from "@car/schema";
+import type { CarDocument, Id } from "@car/schema";
 
 const carPath = process.argv[2] ?? "../cars/panoramic-p1.car.json";
 const outPath = process.argv[3] ?? "../apps/render/p1.html";
@@ -27,7 +27,8 @@ const paint = process.argv[4] ?? "#8d1b24";
 const doc = JSON.parse(
   readFileSync(new URL(carPath, import.meta.url), "utf8"),
 ) as CarDocument;
-const quilt = computeQuilt(load(doc).state);
+const state = load(doc).state;
+const quilt = computeQuilt(state);
 const cross = tangentField(quilt, { order: 2 });
 // The RENDER FEED, not the print mesh. The difference is the normals: the
 // mesher hands back triangles and `creaseNormals` averages face normals into
@@ -37,7 +38,8 @@ const cross = tangentField(quilt, { order: 2 });
 // it was never in the surface. G1 reads 4e-4 degrees on this body. The feed
 // evaluates `boundaryCoonsNormal` at every vertex instead, so the normals are
 // the surface's own and the reflection travels.
-const mesh = tessellateQuilt(quilt, 26, cross);
+const RES = 26;
+const mesh = tessellateQuilt(quilt, RES, cross);
 
 // Seat the car on the road — the floor is at z = 0 and the tyres meet it.
 const pos = Float32Array.from(mesh.positions);
@@ -47,6 +49,118 @@ for (let i = 2; i < pos.length; i += 3) pos[i] = pos[i]! - minZ;
 
 const nrm = Float32Array.from(mesh.normals);
 const idx = Uint32Array.from(mesh.indices);
+
+// ── shutlines ─────────────────────────────────────────────────────────────
+// The print mesh engraves a groove along every gap curve; the render never
+// did, so a car with fifteen panels rendered as one unbroken shell. Rather
+// than cut the render feed — its normals are analytic and a displaced vertex
+// would keep the surface's normal and read as a smudge — every vertex carries
+// its DISTANCE to the nearest shutline, and the shader draws the gap.
+//
+// The feed's layout is what makes this cheap. Each cell owns an (n+1)x(n+1)
+// grid at `cellIndex * vertsPerCell`, indexed `j * (n+1) + i`, with side 0 at
+// j = 0, side 1 at i = n, side 2 at j = n and side 3 at i = 0. So the distance
+// from a vertex to a gapped side is the distance to its own row's or column's
+// end — exact on the boundary and accurate where it matters, which is within
+// a few millimetres of it.
+const vertsPerCell = (RES + 1) * (RES + 1);
+const gapDist = new Float32Array(pos.length / 3).fill(1e4);
+{
+  const byId = new Map(quilt.cells.map((c) => [c.id, c] as const));
+  const at = (base: number, i: number, j: number): number => (base + j * (RES + 1) + i) * 3;
+  const dist = (a: number, b: number): number =>
+    Math.hypot(pos[a]! - pos[b]!, pos[a + 1]! - pos[b + 1]!, pos[a + 2]! - pos[b + 2]!);
+  for (let ci = 0; ci < mesh.ranges.length; ci++) {
+    const cell = byId.get(mesh.ranges[ci]!.id);
+    if (!cell) continue;
+    const base = ci * vertsPerCell;
+    const gapped = cell.sides.map((sd) => quilt.gaps.has(sd.curveId));
+    if (!gapped.some(Boolean)) continue;
+    for (let j = 0; j <= RES; j++) {
+      for (let i = 0; i <= RES; i++) {
+        const here = at(base, i, j);
+        let d = 1e4;
+        if (gapped[0]) d = Math.min(d, dist(here, at(base, i, 0)));
+        if (gapped[2]) d = Math.min(d, dist(here, at(base, i, RES)));
+        if (gapped[3]) d = Math.min(d, dist(here, at(base, 0, j)));
+        if (gapped[1]) d = Math.min(d, dist(here, at(base, RES, j)));
+        gapDist[here / 3] = Math.min(gapDist[here / 3]!, d);
+      }
+    }
+  }
+}
+
+// ── materials ─────────────────────────────────────────────────────────────
+// Every render this tool has made painted the whole body one colour, glass
+// and tyres included, because nothing had ever called `assign-material`. The
+// document carries the assignment per cell and the feed carries a range per
+// cell, so joining them is the whole of it.
+//
+// The material RECORD is a name and a colour and nothing else — that is its
+// ratified shape — so the finish (how rough, how metallic, whether it wears a
+// clearcoat) is decided here, by name, with paint as the default. A `finish`
+// on the record itself would be the right home for it and is an amendment
+// nobody has asked for yet; until then this shim is the honest version,
+// because a renderer inventing a finish is better than a renderer pretending
+// glass is steel.
+interface Finish { readonly rough: number; readonly metal: number; readonly coat: number }
+const FINISH: Record<string, Finish> = {
+  // rough        metal  coat
+  paint:   { rough: 0.82, metal: 1.0, coat: 1.0 },   // clearcoat over flake
+  glass:   { rough: 0.04, metal: 0.1, coat: 1.0 },   // a sharp dark mirror
+  fabric:  { rough: 0.95, metal: 0.0, coat: 0.0 },   // a folding top absorbs
+  rubber:  { rough: 0.88, metal: 0.0, coat: 0.12 },  // a tyre has a faint sheen
+  metal:   { rough: 0.30, metal: 1.0, coat: 0.0 },   // a rim, uncoated
+  matte:   { rough: 0.97, metal: 0.0, coat: 0.0 },   // undertray
+};
+/** Which finish a material name wears. Unknown names are paint. */
+const finishFor = (name: string): Finish => {
+  const n = name.toLowerCase();
+  if (n.includes("glass") || n.includes("screen")) return FINISH["glass"]!;
+  if (n.includes("top") || n.includes("hood") || n.includes("canvas")) return FINISH["fabric"]!;
+  if (n.includes("alloy") || n.includes("rim") || n.includes("chrome")) return FINISH["metal"]!;
+  if (n.includes("undertray") || n.includes("liner")) return FINISH["matte"]!;
+  if (/^\d{3}\/\d{2}[rz]\d{2}$/i.test(n) || n.includes("tyre") || n.includes("tire")) return FINISH["rubber"]!;
+  return FINISH["paint"]!;
+};
+
+const hexToRgb = (h: string): [number, number, number] => {
+  const v = parseInt(h.replace("#", ""), 16);
+  return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
+};
+/** A twin is `<master>~m`; the material lives on the master. */
+const masterOf = (id: string): Id => (id.endsWith("~m") ? id.slice(0, -2) : id) as Id;
+
+const palette: { name: string; rgb: [number, number, number]; finish: Finish }[] = [];
+const slotOf = new Map<string, number>();
+// Slot 0 is always the command-line paint, so a car with no materials at all
+// renders exactly as it did before this existed.
+palette.push({ name: "paint", rgb: hexToRgb(paint), finish: FINISH["paint"]! });
+slotOf.set("", 0);
+const matOfVertex = new Float32Array(pos.length / 3);
+let assignedCells = 0;
+for (const r of mesh.ranges) {
+  const cell = state.cells.get(masterOf(r.id));
+  const mat = cell?.materialId === undefined ? undefined : state.materials.get(cell.materialId);
+  let slot = 0;
+  if (mat) {
+    assignedCells++;
+    const key = `${mat.name}|${mat.color}`;
+    const seen = slotOf.get(key);
+    if (seen !== undefined) slot = seen;
+    else {
+      slot = palette.length;
+      // The paint slot is shared, so the command line still recolours a car.
+      const isPaint = finishFor(mat.name) === FINISH["paint"];
+      if (isPaint && process.argv[4] !== undefined) slot = 0;
+      else palette.push({ name: mat.name, rgb: hexToRgb(mat.color), finish: finishFor(mat.name) });
+      slotOf.set(key, slot);
+    }
+  }
+  // A range is a run of INDICES; the vertices it names are what get the slot.
+  for (let t = r.start; t < r.start + r.count; t++) matOfVertex[idx[t]!] = slot;
+}
+if (palette.length > 16) throw new Error(`${palette.length} materials; the shader holds 16`);
 
 // The contact shadow is the body's OWN footprint, rasterised on the CPU into
 // a small occupancy map and blurred in the shader. A faked ellipse reads as a
@@ -92,9 +206,13 @@ const b64 = (a: Float32Array | Uint32Array | Uint8Array): string =>
 const payload = {
   name: doc.name ?? "car",
   paint,
+  materials: palette.map((m) => ({ name: m.name, rgb: m.rgb, ...m.finish })),
   positions: b64(pos),
   normals: b64(nrm),
   indices: b64(idx),
+  mats: b64(matOfVertex),
+  gaps: b64(gapDist),
+  gapWidth: 4.5,
   footprint: { data: b64(foot), w: FW, h: FH, x0: fx0, x1: fx1, y0: fy0, y1: fy1 },
   bounds: { lo: [lo[0], lo[1], 0], hi: [hi[0], hi[1], Math.max(...[...pos].filter((_, i) => i % 3 === 2))] },
   triangles: idx.length / 3,
@@ -107,4 +225,6 @@ const json = JSON.stringify(payload);
 writeFileSync(new URL(outPath, import.meta.url), template.replace("__PAYLOAD__", json));
 console.log(
   `\n${(idx.length / 3).toLocaleString("en-GB")} triangles · ${(json.length / 1024 / 1024).toFixed(2)} MB` +
+  `\n${assignedCells} of ${mesh.ranges.length} cells carry a material · ${palette.length} in the palette: ` +
+  palette.map((m) => m.name).join(", ") +
   `\nwrote ${outPath}\n`);

@@ -207,7 +207,11 @@ const shoulderY = scaled(SHOULDER_Y);
 // The beltline over the front axle was 749 mm, which left only 125 mm of
 // fender above an arch crown at 624 — and a flank cell that short is what the
 // tangent field then bulges 50 mm outboard. A real NA carries about 180.
-const shoulderZ = track(620, 860, 845, 780);
+// 470 at the nose, not 620. The nose-tuck station's crown is 570, so a
+// beltline that starts at 620 puts the SHOULDER of the tip above the ROOF
+// just behind it — the body turns inside out over the last 90 mm and closes
+// on a flat plate standing proud of everything around it. Both ends had it.
+const shoulderZ = track(470, 860, 845, 700);
 const rockerY = scaled(ROCKER_Y);
 const rockerZ = track(232, 128, 128, 246);
 
@@ -269,14 +273,14 @@ const rockerPlanY = (x: number): number => {
     const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
     return y0 + (y1 - y0) * (u * u * (3 - 2 * u));
   };
-  if (x <= fA) return ramp(0, 150, fA, FRONT_LIP);
+  if (x <= fA) return ramp(0, 110, fA, FRONT_LIP);
   if (x <= fB) return FRONT_LIP;
   if (x <= rA) {
     const mid = 0.5 * (fB + rA);
     return x <= mid ? ramp(fB, FRONT_LIP, mid, 742) : ramp(mid, 742, rA, REAR_LIP);
   }
   if (x <= rB) return REAR_LIP;
-  return ramp(rB, REAR_LIP, LEN, 250);
+  return ramp(rB, REAR_LIP, LEN, 180);
 };
 /** Height of the rocker where it is a sill rather than an arch. */
 const rockerSillZ = (x: number): number => {
@@ -285,8 +289,11 @@ const rockerSillZ = (x: number): number => {
     return z0 + (z1 - z0) * (u * u * (3 - 2 * u));
   };
   const MOUTH_Z = AXLE_Z + ARCH_R * Math.sin(ARCH_END);
-  if (x <= fA) return ramp(0, 236, fA, MOUTH_Z);
-  if (x >= rB) return ramp(rB, MOUTH_Z, LEN, 252);
+  // The aperture the body closes on: 220 x 170 at the nose and 360 x 370 at
+  // the tail, rather than 300 x 384 and 520 x 528. A bumper is a moulding
+  // wrapped round a tip, not a plate bolted to a cut-off.
+  if (x <= fA) return ramp(0, 300, fA, MOUTH_Z);
+  if (x >= rB) return ramp(rB, MOUTH_Z, LEN, 330);
   const mid = 0.5 * (fB + rA);
   return x <= mid ? ramp(fB, MOUTH_Z, mid, 132) : ramp(mid, 132, rA, MOUTH_Z);
 };
@@ -302,8 +309,8 @@ const rockerSillZ = (x: number): number => {
  */
 const shoulderPlanY = (x: number): number => {
   const T: [number, number][] = [
-    [0, 150], [fA, 700], [FRONT_AXLE_X, 826], [fB, 838],
-    [rA, 838], [REAR_AXLE_X, 830], [rB, 786], [LEN, 260],
+    [0, 110], [fA, 700], [FRONT_AXLE_X, 826], [fB, 838],
+    [rA, 838], [REAR_AXLE_X, 830], [rB, 786], [LEN, 180],
   ];
   for (let i = 0; i < T.length - 1; i++) {
     const [x0, y0] = T[i]!, [x1, y1] = T[i + 1]!;
@@ -548,9 +555,9 @@ for (const id of longEdges) s.apply("crease", { curveId: id });
 // flank and the wheelhouse tangent across a 90-degree turn, and it is what
 // makes the lip read as a lip instead of a soft roll.
 const archSpans: Id[] = [];
-for (const master of rockerIds) {
-  const rocker = master;
-  const isRocker = true;
+/** Every rocker's seven spans, in increasing x, keyed by the master's id. */
+const rockerSpans = new Map<Id, Id[]>();
+for (const rocker of rockerIds) {
   const chain0 = s.state.curves.get(s.state.resolveCurve(rocker))!.chain;
   const forward = evalChain(chain0, 0)[0]! < evalChain(chain0, 1)[0]!;
   // The rocker is SEVEN segments now, one per span, so its own parameter runs
@@ -573,80 +580,123 @@ for (const master of rockerIds) {
   pieces.unshift(head);
   if (pieces.length !== 7) throw new Error(`rocker split into ${pieces.length}, expected 7`);
   const inX = forward ? pieces : [...pieces].reverse();
-  if (isRocker) {
-    for (const j of [1, 2, 4, 5]) {
-      s.apply("crease", { curveId: inX[j]! });
-      archSpans.push(inX[j]!);
-    }
+  rockerSpans.set(rocker, inX);
+  for (const j of [1, 2, 4, 5]) {
+    s.apply("crease", { curveId: inX[j]! });
+    archSpans.push(inX[j]!);
   }
 }
 
-// ── the lines the body is read by ─────────────────────────────────────────
-// The beltline and sill are creased on both cars, and that is the ONLY thing
-// the two share at this step. The P1 gets a hood shutline at the cowl and a
-// deck shutline at the backlight; this car's boot lid opens at the backlight
-// and its bonnet at the cowl, so the stations differ and the marks land where
-// the panels actually split.
-for (const name of ["cowl", "backlight"]) {
+// ── panel gaps ────────────────────────────────────────────────────────────
+// What a panel IS, in this document, is a connected run of cells with the
+// GAP-marked curves cut — `panelsOf` has said so since A10 and nothing had
+// ever drawn a closed loop for it to find, so the body has been reported as
+// one 84-cell piece with four stray shutlines in it. A gap that does not
+// close a loop separates nothing.
+//
+// Closing a loop needs the ability to gap PART of a shared curve, and until
+// A13 there was no way to make part of a curve its own thing. That is what
+// the verb was for and this is the first use of it that is not an arch.
+//
+// The rule the arches taught, and it still holds: splitting moves nothing and
+// is safe after the cuts; shaping is not. Everything below is splits and
+// marks. No control point moves.
+
+const DOOR_FRONT = 1700;   // the cowl station — an NA's door shut is the A-pillar base
+const DOOR_REAR = 2560;    // the top-rear station, ahead of the rear arch
+const SCREEN_TOP = 2280;   // the header station — screen above, folding top behind
+const BOOT_FRONT = 2880;   // the backlight station
+
+const stationOf = (name: string) => {
   const k = STATIONS.findIndex((st) => st.name === name);
   const sec = sections[k];
-  if (!sec) continue;
+  if (!sec) throw new Error(`no station ${name}`);
+  return sec;
+};
+
+/**
+ * Split a rocker span at an x that is already a station, and hand back the
+ * two pieces in x order.
+ *
+ * The parameter is found by bisection on the piece's CURRENT chain, because
+ * every split re-parameterises what is left, and A13 then snaps it to the
+ * claim boundary the station cut put there — so the result is exact rather
+ * than within a bisection of exact.
+ */
+const cutSpanAt = (piece: Id, x: number): [Id, Id] => {
+  const chain = s.state.curves.get(s.state.resolveCurve(piece))!.chain;
+  const forward = evalChain(chain, 0)[0]! < evalChain(chain, 1)[0]!;
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 60; i++) {
+    const mid = 0.5 * (lo + hi);
+    if ((evalChain(chain, mid)[0]! < x) === forward) lo = mid; else hi = mid;
+  }
+  const before = new Set(s.state.curves.keys());
+  s.apply("split-curve", { curveId: piece, t: 0.5 * (lo + hi) });
+  const tail = [...s.state.curves.keys()].find((id) => !before.has(id)) as Id;
+  if (!tail) throw new Error(`split-curve made no new curve at x=${x}`);
+  return forward ? [piece, tail] : [tail, piece];
+};
+
+// THE SHOULDER, end to end. On a roadster the beltline is not a styling line
+// with panels either side of it — it IS the seam: bonnet against fender ahead
+// of the cowl, screen and folding top against the body through the cabin,
+// boot lid against quarter behind. One continuous groove down the car, which
+// is what an eye reads on the real thing.
+for (const id of shoulderIds) s.apply("gap", { curveId: id });
+
+// THE SILL, end to end, for the same reason as the shoulder: every unibody
+// car has a pinch weld down there where the body side outer meets the floor
+// pan, and every one of them shows it. Ahead of the door it is also the
+// bolt-on wing's lower edge and its two arch flanges; behind, the quarter's.
+// The door's own stretch has to be marked alone, which is what the two cuts
+// below are for — split-curve's first use that is not an arch.
+for (const rocker of rockerIds) {
+  const spans = rockerSpans.get(rocker)!;
+  const [wing, rest] = cutSpanAt(spans[3]!, DOOR_FRONT);
+  const [door, quarterSill] = cutSpanAt(rest, DOOR_REAR);
+  for (const id of [spans[0]!, spans[1]!, spans[2]!, wing, door, quarterSill,
+                    spans[4]!, spans[5]!, spans[6]!]) {
+    s.apply("gap", { curveId: id });
+  }
+}
+
+// THE CROSS-CAR SHUTS. Bonnet at the cowl, screen at the header, boot at the
+// backlight — the P1 gets a hood shut and a deck shut and that is the only
+// thing the two cars share here, because this one's top folds and its stations
+// are its own.
+for (const name of ["cowl", "header", "backlight"]) {
+  const sec = stationOf(name);
   s.apply("crease", { curveId: sec.deck });
   s.apply("gap", { curveId: sec.deck });
+}
+
+// THE DOOR SHUTS themselves — the two vertical cuts, which are station curves
+// that already exist. The old build taped a fresh line at x = 2150 into one
+// cell and marked it; that put a groove on the body and separated nothing,
+// because a cut through one cell of a flank leaves the flank connected round
+// it. These are the same two lines the sections already drew.
+for (const name of ["cowl", "top-rear"]) {
+  for (const id of stationOf(name).flanks) {
+    s.apply("crease", { curveId: id });
+    s.apply("gap", { curveId: id });
+  }
 }
 
 // The pop-up lamp pods are a rise in the bonnet here and not two discrete
 // pods, and the reason is the same one the wheel arches ran into: a station
 // curve is ONE cubic across the car, so it can carry a crown but not two
-// bumps with a valley between them. Authoring the real pods needs a verb that
-// splits a curve into children. The frame does not have one, and saying so is
-// better than shipping a hood that pretends.
-
-// ── the door cut ──────────────────────────────────────────────────────────
-const facesAt = (x: number, pick: (yMean: number, zMean: number) => boolean): { id: Id; z: number }[] => {
-  const out: { id: Id; z: number }[] = [];
-  for (const [id, cell] of s.state.cells) {
-    let lo = Infinity, hi = -Infinity, ySum = 0, zSum = 0, n = 0;
-    for (const sd of cell.sides) {
-      const curve = s.state.curves.get(s.state.resolveCurve(sd.curveId));
-      if (!curve) continue;
-      for (const t of [0, 0.5, 1]) {
-        const p = evalChain(curve.chain, sd.t0 + (sd.t1 - sd.t0) * t);
-        lo = Math.min(lo, p[0]); hi = Math.max(hi, p[0]); ySum += p[1]; zSum += p[2]; n++;
-      }
-    }
-    if (n === 0 || !(lo < x && hi > x)) continue;
-    if (pick(ySum / n, zSum / n)) out.push({ id, z: zSum / n });
-  }
-  return out;
-};
-const faceAt = (x: number, pick: (y: number, z: number) => boolean, want: "low" | "high" = "low"): Id => {
-  const found = facesAt(x, pick);
-  if (found.length === 0) throw new Error(`no face at x=${x}`);
-  found.sort((a, b) => a.z - b.z);
-  return (want === "low" ? found[0]! : found[found.length - 1]!).id;
-};
-const isFlank = (sign: 1 | -1) => (y: number): boolean => Math.sign(y) === sign && Math.abs(y) > 340;
-
-for (const sign of [1, -1] as const) {
-  const doorCell = faceAt(2150, isFlank(sign), "high");
-  const before = s.state.curves.size;
-  s.apply("tape", {
-    kind: "line",
-    line: { view: side, a: [2150, 500], b: [2150, 1000], lineClass: "tape" },
-    targets: [doorCell],
-  });
-  for (const id of [...s.state.curves.keys()].slice(before)) {
-    s.apply("crease", { curveId: id as Id });
-    s.apply("gap", { curveId: id as Id });
-  }
-}
+// bumps with a valley between them. Authoring the real pods needs a way to
+// split a curve ACROSS the car the way A13 splits one along it.
 
 // ── wheels ────────────────────────────────────────────────────────────────
 // Same construction as the P1: eight cubic arcs, no cuts. A cubic fits a 90°
 // arc to three parts in ten thousand, which at this radius is 0.09 mm.
+const wheelTread: Id[] = [];
+const wheelDisc: Id[] = [];
 const wheel = (cx: number, radius: number, halfWidth: number, yIn: number): void => {
   const before = new Set(s.state.curves.keys());
+  const cellsBefore = new Set(s.state.cells.keys());
   s.apply("tape", {
     kind: "box",
     rect: { view: side, a: [cx - radius, 0], b: [cx + radius, radius * 2], depth: halfWidth * 2, at: yIn },
@@ -676,6 +726,22 @@ const wheel = (cx: number, radius: number, halfWidth: number, yIn: number): void
   }
   for (const id of made) if (acrossCar(id)) straighten(id);
   for (const id of made) if (!acrossCar(id)) s.apply("crease", { curveId: id });
+  // A tyre and a rim are not the same material, and the box already knows
+  // which is which: the two faces at constant y are the wheel, the four that
+  // were fitted to arcs are the tread.
+  for (const id of [...s.state.cells.keys()] as Id[]) {
+    if (cellsBefore.has(id)) continue;
+    const cell = s.state.cells.get(id)!;
+    let lo = Infinity, hi = -Infinity;
+    for (const sd of cell.sides) {
+      const c = s.state.curves.get(s.state.resolveCurve(sd.curveId))!;
+      for (const t of [0, 0.5, 1]) {
+        const q = evalChain(c.chain, sd.t0 + (sd.t1 - sd.t0) * t);
+        lo = Math.min(lo, q[1]); hi = Math.max(hi, q[1]);
+      }
+    }
+    (hi - lo < 1 ? wheelDisc : wheelTread).push(id);
+  }
 };
 const HALF = MX5_TIRE_WIDTH / 2;
 if (process.env["NOWHEELS"] !== "1") {
@@ -688,6 +754,11 @@ if (process.env["NOWHEELS"] !== "1") {
 // break hard. Marking them moves no geometry; it changes what the document
 // admits, and it is what stops the field bending a panel out of its own plane
 // trying to make a 60-degree corner tangent-continuous.
+//
+// They are GAPPED as well as creased, and that is what closes four loops at
+// once: a bumper is its own moulding, and until its four edges said so the
+// bonnet ran through the nose panel into the front fender into the sill and
+// out the other side, and `panelsOf` was right to call the lot one piece.
 const flatEnds = [...s.state.cells.values()].filter((c) => {
   let lo = Infinity, hi = -Infinity;
   for (const sd of c.sides) {
@@ -701,7 +772,74 @@ const flatEnds = [...s.state.cells.values()].filter((c) => {
   return hi - lo < 1;
 });
 for (const cell of flatEnds) {
-  for (const sd of cell.sides) s.apply("crease", { curveId: s.state.resolveCurve(sd.curveId) });
+  for (const sd of cell.sides) {
+    const id = s.state.resolveCurve(sd.curveId);
+    s.apply("crease", { curveId: id });
+    s.apply("gap", { curveId: id });
+  }
+}
+
+// ── materials ─────────────────────────────────────────────────────────────
+// `assign-material` has existed since the first ratified verb list and no car
+// has ever called it, so every render this tool has made painted the whole
+// body one colour — including the glass, the folding top and the tyres. The
+// panels above are what make it answerable: a material belongs to a panel,
+// and until there were panels there was nothing to give one to.
+//
+// Two cells of one panel never disagree here. The classification is by
+// geometry rather than by a list of ids, so it survives the stations moving.
+const MATERIALS = {
+  paint: { name: "Classic Red", color: "#a8202b" },
+  glass: { name: "screen glass", color: "#1b2226" },
+  top: { name: "folding top", color: "#26262a" },
+  under: { name: "undertray", color: "#17181a" },
+  tyre: { name: "185/60R14", color: "#131315" },
+  rim: { name: "alloy", color: "#b9bdc2" },
+} as const;
+
+{
+  const extentOf = (cellId: Id): [Pt3, Pt3] => {
+    const cell = s.state.cells.get(cellId)!;
+    const lo: Pt3 = [Infinity, Infinity, Infinity];
+    const hi: Pt3 = [-Infinity, -Infinity, -Infinity];
+    for (const sd of cell.sides) {
+      const c = s.state.curves.get(s.state.resolveCurve(sd.curveId))!;
+      for (let i = 0; i <= 6; i++) {
+        const q = evalChain(c.chain, sd.t0 + (sd.t1 - sd.t0) * (i / 6));
+        for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k]!, q[k]!); hi[k] = Math.max(hi[k]!, q[k]!); }
+      }
+    }
+    return [lo, hi];
+  };
+  const wheelSet = new Set<Id>([...wheelTread, ...wheelDisc]);
+  let painted = 0;
+  const used = new Map<string, number>();
+  const give = (cellId: Id, m: { name: string; color: string }): void => {
+    s.apply("assign-material", { targetId: cellId, name: m.name, color: m.color });
+    used.set(m.name, (used.get(m.name) ?? 0) + 1);
+    painted++;
+  };
+  for (const id of wheelTread) give(id, MATERIALS.tyre);
+  for (const id of wheelDisc) give(id, MATERIALS.rim);
+  for (const id of [...s.state.cells.keys()] as Id[]) {
+    if (wheelSet.has(id)) continue;
+    const [lo, hi] = extentOf(id);
+    // A cell that spans the centreline is a deck or a floor; one that does not
+    // is a flank. That is the only distinction the classification needs.
+    const across = lo[1]! < -1 && hi[1]! > 1;
+    const endFace = hi[0]! - lo[0]! < 1;
+    const mid = 0.5 * (lo[0]! + hi[0]!);
+    // Floor or deck is decided by the cell's LOWEST point, not its highest:
+    // an underside cell over a wheel arch reaches z = 624 at the crown and a
+    // deck cell at the nose only reaches 650, so the tops overlap and the
+    // bottoms do not — a deck cell starts at the shoulder, 620 at worst.
+    if (across && !endFace && lo[2]! < 400) give(id, MATERIALS.under);
+    else if (across && !endFace && mid > DOOR_FRONT && mid < SCREEN_TOP) give(id, MATERIALS.glass);
+    else if (across && !endFace && mid > SCREEN_TOP && mid < BOOT_FRONT) give(id, MATERIALS.top);
+    else give(id, MATERIALS.paint);
+  }
+  console.log(`  materials                 ${painted} cells · ` +
+    [...used].map(([n, c]) => `${n} ${c}`).join(" · "));
 }
 
 s.apply("fair-corners", { maxBreakDeg: DEFAULT_CREASE_ANGLE });

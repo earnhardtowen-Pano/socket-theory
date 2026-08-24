@@ -565,7 +565,13 @@ const topCellIds = [...s.state.cells.keys()].filter((id) => {
   return n > 0 && zSum / n > 700 && ySum / n < 700;
 }) as Id[];
 if (topCellIds.length >= 2) s.apply("group", { cellIds: topCellIds, name: "upper-body" });
-s.apply("assign-material", { targetId: "cell#0" as Id, name: "body-in-white", color: "#c8c8c2" });
+// One cell, one material — the verb exercised on a cell target rather than a
+// group. It used to name a grey "body-in-white" because nothing looked at the
+// answer; the render honours materials now, so a demo assignment shows up ON
+// THE CAR as a grey panel at the nose. Naming it the body colour is the
+// smallest honest fix. The P1 wants the per-panel set the MX-5 has — paint,
+// glass, trim, tyre, rim — and does not have it yet.
+s.apply("assign-material", { targetId: "cell#0" as Id, name: "body panel", color: "#8d1b24" });
 
 // ---------------------------------------------------------------------------
 // 3. Evaluate: quilt -> conforming mesh -> closed check -> STL

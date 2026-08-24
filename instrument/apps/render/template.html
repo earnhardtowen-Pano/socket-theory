@@ -18,6 +18,13 @@ const positions = un(P.positions, Float32Array);
 const normals = un(P.normals, Float32Array);
 const indices = un(P.indices, Uint32Array);
 const foot = un(P.footprint.data, Uint8Array);
+// One float per vertex: which material slot it belongs to. A car authored
+// before `assign-material` was ever called has no `mats` at all and every
+// vertex falls to slot 0, which is the paint the command line asked for.
+const mats = P.mats ? un(P.mats, Float32Array) : new Float32Array(positions.length / 3);
+// Millimetres to the nearest shutline. A car with no gaps marked reports a
+// huge distance everywhere and no line is ever drawn.
+const gaps = P.gaps ? un(P.gaps, Float32Array) : new Float32Array(positions.length / 3).fill(1e4);
 
 const canvas = document.getElementById("gl");
 const DPR = 1;
@@ -84,20 +91,22 @@ float shadowAt(sampler2D tex, vec2 uv, float spread) {
 }`;
 
 const BODY_VS = `#version 300 es
-in vec3 aPos; in vec3 aNrm;
+in vec3 aPos; in vec3 aNrm; in float aMat; in float aGap;
 uniform mat4 uMVP; uniform float uFlip;
-out vec3 vW; out vec3 vN;
+out vec3 vW; out vec3 vN; out float vGap; flat out int vMat;
 void main(){
   vec3 p = vec3(aPos.x, aPos.y, aPos.z * uFlip);
   vec3 n = vec3(aNrm.x, aNrm.y, aNrm.z * uFlip);
-  vW = p; vN = n;
+  vW = p; vN = n; vMat = int(aMat + 0.5); vGap = aGap;
   gl_Position = uMVP * vec4(p, 1.0);
 }`;
 
 const BODY_FS = `#version 300 es
 precision highp float;
-in vec3 vW; in vec3 vN;
-uniform vec3 uEye; uniform vec3 uPaint; uniform float uFlip;
+in vec3 vW; in vec3 vN; in float vGap; flat in int vMat;
+uniform vec3 uEye; uniform float uFlip; uniform float uGapW;
+uniform vec3 uBase[16];     // colour per material slot
+uniform vec3 uFinish[16];   // rough, metal, coat
 out vec4 outColor;
 ${ENV}
 void main(){
@@ -109,24 +118,45 @@ void main(){
   vec3 r = reflect(-v, n);
   float ndv = max(dot(n, v), 1e-3);
 
-  // Clearcoat over a metallic base. The coat is a sharp mirror weighted by
-  // Fresnel; the base is a wide, rough sample of the same room tinted by the
-  // paint, which is what gives a dark colour its glow in the shadows instead
-  // of going flat black.
-  float fres = pow(1.0 - ndv, 5.0);
-  float coat = 0.045 + 0.955 * fres;
+  // One BRDF, six materials. Paint keeps exactly the numbers it had — coat 1,
+  // metal 1, rough 0.82 — so a car with no materials assigned renders as it
+  // always did; glass turns the roughness down and the metalness off, a
+  // folding top turns both off and drops the coat, a rim keeps the metal and
+  // loses the coat.
+  int m = clamp(vMat, 0, 15);
+  vec3 base = uBase[m];
+  float rough = uFinish[m].x, metal = uFinish[m].y, coatW = uFinish[m].z;
 
-  vec3 baseEnv = studio(r, 0.82) * 0.55 + studio(n, 0.95) * 0.45;
-  vec3 flake = uPaint * baseEnv * 1.35;
-  // A metallic tilt: the paint reads lighter where the surface faces the room
-  // and deeper where it turns away, which is the flake and not the geometry.
-  flake *= mix(0.72, 1.28, smoothstep(0.0, 1.0, ndv));
+  // The coat is a sharp mirror weighted by Fresnel; the body under it is a
+  // wide, rough sample of the same room tinted by the material, which is what
+  // gives a dark colour its glow in the shadows instead of going flat black.
+  float fres = pow(1.0 - ndv, 5.0);
+  float coat = coatW * (0.045 + 0.955 * fres);
+
+  vec3 wide = studio(r, rough) * 0.55 + studio(n, 0.95) * 0.45;
+  vec3 body = base * wide * 1.35;
+  // A metallic tilt: the surface reads lighter where it faces the room and
+  // deeper where it turns away, which is the flake and not the geometry. A
+  // dielectric does not do that, so it is weighted by metalness.
+  body *= mix(1.0, mix(0.72, 1.28, smoothstep(0.0, 1.0, ndv)), metal);
 
   vec3 coatEnv = studio(r, 0.06);
-  vec3 col = flake * (1.0 - coat * 0.55) + coatEnv * coat * 1.15;
+  vec3 col = body * (1.0 - coat * 0.55) + coatEnv * coat * 1.15;
 
-  // Grazing sheen along the very edge of the silhouette.
-  col += vec3(0.55, 0.60, 0.72) * pow(1.0 - ndv, 12.0) * 0.55;
+  // Grazing sheen along the very edge of the silhouette. A rough material has
+  // no sharp silhouette highlight, so it is weighted out.
+  col += vec3(0.55, 0.60, 0.72) * pow(1.0 - ndv, 12.0) * 0.55 * (1.0 - rough * 0.9);
+
+  // The shutline. vGap is millimetres to the nearest gap-marked curve, so
+  // the line is drawn at the car's own scale rather than in pixels — a 4.5 mm
+  // door gap is 4.5 mm from every camera, which is the point of measuring it
+  // in the model. Inside the gap there is no paint and no coat, only the dark
+  // of the panel edges; just outside it, the lip catches the light.
+  float hw = uGapW * 0.5;
+  float inGap = 1.0 - smoothstep(hw * 0.55, hw, vGap);
+  float lip = smoothstep(hw, hw * 1.5, vGap) * (1.0 - smoothstep(hw * 1.5, hw * 3.2, vGap));
+  col = mix(col, col * 0.055 + vec3(0.006, 0.007, 0.009), inGap);
+  col += vec3(0.20, 0.21, 0.24) * lip * (1.0 - rough * 0.7) * ndv;
 
   // The reflected copy is dimmer, cooler, and dies with height.
   if (uFlip < 0.0) {
@@ -198,7 +228,7 @@ function buffer(data, target) {
   gl.bufferData(target || gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
   return b;
 }
-const bPos = buffer(positions), bNrm = buffer(normals);
+const bPos = buffer(positions), bNrm = buffer(normals), bMat = buffer(mats), bGap = buffer(gaps);
 const bIdx = buffer(indices, gl.ELEMENT_ARRAY_BUFFER);
 const bodyVao = gl.createVertexArray();
 gl.bindVertexArray(bodyVao);
@@ -208,6 +238,12 @@ gl.vertexAttribPointer(gl.getAttribLocation(bodyProg, "aPos"), 3, gl.FLOAT, fals
 gl.bindBuffer(gl.ARRAY_BUFFER, bNrm);
 gl.enableVertexAttribArray(gl.getAttribLocation(bodyProg, "aNrm"));
 gl.vertexAttribPointer(gl.getAttribLocation(bodyProg, "aNrm"), 3, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ARRAY_BUFFER, bMat);
+gl.enableVertexAttribArray(gl.getAttribLocation(bodyProg, "aMat"));
+gl.vertexAttribPointer(gl.getAttribLocation(bodyProg, "aMat"), 1, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ARRAY_BUFFER, bGap);
+gl.enableVertexAttribArray(gl.getAttribLocation(bodyProg, "aGap"));
+gl.vertexAttribPointer(gl.getAttribLocation(bodyProg, "aGap"), 1, gl.FLOAT, false, 0, 0);
 gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bIdx);
 gl.bindVertexArray(null);
 
@@ -290,13 +326,25 @@ function draw() {
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
 
-  const paint = hex(P.paint);
+  // The palette, once per frame. Slot 0 is the command-line paint whether or
+  // not the car carries materials, so nothing regresses for a car that has none.
+  const slots = (P.materials && P.materials.length ? P.materials
+    : [{ name: "paint", rgb: null, rough: 0.82, metal: 1.0, coat: 1.0 }]);
+  const base = new Float32Array(16 * 3), fin = new Float32Array(16 * 3);
+  for (let i = 0; i < 16; i++) {
+    const m = slots[Math.min(i, slots.length - 1)];
+    const rgb = i === 0 || !m.rgb ? hex(P.paint) : m.rgb.map((c) => Math.pow(c, 2.2));
+    base.set(rgb, i * 3);
+    fin.set([m.rough, m.metal, m.coat], i * 3);
+  }
 
   // 1 — the body reflected in the floor, drawn first and below it.
   gl.useProgram(bodyProg);
   gl.uniformMatrix4fv(gl.getUniformLocation(bodyProg, "uMVP"), false, M);
   gl.uniform3fv(gl.getUniformLocation(bodyProg, "uEye"), new Float32Array(eye));
-  gl.uniform3fv(gl.getUniformLocation(bodyProg, "uPaint"), new Float32Array(paint));
+  gl.uniform3fv(gl.getUniformLocation(bodyProg, "uBase"), base);
+  gl.uniform3fv(gl.getUniformLocation(bodyProg, "uFinish"), fin);
+  gl.uniform1f(gl.getUniformLocation(bodyProg, "uGapW"), P.gapWidth || 4.5);
   gl.uniform1f(gl.getUniformLocation(bodyProg, "uFlip"), -1);
   gl.cullFace(gl.FRONT);
   gl.bindVertexArray(bodyVao);
