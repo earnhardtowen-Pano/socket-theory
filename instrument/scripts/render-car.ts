@@ -19,6 +19,7 @@ import { load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import { tessellateQuilt, tangentField } from "@car/surface";
 import type { CarDocument, Id } from "@car/schema";
+import { finishOf, type Finish } from "@car/skin";
 
 const carPath = process.argv[2] ?? "../cars/panoramic-p1.car.json";
 const outPath = process.argv[3] ?? "../apps/render/p1.html";
@@ -103,25 +104,15 @@ const gapDist = new Float32Array(pos.length / 3).fill(1e4);
 // nobody has asked for yet; until then this shim is the honest version,
 // because a renderer inventing a finish is better than a renderer pretending
 // glass is steel.
-interface Finish { readonly rough: number; readonly metal: number; readonly coat: number }
-const FINISH: Record<string, Finish> = {
-  // rough        metal  coat
-  paint:   { rough: 0.82, metal: 1.0, coat: 1.0 },   // clearcoat over flake
-  glass:   { rough: 0.04, metal: 0.1, coat: 1.0 },   // a sharp dark mirror
-  fabric:  { rough: 0.95, metal: 0.0, coat: 0.0 },   // a folding top absorbs
-  rubber:  { rough: 0.88, metal: 0.0, coat: 0.12 },  // a tyre has a faint sheen
-  metal:   { rough: 0.30, metal: 1.0, coat: 0.0 },   // a rim, uncoated
-  matte:   { rough: 0.97, metal: 0.0, coat: 0.0 },   // undertray
-};
-/** Which finish a material name wears. Unknown names are paint. */
-const finishFor = (name: string): Finish => {
-  const n = name.toLowerCase();
-  if (n.includes("glass") || n.includes("screen")) return FINISH["glass"]!;
-  if (n.includes("top") || n.includes("hood") || n.includes("canvas")) return FINISH["fabric"]!;
-  if (n.includes("alloy") || n.includes("rim") || n.includes("chrome")) return FINISH["metal"]!;
-  if (n.includes("undertray") || n.includes("liner")) return FINISH["matte"]!;
-  if (/^\d{3}\/\d{2}[rz]\d{2}$/i.test(n) || n.includes("tyre") || n.includes("tire")) return FINISH["rubber"]!;
-  return FINISH["paint"]!;
+// The catalogue decides the finish, not a substring match on the name. The
+// old table asked "does the name contain 'glass'?", which would have rendered
+// a paint called Sea Glass Green as a window; `@car/types/finishes` keys on
+// the name itself and falls back to unpainted skin, keeping the car's own
+// colour and replacing only the physics.
+/** The shader indexes classes, so they need an order. Structure is 1 because
+ *  the ghost pass asks "is this structure?" and nothing else. */
+const CLASS_INDEX: Record<string, number> = {
+  skin: 0, structure: 1, glazing: 2, trim: 3, tyre: 4, wheel: 5,
 };
 
 const hexToRgb = (h: string): [number, number, number] => {
@@ -135,7 +126,7 @@ const palette: { name: string; rgb: [number, number, number]; finish: Finish }[]
 const slotOf = new Map<string, number>();
 // Slot 0 is always the command-line paint, so a car with no materials at all
 // renders exactly as it did before this existed.
-palette.push({ name: "paint", rgb: hexToRgb(paint), finish: FINISH["paint"]! });
+palette.push({ name: "paint", rgb: hexToRgb(paint), finish: finishOf("Classic Red") });
 slotOf.set("", 0);
 const matOfVertex = new Float32Array(pos.length / 3);
 let assignedCells = 0;
@@ -151,9 +142,12 @@ for (const r of mesh.ranges) {
     else {
       slot = palette.length;
       // The paint slot is shared, so the command line still recolours a car.
-      const isPaint = finishFor(mat.name) === FINISH["paint"];
-      if (isPaint && process.argv[4] !== undefined) slot = 0;
-      else palette.push({ name: mat.name, rgb: hexToRgb(mat.color), finish: finishFor(mat.name) });
+      const fin = finishOf(mat.name, mat.color);
+      // The command line still recolours a car, but only its SKIN: a paint
+      // override that also repainted the glass and the chassis would undo the
+      // distinction the classes exist to make.
+      if (fin.surfaceClass === "skin" && process.argv[4] !== undefined) slot = 0;
+      else palette.push({ name: mat.name, rgb: hexToRgb(mat.color), finish: fin });
       slotOf.set(key, slot);
     }
   }
@@ -203,10 +197,17 @@ for (let t = 0; t < idx.length; t += 3) {
 const b64 = (a: Float32Array | Uint32Array | Uint8Array): string =>
   Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString("base64");
 
+let topZ = -Infinity;
+for (let i = 2; i < pos.length; i += 3) if (pos[i]! > topZ) topZ = pos[i]!;
+
 const payload = {
   name: doc.name ?? "car",
   paint,
-  materials: palette.map((m) => ({ name: m.name, rgb: m.rgb, ...m.finish })),
+  materials: palette.map((m) => ({
+    name: m.name, rgb: m.rgb,
+    rough: m.finish.rough, metal: m.finish.metal, coat: m.finish.coat,
+    opacity: m.finish.opacity, klass: CLASS_INDEX[m.finish.surfaceClass],
+  })),
   positions: b64(pos),
   normals: b64(nrm),
   indices: b64(idx),
@@ -214,7 +215,10 @@ const payload = {
   gaps: b64(gapDist),
   gapWidth: 4.5,
   footprint: { data: b64(foot), w: FW, h: FH, x0: fx0, x1: fx1, y0: fy0, y1: fy1 },
-  bounds: { lo: [lo[0], lo[1], 0], hi: [hi[0], hi[1], Math.max(...[...pos].filter((_, i) => i % 3 === 2))] },
+  // A loop, not a spread. `Math.max(...positions)` is fine until a car has a
+  // chassis in it and the argument list is 360,000 long, at which point it is
+  // a stack overflow rather than a slow path.
+  bounds: { lo: [lo[0], lo[1], 0], hi: [hi[0], hi[1], topZ] },
   triangles: idx.length / 3,
 };
 
@@ -226,5 +230,5 @@ writeFileSync(new URL(outPath, import.meta.url), template.replace("__PAYLOAD__",
 console.log(
   `\n${(idx.length / 3).toLocaleString("en-GB")} triangles · ${(json.length / 1024 / 1024).toFixed(2)} MB` +
   `\n${assignedCells} of ${mesh.ranges.length} cells carry a material · ${palette.length} in the palette: ` +
-  palette.map((m) => m.name).join(", ") +
+  palette.map((m) => `${m.name} [${m.finish.surfaceClass}]`).join(", ") +
   `\nwrote ${outPath}\n`);

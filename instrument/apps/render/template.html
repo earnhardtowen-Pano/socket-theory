@@ -106,7 +106,19 @@ precision highp float;
 in vec3 vW; in vec3 vN; in float vGap; flat in int vMat;
 uniform vec3 uEye; uniform float uFlip; uniform float uGapW;
 uniform vec3 uBase[16];     // colour per material slot
-uniform vec3 uFinish[16];   // rough, metal, coat
+uniform vec4 uFinish[16];   // rough, metal, coat, opacity
+uniform float uKlass[16];   // 0 skin 1 structure 2 glazing 3 trim 4 tyre 5 wheel
+/**
+ * 0 opaque pass, 1 glazing pass, 2 ghost pass.
+ *
+ * Glazing is drawn after everything else with the depth buffer read but not
+ * written, which is the cheap version of sorting and is exact for a single
+ * layer of glass — which a windscreen is. The ghost pass draws the SKIN back
+ * over an already-drawn chassis at low alpha, so structure can be seen inside
+ * the body it lives in. Two silvers make them tell apart; the ghost is what
+ * lets you look at both at once.
+ */
+uniform float uPass;
 out vec4 outColor;
 ${ENV}
 void main(){
@@ -126,6 +138,14 @@ void main(){
   int m = clamp(vMat, 0, 15);
   vec3 base = uBase[m];
   float rough = uFinish[m].x, metal = uFinish[m].y, coatW = uFinish[m].z;
+  float opacity = uFinish[m].w;
+  float klass = uKlass[m];
+  bool isGlass = klass > 1.5 && klass < 2.5;
+  bool isStructure = klass > 0.5 && klass < 1.5;
+  if (uPass < 0.5 && isGlass) discard;                   // opaque pass
+  if (uPass > 0.5 && uPass < 1.5 && !isGlass) discard;   // glazing pass
+  if (uPass > 1.5 && uPass < 2.5 && isStructure) discard; // ghost: skin over it
+  if (uPass > 2.5 && !isStructure) discard;              // ghost: structure only
 
   // The coat is a sharp mirror weighted by Fresnel; the body under it is a
   // wide, rough sample of the same room tinted by the material, which is what
@@ -163,7 +183,13 @@ void main(){
     float fade = exp(-max(0.0, -vW.z) / 900.0);
     col *= vec3(0.30, 0.33, 0.38) * fade;
   }
-  outColor = vec4(aces(col), 1.0);
+  // Glass earns its silhouette from Fresnel, not from a flat alpha: edge-on
+  // it is a mirror and face-on you see through it, which is the one thing
+  // that stops a windscreen reading as grey plastic. The GHOST alpha wins
+  // over it, or the one surface you most want to see past stays opaque.
+  float alpha = isGlass ? clamp(opacity + (1.0 - opacity) * fres * 1.6, 0.0, 1.0) : opacity;
+  if (uPass > 1.5 && uPass < 2.5) alpha = 0.15;
+  outColor = vec4(aces(col), alpha);
 }`;
 
 const FLOOR_VS = `#version 300 es
@@ -270,6 +296,8 @@ const radius = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2]) / 2;
 
 const params = new URLSearchParams(location.search);
 const num = (k, d) => (params.has(k) ? parseFloat(params.get(k)) : d);
+/** ?ghost=1 — structure solid, skin see-through. */
+const ghost = params.get("ghost") === "1";
 const cam = {
   yaw: num("yaw", -38) * Math.PI / 180,
   pitch: num("pitch", 9) * Math.PI / 180,
@@ -330,12 +358,13 @@ function draw() {
   // not the car carries materials, so nothing regresses for a car that has none.
   const slots = (P.materials && P.materials.length ? P.materials
     : [{ name: "paint", rgb: null, rough: 0.82, metal: 1.0, coat: 1.0 }]);
-  const base = new Float32Array(16 * 3), fin = new Float32Array(16 * 3);
+  const base = new Float32Array(16 * 3), fin = new Float32Array(16 * 4), kl = new Float32Array(16);
   for (let i = 0; i < 16; i++) {
     const m = slots[Math.min(i, slots.length - 1)];
     const rgb = i === 0 || !m.rgb ? hex(P.paint) : m.rgb.map((c) => Math.pow(c, 2.2));
     base.set(rgb, i * 3);
-    fin.set([m.rough, m.metal, m.coat], i * 3);
+    fin.set([m.rough, m.metal, m.coat, m.opacity === undefined ? 1 : m.opacity], i * 4);
+    kl[i] = m.klass === undefined ? 0 : m.klass;
   }
 
   // 1 — the body reflected in the floor, drawn first and below it.
@@ -343,8 +372,10 @@ function draw() {
   gl.uniformMatrix4fv(gl.getUniformLocation(bodyProg, "uMVP"), false, M);
   gl.uniform3fv(gl.getUniformLocation(bodyProg, "uEye"), new Float32Array(eye));
   gl.uniform3fv(gl.getUniformLocation(bodyProg, "uBase"), base);
-  gl.uniform3fv(gl.getUniformLocation(bodyProg, "uFinish"), fin);
+  gl.uniform4fv(gl.getUniformLocation(bodyProg, "uFinish"), fin);
+  gl.uniform1fv(gl.getUniformLocation(bodyProg, "uKlass"), kl);
   gl.uniform1f(gl.getUniformLocation(bodyProg, "uGapW"), P.gapWidth || 4.5);
+  gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 0);
   gl.uniform1f(gl.getUniformLocation(bodyProg, "uFlip"), -1);
   gl.cullFace(gl.FRONT);
   gl.bindVertexArray(bodyVao);
@@ -376,7 +407,37 @@ function draw() {
   gl.cullFace(gl.BACK);
   gl.uniform1f(gl.getUniformLocation(bodyProg, "uFlip"), 1);
   gl.bindVertexArray(bodyVao);
-  gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+
+  // GHOST: structure first and solid, then the skin back over it at low alpha
+  // with the depth buffer read and not written. Two silvers say which is
+  // which; this is what lets you see both at once.
+  if (ghost) {
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 3);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 2);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    gl.enable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  } else {
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 0);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    // 4 — the glazing last, blended, depth read but not written. One layer of
+    // glass needs no sort, and a windscreen is one layer.
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 1);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    gl.enable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  }
   gl.bindVertexArray(null);
 }
 

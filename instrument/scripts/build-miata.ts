@@ -24,8 +24,10 @@
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { makeAllocator, type Id, type Pt3 } from "@car/schema";
-import { assembleCar } from "@car/types";
+import { assembleCar, shoulderAboveHip95M, shoulderBreadth95M } from "@car/types";
+import { CATALOGUE } from "@car/skin";
 import { solve } from "@car/pack";
+import { cabinLens, type CabinPerson } from "@car/lens";
 import {
   miataConfig, MX5_DIAMETER, MX5_FRONT_OVERHANG, MX5_FRONT_TRACK, MX5_REAR_TRACK,
   MX5_TIRE_WIDTH, MX5_WHEELBASE,
@@ -45,6 +47,41 @@ import { dist3, evalChain } from "@car/num";
 // ── 1. the packaging solve ────────────────────────────────────────────────
 const car = assembleCar(miataConfig, makeAllocator());
 const packed = solve(car.input);
+
+/**
+ * The person, lifted out of the packaging solve into BODY coordinates.
+ *
+ * The packer works from the front axle and the body from the nose, so every
+ * station moves by the front overhang. Nothing here is authored: heel, hip,
+ * eye and head are ports the occupant array published from sourced
+ * anthropometry, placed by the blind solver against the pedal plane. The
+ * cabin is measured against THEM, which is the whole point of having them.
+ *
+ * The row is authored on the centreline and the driver sits `driverY` off it;
+ * the cabin readings that matter (shoulder room, the well floor) are about
+ * the section rather than the seat, so the person is read at the driver's
+ * side and the section is read across the whole car.
+ */
+const personInBody = (): CabinPerson => {
+  const part = car.input.parts.find((pt) => pt.ports.some((q) => /^hip-/.test(q.name)));
+  if (!part) throw new Error("no occupant part in the assembly");
+  const pose = packed.placements.get(part.id);
+  if (!pose) throw new Error("the occupant was not placed");
+  const at = (name: RegExp): Pt3 => {
+    const q = part.ports.find((r) => name.test(r.name));
+    if (!q) throw new Error(`no ${name} port on the occupant`);
+    const o = q.frame.origin;
+    // + the pose, + the nose-to-axle shift, and the driver's own y offset.
+    return [o[0] + pose.origin[0] + MX5_FRONT_OVERHANG, DRIVER_Y, o[2] + pose.origin[2]];
+  };
+  return {
+    heel: at(/^heel-/), hip: at(/^hip-/), eye: at(/^eye-/), head: at(/^head-/),
+    shoulderHalfBreadth: shoulderBreadth95M().value / 2,
+    shoulderAboveHip: shoulderAboveHip95M().value,
+  };
+};
+/** LHD, +Y left — the occupant array's own convention and its default. */
+const DRIVER_Y = 370;
 
 const NOSE = MX5_FRONT_OVERHANG;
 const FRONT_AXLE_X = NOSE;
@@ -312,15 +349,32 @@ const shoulderPlanY = (x: number): number => {
     [0, 110], [fA, 700], [FRONT_AXLE_X, 826], [fB, 838],
     [rA, 838], [REAR_AXLE_X, 830], [rB, 786], [LEN, 180],
   ];
+  let base = T[T.length - 1]![1];
   for (let i = 0; i < T.length - 1; i++) {
     const [x0, y0] = T[i]!, [x1, y1] = T[i + 1]!;
     if (x <= x1) {
       const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
-      return y0 + (y1 - y0) * (u * u * (3 - 2 * u));
+      base = y0 + (y1 - y0) * (u * u * (3 - 2 * u));
+      break;
     }
   }
-  return T[T.length - 1]![1];
+  // THE SIGHT LINE. Through the cabin the beltline draws IN, so the widest
+  // point of the section sits below it and the body side leans inboard on the
+  // way up — which is tumblehome, and which was reading MINUS 0.6 degrees
+  // before this existed. A flank whose top is wider than its waist flares,
+  // and a car that flares above its belt looks like a bathtub.
+  //
+  // The tuck lives inside the rocker's own span (1119 to 2726) so it costs no
+  // extra segment: one cubic already carries an extremum, and this is it.
+  const c0 = fB, c1 = rA;
+  if (x > c0 && x < c1) {
+    const u = (x - c0) / (c1 - c0);
+    base -= CABIN_TUCK * Math.sin(Math.PI * u) ** 2;
+  }
+  return base;
 };
+/** How far the beltline draws in at mid-cabin, mm per side. */
+const CABIN_TUCK = 46;
 
 const rockerIds = longEdges.filter((id) => curveMean(id)[2] < (FLOOR + TOP) / 2);
 const shoulderIds = longEdges.filter((id) => curveMean(id)[2] >= (FLOOR + TOP) / 2);
@@ -435,16 +489,29 @@ const STATIONS: {
   { x: 790,  roof: 830,  roofY: 500, floor: 132, hip: 838, hipAt: 0.74, name: "front-axle" },
   { x: 1000, roof: 858,  roofY: 540, floor: 130, hip: 830, hipAt: 0.68, name: "lamp-pods" },
   { x: archMouth(FRONT_AXLE_X)[1], roof: 856,  roofY: 552, floor: 129, hip: 812, hipAt: 0.58, name: "arch-front-trail" },
-  { x: 1400, roof: 838,  roofY: 560, floor: 128, hip: 812, hipAt: 0.50, name: "hood-mid" },
-  { x: 1700, roof: 890,  roofY: 600, floor: 128, hip: 820, hipAt: 0.45, name: "cowl" },
-  { x: 1980, roof: 1090, roofY: 400, floor: 128, hip: 826, hipAt: 0.40, name: "screen" },
-  { x: 2280, roof: 1232, roofY: 320, floor: 128, hip: 828, hipAt: 0.38, name: "header" },
-  { x: 2560, roof: 1215, roofY: 330, floor: 130, hip: 830, hipAt: 0.40, name: "top-rear" },
-  { x: archMouth(REAR_AXLE_X)[0], roof: 1140, roofY: 400, floor: 133, hip: 826, hipAt: 0.56, name: "arch-rear-lead" },
-  { x: 2880, roof: 1075, roofY: 440, floor: 136, hip: 836, hipAt: 0.64, name: "backlight" },
-  { x: 3055, roof: 985,  roofY: 560, floor: 142, hip: 844, hipAt: 0.74, name: "rear-axle" },
-  { x: archMouth(REAR_AXLE_X)[1], roof: 906,  roofY: 556, floor: 168, hip: 812, hipAt: 0.60, name: "arch-rear-trail" },
-  { x: 3480, roof: 894,  roofY: 540, floor: 182, hip: 800, hipAt: 0.60, name: "deck" },
+  { x: 1400, roof: 838,  roofY: 560, floor: 128, hip: 826, hipAt: 0.48, name: "hood-mid" },
+  { x: 1700, roof: 892,  roofY: 560, floor: 128, hip: 834, hipAt: 0.45, name: "cowl" },
+  // ── the cockpit ─────────────────────────────────────────────────────────
+  // `roof` BELOW the beltline is a well, not a roof, and that is the whole
+  // change: the section runs up the body side to the belt and then turns in
+  // and DOWN into the car. The tumblehome the lens reads is the angle of that
+  // turn, and it only exists on a body that is open.
+  //
+  // The floor of the well is one cubic's minimum at the centreline, so this
+  // car has no transmission tunnel — a tunnel is a rise BETWEEN two footwells
+  // and a cubic across the car has one extremum, not two. Same limit the lamp
+  // pods hit. Said here rather than discovered later.
+  { x: 1980, roof: 430,  roofY: 470, floor: 128, hip: 838, hipAt: 0.42, name: "screen" },
+  { x: 2280, roof: 385,  roofY: 460, floor: 128, hip: 840, hipAt: 0.42, name: "header" },
+  { x: 2560, roof: 400,  roofY: 460, floor: 130, hip: 840, hipAt: 0.44, name: "top-rear" },
+  { x: archMouth(REAR_AXLE_X)[0], roof: 430, roofY: 470, floor: 133, hip: 826, hipAt: 0.56, name: "arch-rear-lead" },
+  // ── and closed again: the tonneau behind the seats ──────────────────────
+  { x: 2880, roof: 878,  roofY: 500, floor: 136, hip: 836, hipAt: 0.64, name: "backlight" },
+  // The boot lid of a roadster sits at the beltline, not above it. It was
+  // 985 at the rear axle against a belt of 830 — a dome nobody asked for.
+  { x: 3055, roof: 884,  roofY: 560, floor: 142, hip: 844, hipAt: 0.74, name: "rear-axle" },
+  { x: archMouth(REAR_AXLE_X)[1], roof: 862,  roofY: 556, floor: 168, hip: 812, hipAt: 0.60, name: "arch-rear-trail" },
+  { x: 3480, roof: 856,  roofY: 540, floor: 182, hip: 800, hipAt: 0.60, name: "deck" },
   { x: 3720, roof: 848,  roofY: 430, floor: 218, hip: 700, hipAt: 0.55, name: "tail" },
   { x: 3900, roof: 800,  roofY: 300, floor: 252, hip: 470, hipAt: 0.50, name: "tail-tuck" },
 ];
@@ -749,6 +816,218 @@ if (process.env["NOWHEELS"] !== "1") {
   wheel(REAR_AXLE_X, WHEEL_R, HALF, MX5_REAR_TRACK / 2 - HALF);
 }
 
+// ── the chassis ───────────────────────────────────────────────────────────
+// The structure, from the substrate the config already declares and the
+// packaging solve already placed: two rails at `railSpacing`, `crossmemberCount`
+// beams across them, the tunnel the propshaft and PPF live in, and the sills.
+// Nothing here is a new number — every dimension is read off `miataConfig`,
+// which is the point. A body drawn over a chassis nobody modelled is a shell,
+// and a shell and its structure rendered in one silver is one blob.
+//
+// It sits INSIDE the skin, as structure does. That is why the render has a
+// ghost pass and why the chassis wears its own silver: you cannot judge a
+// package you cannot see, and you cannot see two things that look identical.
+const sub = miataConfig.substrate;
+const RAIL_Y = sub.railSpacing.value / 2;
+const RAIL_H = sub.railSectionHeight.value, RAIL_W = sub.railSectionWidth.value;
+const RAIL_Z = miataConfig.placement.railHeight.value;
+const chassisCells: Id[] = [];
+if (process.env["NOCHASSIS"] !== "1") {
+  const chassisBefore = new Set(s.state.cells.keys());
+  const mirroredBefore = new Set(s.state.cells.keys());
+  /** A box, and every curve it made straightened — structure is straight. */
+  const beam = (rect: Parameters<typeof s.apply>[1] extends never ? never : {
+    view: { kind: "side" | "front" }; a: [number, number]; b: [number, number]; depth: number; at: number;
+  }): void => {
+    const before = new Set(s.state.curves.keys());
+    s.apply("tape", { kind: "box", rect: rect as never });
+    for (const id of [...s.state.curves.keys()] as Id[]) {
+      if (before.has(id)) continue;
+      straighten(id);
+      s.apply("crease", { curveId: id });
+    }
+  };
+
+  // The two rails. Authored on ONE side; the mirror law supplies the other,
+  // which is the same bargain the wheels take.
+  beam({
+    view: side,
+    a: [420, RAIL_Z - RAIL_H / 2], b: [3560, RAIL_Z + RAIL_H / 2],
+    depth: RAIL_W, at: RAIL_Y - RAIL_W / 2,
+  });
+  // The sills, likewise: `rockerHeight` x `rockerWidth`, inboard of the skin.
+  const SILL_Y = 700;
+  beam({
+    view: side,
+    a: [1560, 190], b: [2880, 190 + sub.rockerHeight.value],
+    depth: sub.rockerWidth.value, at: SILL_Y - sub.rockerWidth.value / 2,
+  });
+  const mirrored = [...s.state.cells.keys()].filter((id) => !mirroredBefore.has(id)) as Id[];
+
+  // Crossmembers: front, dash, seat, rear — `crossmemberCount` of them, spaced
+  // over the run the rails cover.
+  const N = Math.max(2, Math.round(sub.crossmemberCount.value));
+  const xs = [620, 1700, 2560, 3320];
+  for (let i = 0; i < N; i++) {
+    const x = xs[i] ?? 620 + ((3320 - 620) * i) / (N - 1);
+    beam({
+      view: { kind: "front" as const },
+      a: [-RAIL_Y - RAIL_W / 2, RAIL_Z - RAIL_H / 2],
+      b: [RAIL_Y + RAIL_W / 2, RAIL_Z - RAIL_H / 2 + 62],
+      depth: 62, at: x,
+    });
+  }
+  // The tunnel: propshaft, PPF and exhaust, between the seats.
+  beam({
+    view: side,
+    a: [1500, RAIL_Z - RAIL_H / 2], b: [3060, RAIL_Z - RAIL_H / 2 + sub.tunnelHeight.value],
+    depth: sub.tunnelWidth.value, at: -sub.tunnelWidth.value / 2,
+  });
+
+  for (const id of [...s.state.cells.keys()] as Id[]) {
+    if (chassisBefore.has(id)) continue;
+    chassisCells.push(id);
+    // Everything but the rails and sills spans the centreline and cannot be
+    // mirrored; detaching them keeps the mirror law off the whole chassis
+    // except the two things that genuinely want it.
+    if (!mirrored.includes(id)) s.apply("mirror-detach", { cellId: id });
+  }
+}
+
+// ── the screen frame ──────────────────────────────────────────────────────
+// Two A-pillars and a header, and they are STRUCTURE — separate solids bolted
+// to the cowl, the way the wheels are separate solids, not a band of the body
+// pretending to be a windscreen. The band that used to pretend is gone: the
+// deck through the cabin dips into the cockpit now, so there is nothing there
+// to call glass.
+//
+// And there IS no glass here, which is a limit and not a choice. A windscreen
+// is a surface inside a closed frame — a trimmed face — and there is no way
+// to author a hole in this tool. The frame is real; the aperture is empty;
+// saying so beats hanging a solid pane in it.
+//
+// Every number below comes off the person. The header sits above the eye the
+// occupant array placed, so a driver looks THROUGH the aperture rather than
+// over it, and the base sits at the cowl so the pillar stands on the scuttle.
+const SCREEN_BASE_X = 1730, SCREEN_TOP_X = 2140;
+// The base sits INSIDE the cowl rather than on top of it. A pillar that
+// stops at the surface reads as a bar balanced on the bodywork; one that
+// runs into it reads as structure, which is what it is.
+const SCREEN_BASE_Z = 838, SCREEN_TOP_Z = 1205;
+const PILLAR_Y = 482, PILLAR_THICK = 68, PILLAR_DEEP = 38;
+const RAKE = SCREEN_TOP_Z - SCREEN_BASE_Z;
+const pillarCells: Id[] = [];
+const glazingCells: Id[] = [];
+if (process.env["NOSCREEN"] !== "1") {
+  const before = new Set(s.state.curves.keys());
+  const cellsBefore = new Set(s.state.cells.keys());
+  // A box over the pillar's bounding run, then its four long edges sheared on
+  // to the rake — the same move the wheel arcs make, and safe for the same
+  // reason: this solid is fresh and nothing has cut it.
+  s.apply("tape", {
+    kind: "box",
+    rect: {
+      view: side,
+      a: [SCREEN_BASE_X, SCREEN_BASE_Z - PILLAR_DEEP],
+      b: [SCREEN_TOP_X, SCREEN_BASE_Z + PILLAR_DEEP],
+      depth: PILLAR_THICK,
+      at: PILLAR_Y,
+    },
+  });
+  const made = [...s.state.curves.keys()].filter((id) => !before.has(id)) as Id[];
+
+  for (const id of made) {
+    const c = s.state.curves.get(s.state.resolveCurve(id))!;
+    const a0 = evalChain(c.chain, 0), a1 = evalChain(c.chain, 1);
+    const runsInX = Math.abs(a1[0] - a0[0]) > 10;
+    if (!runsInX) { straighten(id); continue; }
+    // Lift each point by the rake in proportion to how far along it is.
+    const forward = a0[0] < a1[0];
+    fitThrough(id, (t) => {
+      const u = forward ? t : 1 - t;
+      const x = SCREEN_BASE_X + (SCREEN_TOP_X - SCREEN_BASE_X) * u;
+      const z0 = (forward ? a0 : a1)[2];
+      return [x, a0[1], z0 + RAKE * u];
+    });
+    s.apply("crease", { curveId: id });
+  }
+  // The header: one cross-car bar between the pillar tops. It spans the
+  // centreline, so no mirror twin can make it — it is authored whole.
+  const headerBefore = new Set(s.state.cells.keys());
+  s.apply("tape", {
+    kind: "box",
+    rect: {
+      view: { kind: "front" as const },
+      a: [-PILLAR_Y - PILLAR_THICK, SCREEN_TOP_Z - PILLAR_DEEP],
+      b: [PILLAR_Y + PILLAR_THICK, SCREEN_TOP_Z + PILLAR_DEEP],
+      depth: 62,
+      at: SCREEN_TOP_X - 62,
+    },
+  });
+  for (const id of [...s.state.cells.keys()] as Id[]) {
+    if (!cellsBefore.has(id)) pillarCells.push(id);
+    if (!headerBefore.has(id)) s.apply("mirror-detach", { cellId: id });
+  }
+  for (const id of [...s.state.curves.keys()] as Id[]) {
+    if (before.has(id) || made.includes(id)) continue;
+    s.apply("crease", { curveId: id });
+  }
+
+  // ── the glazing, which is tertiary and must CONFORM ─────────────────────
+  // A windscreen is not a pane leaned against a frame. It shares the frame's
+  // rake by construction — the same two numbers the pillars were sheared by —
+  // and it CROWNS, because a flat screen is a mirror and a real one is a
+  // shallow cylinder. Nothing here is fitted to the frame afterwards; both
+  // come off SCREEN_BASE and SCREEN_TOP, so they cannot drift apart.
+  //
+  // It is a thin SOLID rather than a face, because a face needs a trimmed
+  // boundary and there is no way to author a hole in this tool. 10 mm of
+  // laminated glass is 6 too many and it is the honest way to say so.
+  const glassBefore = new Set(s.state.curves.keys());
+  const glassCellsBefore = new Set(s.state.cells.keys());
+  s.apply("tape", {
+    kind: "box",
+    rect: {
+      view: side,
+      a: [SCREEN_BASE_X + 30, SCREEN_BASE_Z - 17],
+      b: [SCREEN_TOP_X - 14, SCREEN_BASE_Z - 7],
+      depth: 2 * PILLAR_Y,
+      at: -PILLAR_Y,
+    },
+  });
+  const glassMade = [...s.state.curves.keys()].filter((id) => !glassBefore.has(id)) as Id[];
+  const GX0 = SCREEN_BASE_X + 30, GX1 = SCREEN_TOP_X - 14;
+  for (const id of glassMade) {
+    const c = s.state.curves.get(s.state.resolveCurve(id))!;
+    const a0 = evalChain(c.chain, 0), a1 = evalChain(c.chain, 1);
+    if (Math.abs(a1[0] - a0[0]) > 10) {
+      const forward = a0[0] < a1[0];
+      fitThrough(id, (t) => {
+        const u = forward ? t : 1 - t;
+        const z0 = (forward ? a0 : a1)[2];
+        return [GX0 + (GX1 - GX0) * u, a0[1], z0 + RAKE * u];
+      });
+    } else if (Math.abs(a1[1] - a0[1]) > 10) {
+      // Cross-car: crown it. 34 mm of bow over the aperture, which is what
+      // stops a screen reading as a flat plate with the sky folded in it.
+      const CROWN = 22;
+      fitThrough(id, (t) => {
+        const y = a0[1] + (a1[1] - a0[1]) * t;
+        const bow = CROWN * (1 - (y / PILLAR_Y) ** 2);
+        return [a0[0] + (a1[0] - a0[0]) * t - bow * 0.55, y, a0[2] + (a1[2] - a0[2]) * t + bow];
+      });
+    } else {
+      straighten(id);
+    }
+  }
+  for (const id of [...s.state.cells.keys()] as Id[]) {
+    if (glassCellsBefore.has(id)) continue;
+    glazingCells.push(id);
+    s.apply("mirror-detach", { cellId: id });
+  }
+  for (const id of glassMade) s.apply("crease", { curveId: id });
+}
+
 // ── the nose and tail panels ──────────────────────────────────────────────
 // The box's two end faces are flat cross-car panels whose boundary curves
 // break hard. Marking them moves no geometry; it changes what the document
@@ -788,13 +1067,19 @@ for (const cell of flatEnds) {
 //
 // Two cells of one panel never disagree here. The classification is by
 // geometry rather than by a list of ids, so it survives the stations moving.
+// The catalogue decides what each of these IS — skin, structure, glazing,
+// trim — and the render reads the class from the same place rather than
+// sniffing the name. A body and its chassis in two different silvers is the
+// whole reason the class exists.
 const MATERIALS = {
-  paint: { name: "Classic Red", color: "#a8202b" },
-  glass: { name: "screen glass", color: "#1b2226" },
-  top: { name: "folding top", color: "#26262a" },
-  under: { name: "undertray", color: "#17181a" },
-  tyre: { name: "185/60R14", color: "#131315" },
-  rim: { name: "alloy", color: "#b9bdc2" },
+  paint: CATALOGUE["Classic Red"]!,
+  frame: CATALOGUE["screen frame"]!,
+  glass: CATALOGUE["windscreen"]!,
+  chassis: CATALOGUE["chassis"]!,
+  trim: CATALOGUE["cockpit trim"]!,
+  under: CATALOGUE["undertray"]!,
+  tyre: CATALOGUE["185/60R14"]!,
+  rim: CATALOGUE["alloy"]!,
 } as const;
 
 {
@@ -812,6 +1097,9 @@ const MATERIALS = {
     return [lo, hi];
   };
   const wheelSet = new Set<Id>([...wheelTread, ...wheelDisc]);
+  const screenSet = new Set<Id>(pillarCells);
+  const glassSet = new Set<Id>(glazingCells);
+  const chassisSet = new Set<Id>(chassisCells);
   let painted = 0;
   const used = new Map<string, number>();
   const give = (cellId: Id, m: { name: string; color: string }): void => {
@@ -821,8 +1109,14 @@ const MATERIALS = {
   };
   for (const id of wheelTread) give(id, MATERIALS.tyre);
   for (const id of wheelDisc) give(id, MATERIALS.rim);
+  // The screen frame is painted structure, by id rather than by geometry: it
+  // spans the centreline at cabin stations and every geometric rule that
+  // catches the cockpit would catch it too.
+  for (const id of screenSet) give(id, MATERIALS.frame);
+  for (const id of glassSet) give(id, MATERIALS.glass);
+  for (const id of chassisSet) give(id, MATERIALS.chassis);
   for (const id of [...s.state.cells.keys()] as Id[]) {
-    if (wheelSet.has(id)) continue;
+    if (wheelSet.has(id) || screenSet.has(id) || glassSet.has(id) || chassisSet.has(id)) continue;
     const [lo, hi] = extentOf(id);
     // A cell that spans the centreline is a deck or a floor; one that does not
     // is a flank. That is the only distinction the classification needs.
@@ -833,10 +1127,14 @@ const MATERIALS = {
     // an underside cell over a wheel arch reaches z = 624 at the crown and a
     // deck cell at the nose only reaches 650, so the tops overlap and the
     // bottoms do not — a deck cell starts at the shoulder, 620 at worst.
-    if (across && !endFace && lo[2]! < 400) give(id, MATERIALS.under);
-    else if (across && !endFace && mid > DOOR_FRONT && mid < SCREEN_TOP) give(id, MATERIALS.glass);
-    else if (across && !endFace && mid > SCREEN_TOP && mid < BOOT_FRONT) give(id, MATERIALS.top);
-    else give(id, MATERIALS.paint);
+    if (across && !endFace && lo[2]! < 320) give(id, MATERIALS.under);
+    // The cockpit: a cross-car cell whose LOWEST point is below the beltline
+    // is the well, because a deck cell starts at the shoulder and a well
+    // starts at its own floor. The x range is the cockpit opening the lens
+    // measured, not a guess.
+    else if (across && !endFace && mid > DOOR_FRONT && mid < BOOT_FRONT && lo[2]! < 700) {
+      give(id, MATERIALS.trim);
+    } else give(id, MATERIALS.paint);
   }
   console.log(`  materials                 ${painted} cells · ` +
     [...used].map(([n, c]) => `${n} ${c}`).join(" · "));
@@ -888,6 +1186,18 @@ const check = closedMeshCheck(printed);
 // called the body clean, because none of them compares a car to its own
 // reflection. This one does, in millimetres.
 const sym = mirrorSymmetry(printed);
+
+// ── the cabin, against the person the packer placed ───────────────────────
+const person = personInBody();
+const cabin = cabinLens(printed, person, {
+  seatsAbreast: 2,
+  elbowGap: 120,
+  headerTopZ: SCREEN_TOP_Z + PILLAR_DEEP,
+  // Erect is the posture the tables are measured in and nobody drives in.
+  // The 65 mm is the occupant module's own citation, unused until now.
+  eyeSlumpMm: 65,
+  stations: STATIONS.map((st) => st.x),
+});
 
 // The control net, and whether it is the same body. This is the whole claim
 // of the export stage and it is worth re-asking on a car the machinery has
@@ -967,5 +1277,27 @@ line("  net vs evaluator", `${netWorst.toExponential(1)} mm worst, against a gat
 line("closed mesh", `${check.closed} (${check.violations.length} violations)`);
 line("mirror symmetry", `worst ${sym.worst.toFixed(4)} mm · ${sym.over} of ${sym.vertices.toLocaleString("en-GB")} vertices over ${sym.tolerance} mm`);
 line("  bare blend", `worst ${symBare.worst.toFixed(4)} mm — the field's contribution is the difference`);
+console.log("");
+line("H-point (hip)", `[${person.hip.map((v) => v.toFixed(0)).join(", ")}] · eye [${person.eye.map((v) => v.toFixed(0)).join(", ")}] · head z ${person.head[2].toFixed(0)}`);
+line("head vs body", `${cabin.headAboveBody >= 0 ? "+" : ""}${cabin.headAboveBody.toFixed(0)} mm (positive = in the open, which a roadster means)`);
+line("beltline above the hip", `${cabin.beltAboveHip.toFixed(0)} mm`);
+line("shoulder room", cabin.shoulderRoom === null ? "no cockpit at the H-point" : `${cabin.shoulderRoom.toFixed(0)} mm of ${cabin.shoulderRoomNeeded.toFixed(0)} needed, read at z ${cabin.shoulderRoomAtZ.toFixed(0)}`);
+line("hip room", cabin.hipRoom === null ? "none" : `${cabin.hipRoom.toFixed(0)} mm`);
+// With the chassis inside the skin the lowest interior surface at this
+// station is the TUNNEL, not the floor pan — so this reads hip-above-tunnel
+// rather than hip-above-floor. Both are true; the label says which.
+line("H-point above structure", cabin.hipAboveWell === null ? "nothing under it" : `${cabin.hipAboveWell.toFixed(0)} mm to the lowest interior surface at that station — the tunnel, not the floor, and no seat cushion in the model`);
+line("eye vs the header", cabin.eyeAboveHeader === null ? "no header" :
+  `erect ${cabin.eyeAboveHeader >= 0 ? "+" : ""}${cabin.eyeAboveHeader.toFixed(0)} mm · relaxed ${cabin.eyeAboveHeaderRelaxed!.toFixed(0)} mm (negative = looking through the aperture)`);
+line("eye aft of the H-point", `${(person.eye[0] - person.hip[0]).toFixed(0)} mm — a STRAIGHT-TORSO construction in @car/types/occupants; SAE's eye ellipse sits nearer 100 mm aft, so this over-rakes`);
+line("cockpit opening", cabin.aperture === null ? "NONE — the body is closed" : `x ${cabin.aperture.fore.toFixed(0)} to ${cabin.aperture.aft.toFixed(0)} (${(cabin.aperture.aft - cabin.aperture.fore).toFixed(0)} mm)`);
+{
+  const th = cabin.sections.filter((sc) => sc.x > 1400 && sc.x < 2900 && sc.width > 1200);
+  const vals = th.map((sc) => sc.tumblehomeDeg).sort((a, b) => a - b);
+  const med = vals.length ? vals[Math.floor(vals.length / 2)]! : 0;
+  line("tumblehome, cabin", vals.length === 0 ? "no sections" :
+    `median ${med.toFixed(1)}° · ${vals[0]!.toFixed(1)}° to ${vals[vals.length - 1]!.toFixed(1)}°`);
+}
+for (const f of cabin.faults) line("  cabin FAULT", f);
 line("triangles", `${(mesh.indices.length / 3).toLocaleString("en-GB")}`);
 console.log("\nwrote cars/mx5-na.car.json and mx5-na.stl\n");

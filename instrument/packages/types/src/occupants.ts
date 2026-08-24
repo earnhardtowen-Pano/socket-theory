@@ -78,12 +78,39 @@ function sittingEyeHeight95M(): Quantity<"mm"> {
   );
 }
 
-function hipBreadth95F(): Quantity<"mm"> {
+export function hipBreadth95F(): Quantity<"mm"> {
   return sourced(
     400.1,
     "mm",
     "Hip breadth seated, 95th-percentile female (wider than the male 95th: 15.24 in = 387 mm)",
     `${NCSU_CITE}: 15.75 in = 400.1 mm.`,
+  );
+}
+
+/**
+ * Bideltoid (shoulder) breadth, seated, 95th-percentile male.
+ *
+ * ASSUMED, loudly: the NCSU tables this module cites for sitting height and
+ * eye height were not consulted for this dimension in the run that added it,
+ * and a number from memory with a citation attached would be worse than a
+ * number with none. It is the dimension that decides whether two people fit
+ * abreast, so a cabin lens that used the SOURCED HIP breadth instead — 400 mm,
+ * narrower — would flatter every cabin it measured.
+ */
+export function shoulderBreadth95M(): Quantity<"mm"> {
+  return assumed(
+    505,
+    "mm",
+    "bideltoid (shoulder) breadth seated, 95th-percentile male — no source consulted this run; 505 mm ASSUMED",
+  );
+}
+
+/** Acromion above the H-point along the torso line. ASSUMED — see the body. */
+export function shoulderAboveHip95M(): Quantity<"mm"> {
+  return assumed(
+    590,
+    "mm",
+    "seated acromial (shoulder) height above the H-point along the torso line — no citable source found; 590 mm ASSUMED between hip (0) and eye (860 sourced)",
   );
 }
 

@@ -20,7 +20,10 @@ export { makeCooling, type CoolingParams, type CoolingInstance } from "./cooling
 export { makeBrakes, type BrakesParams, type BrakesInstance } from "./brakes.js";
 export { makeSuspension, type SuspensionParams, type SuspensionInstance } from "./suspension.js";
 export { makeSteering, type SteeringParams, type SteeringInstance } from "./steering.js";
-export { makeOccupantArray, type OccupantArrayParams, type OccupantArrayInstance } from "./occupants.js";
+export {
+  makeOccupantArray, hipBreadth95F, shoulderBreadth95M, shoulderAboveHip95M,
+  type OccupantArrayParams, type OccupantArrayInstance,
+} from "./occupants.js";
 export { makeWheelTire, type WheelTireParams, type WheelTireInstance } from "./wheels.js";
 export { makeSubstrate, type SubstrateParams, type SubstrateInstance } from "./substrate.js";
 export { allRegulatory } from "./regulatory.js";

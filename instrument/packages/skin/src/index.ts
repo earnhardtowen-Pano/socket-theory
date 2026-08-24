@@ -16,6 +16,14 @@
  * randomness, transcendentals via @car/num.
  */
 
+export {
+  sliceSection, scanAt, sectionAt, evenStations,
+  type SectionMesh, type SectionOptions, type Seg2, type StationSection,
+} from "./section.js";
+export {
+  CATALOGUE, UNPAINTED, finishOf, finishesOfClass,
+  type Finish, type SurfaceClass,
+} from "./finishes.js";
 export { curvatureMap, type CurvatureMesh, type CurvatureResult } from "./curvature.js";
 export {
   isophoteContours,

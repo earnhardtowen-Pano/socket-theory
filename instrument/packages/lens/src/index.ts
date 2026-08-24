@@ -11,6 +11,10 @@
  * geometry check. Read aero.ts's header before trusting anything it says: the
  * map is potential flow and cannot produce a drag figure, which is why the
  * drag lives in a separate function that refuses to look at it.
+ *
+ * And the cabin lens: the body sectioned against the PERSON the packing solve
+ * placed, so headroom is a distance between a body and a head rather than a
+ * number somebody typed into a station table.
  */
 
 export {
@@ -24,6 +28,15 @@ export {
   type AxleLoads,
   type ClearanceReadback,
 } from "./mass.js";
+
+export {
+  cabinLens,
+  type CabinPerson,
+  type CabinReport,
+  type CabinOptions,
+  type SectionMesh,
+  type StationSection,
+} from "./cabin.js";
 
 export {
   aeroLens,
