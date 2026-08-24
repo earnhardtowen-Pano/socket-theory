@@ -161,7 +161,7 @@ import {
 } from "./adjacency.js";
 import { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 import {
-  evalCrossDeriv, fitEdgeField, fitSecondMagnitude, sharedNormal,
+  evalCrossDeriv, fitEdgeField, fitSecondAdaptive, sharedNormal,
   type EdgeSample, type OwnerCoeffs, type SecondStation,
 } from "./cross-poly.js";
 
@@ -218,6 +218,8 @@ export interface CrossFieldOptions {
   readonly maxSpans?: number;
   /** Relative residual the span doubling aims for. */
   readonly fitTolerance?: number;
+  /** Relative tolerance for μ's own span ladder. See DEFAULT_SECOND_TOLERANCE. */
+  readonly secondTolerance?: number;
 }
 
 const DEFAULT_CORNER_FADE = 0.12;
@@ -252,6 +254,15 @@ const DEFAULT_MAX_SPANS = 32;
  * bisector body" is a statement rather than a hope.
  */
 const DEFAULT_FIT_TOLERANCE = 0.05;
+/**
+ * How close μ must come to the curvature it is asked for, RELATIVE.
+ *
+ * Relative rather than absolute because the quantity is a curvature amount,
+ * whose scale varies by three orders across a body; 0.1 % of the ask is two
+ * orders inside the tight end of the Class-A band for G2 and is reached on
+ * every edge of the P1 at eight pieces or fewer.
+ */
+const DEFAULT_SECOND_TOLERANCE = 1e-3;
 
 /** How well one shared edge's field came out as a polynomial. Shape, not
  *  continuity — see `cross-poly.ts`. */
@@ -296,6 +307,11 @@ export interface CrossFieldStats {
   readonly worstSpans: number;
   /** Edges whose fit did not reach the tolerance at the span cap. */
   readonly unconverged: number;
+  /** Worst span count μ's OWN ladder needed. Generally not `worstSpans`: the
+   *  curvature to match is a different function from the cross-derivative. */
+  readonly secondSpans: number;
+  /** Owners whose μ ladder hit the span cap without meeting tolerance. */
+  readonly secondUnconverged: number;
   /**
    * Worst and median relative residual of the (a, λ) fits — how far the
    * polynomial cross-derivative sits from the natural one, against the
@@ -489,6 +505,11 @@ interface EdgePoly {
   readonly coeffs: OwnerCoeffs;
   /** μ for the G2 magnitude; empty until (and unless) the order-2 pass runs. */
   second: readonly number[];
+  /** μ's OWN degree and knots. The curvature to match is a different function
+   *  from the cross-derivative, and it needs its own span ladder — sharing the
+   *  G1 field's knots was the whole of the P1's G2 residual. */
+  secondDegree: number;
+  secondKnots: readonly number[];
 }
 
 interface Claim {
@@ -533,6 +554,7 @@ export function fieldFromAdjacency(
   const fitDegree = Math.max(1, Math.floor(opts.fitDegree ?? DEFAULT_FIT_DEGREE));
   const maxSpans = Math.max(1, Math.floor(opts.maxSpans ?? DEFAULT_MAX_SPANS));
   const fitTolerance = opts.fitTolerance ?? DEFAULT_FIT_TOLERANCE;
+  const secondTolerance = opts.secondTolerance ?? DEFAULT_SECOND_TOLERANCE;
 
   /**
    * Crown, per cell — how hard this patch leaves its seams, as a multiple of
@@ -657,8 +679,8 @@ export function fieldFromAdjacency(
     fitRelatives.push(fit.relative);
 
     const shared = { lo: e.lo, hi: e.hi, degree: fit.degree, knots: fit.knots, dStar: fit.dStar };
-    const polyA: EdgePoly = { ...shared, coeffs: fit.a, second: [] };
-    const polyB: EdgePoly = { ...shared, coeffs: fit.b, second: [] };
+    const polyA: EdgePoly = { ...shared, coeffs: fit.a, second: [], secondDegree: fit.degree, secondKnots: fit.knots };
+    const polyB: EdgePoly = { ...shared, coeffs: fit.b, second: [], secondDegree: fit.degree, secondKnots: fit.knots };
     reports.push({
       curveId: e.curveId, cellA: e.a.cellId, cellB: e.b.cellId,
       relative: fit.relative, worst: fit.worst, spans: fit.spans,
@@ -962,6 +984,8 @@ export function fieldFromAdjacency(
   // Fit μ against the shared normal C′ × D*, once the G1 field above exists —
   // the curvature to match is the one the patches end up with.
   let secondFitWorst = 0;
+  let worstSecondSpans = 0;
+  let secondUnconverged = 0;
   if (order >= 2 && polynomial) {
     for (let fi = 0; fi < fitted.length; fi++) {
       const f = fitted[fi]!;
@@ -970,35 +994,41 @@ export function fieldFromAdjacency(
         [f.polyB, f.edge.b.cellId, f.edge.b.k, f.sideB],
       ];
       for (const [poly, cellId, k, side] of owners) {
-        // μ has degree+spans coefficients; four stations each is
-        // over-determination enough, and every station here costs two edge
+        // A lazy station source, so the ladder pays for density only at the
+        // span count it is currently trying. Every station here costs two edge
         // jets on G1-corrected patches, which is the most expensive thing in
-        // the file. On a 32-piece edge this is 140 stations rather than 513.
-        const want = 4 * (poly.degree + (poly.knots.length - 2 * poly.degree - 1));
-        const stride = Math.max(1, Math.floor(f.samples.length / Math.max(want, 1)));
-        const st: SecondStation[] = [];
-        for (let si = 0; si < f.samples.length; si += stride) {
-          const sm = f.samples[si]!;
-          const t = f.edge.lo + sm.tau * (f.edge.hi - f.edge.lo);
+        // the file — sampling for 32 pieces when the edge fits at 2 is the
+        // difference between a second and a minute.
+        const [wLo, wHi] = fadesOf(cellId, k);
+        const secondAt = (tau: number): SecondStation | null => {
+          const t = f.edge.lo + tau * (f.edge.hi - f.edge.lo);
           const sOwn = sideParamOf(side, t);
-          const [wLo, wHi] = fadesOf(cellId, k);
-          if (cornerWindow(sOwn, wLo, wHi) === 0) continue;
+          const weight = cornerWindow(sOwn, wLo, wHi);
+          if (weight === 0) return null;
           const parts = exactSecondParts(cellId, k, sOwn);
-          if (!parts) continue;
+          if (!parts) return null;
+          const tangent = chainDeriv(side.chain, clamp(t, 0, 1));
           const normal = sharedNormal(
-            sm.tangent, bsplineAt3(poly.dStar, poly.degree, poly.knots, sm.tau),
+            tangent, bsplineAt3(poly.dStar, poly.degree, poly.knots, tau),
           );
           const nl = len3(normal);
-          if (nl === 0) continue;
-          st.push({
-            tau: sm.tau,
+          if (nl === 0) return null;
+          return {
+            tau,
+            weight,
             effect: parts.amount,
             response: dot3(normal, parts.nHat),
             scale: nl,
-          });
-        }
-        const fit = fitSecondMagnitude(st, poly.degree, poly.knots);
+          };
+        };
+        const fit = fitSecondAdaptive(secondAt, {
+          degree: fitDegree, maxSpans, tolerance: secondTolerance,
+        });
         poly.second = fit.coeffs;
+        poly.secondDegree = fit.degree;
+        poly.secondKnots = fit.knots;
+        if (fit.spans > worstSecondSpans) worstSecondSpans = fit.spans;
+        if (!fit.converged && fit.coeffs.length > 0) secondUnconverged++;
         if (fit.relative > secondFitWorst) secondFitWorst = fit.relative;
         const rep = reports[fi]!;
         if (fit.relative > rep.secondRelative) rep.secondRelative = fit.relative;
@@ -1019,7 +1049,7 @@ export function fieldFromAdjacency(
       chainDeriv(at.side.chain, clamp(at.t, 0, 1)),
       bsplineAt3(p.dStar, p.degree, p.knots, tau),
     );
-    return scale3(normal, bsplineAt(p.second, p.degree, p.knots, tau));
+    return scale3(normal, bsplineAt(p.second, p.secondDegree, p.secondKnots, tau));
   };
 
   const rawSecond = (cellId: Id, k: number, s: number): Pt3 =>
@@ -1057,6 +1087,8 @@ export function fieldFromAdjacency(
         degree: c.poly.degree, knots: c.poly.knots, dStar: c.poly.dStar,
         along: c.poly.coeffs.along, across: c.poly.coeffs.across,
         second: c.poly.second,
+        secondDegree: c.poly.secondDegree,
+        secondKnots: c.poly.secondKnots,
       });
     }
     pieces.sort((x, y) => x.s0 - y.s0);
@@ -1082,6 +1114,8 @@ export function fieldFromAdjacency(
       polynomial,
       fitDegree,
       worstSpans,
+      secondSpans: worstSecondSpans,
+      secondUnconverged,
       unconverged,
       fitWorst: sortedFits.length === 0 ? 0 : sortedFits[sortedFits.length - 1]!,
       fitMedian: sortedFits.length === 0 ? 0 : sortedFits[Math.floor(sortedFits.length / 2)]!,

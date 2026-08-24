@@ -238,10 +238,11 @@ function windowPieces(fade: readonly [number, number]): { pieces: ScalarPiece[];
 
 /** A magnitude spline restricted to one claim, as Bézier pieces in s. */
 function splinePieces(
-  coeffs: readonly number[], piece: FieldPiece, toS: (tau: number) => number,
+  coeffs: readonly number[], degree: number, knots: readonly number[],
+  toS: (tau: number) => number,
 ): { pieces: ScalarPiece[]; cuts: number[] } {
   if (coeffs.length === 0) return { pieces: [], cuts: [] };
-  const { breaks, segments } = bezierSegments(piece.degree, piece.knots, coeffs);
+  const { breaks, segments } = bezierSegments(degree, knots, coeffs);
   const pieces: ScalarPiece[] = [];
   for (let i = 0; i < segments.length; i++) {
     const s0 = toS(breaks[i]!), s1 = toS(breaks[i + 1]!);
@@ -556,14 +557,20 @@ function deltaPieces(
       const t = piece.lo + tau * span;
       return (t - side.curveParam(0)) / dtds;
     };
-    const a = splinePieces(piece.along, piece, toS);
-    const l = splinePieces(piece.across, piece, toS);
-    const m = order >= 2 ? splinePieces(piece.second, piece, toS) : { pieces: [], cuts: [] };
+    const a = splinePieces(piece.along, piece.degree, piece.knots, toS);
+    const l = splinePieces(piece.across, piece.degree, piece.knots, toS);
+    // μ rides its OWN knots. Reading it on the G1 field's would evaluate a
+    // cubic outside the span it was fitted on — which is exactly the class of
+    // bug the straddle guard was added for, so it would throw rather than
+    // quietly disagree, but it would still be wrong.
+    const m = order >= 2
+      ? splinePieces(piece.second, piece.secondDegree, piece.secondKnots, toS)
+      : { pieces: [], cuts: [] };
     magnitude.push(a.pieces);
     across.push(l.pieces);
     second.push(m.pieces);
     dStar.push(vectorPieces(piece.dStar, piece, toS));
-    cuts.push(...a.cuts, piece.s0, piece.s1);
+    cuts.push(...a.cuts, ...m.cuts, piece.s0, piece.s1);
   }
 
   const breaks = breakpoints([...cuts, ...curve.map((p) => p.a)]);

@@ -122,6 +122,10 @@ export interface FieldPiece {
   readonly across: readonly number[];
   /** μ(τ) for the G2 magnitude; empty at order 1. */
   readonly second: readonly number[];
+  /** μ's own degree and knots — it has its own span ladder, so these are
+   *  generally NOT `degree` and `knots` above. */
+  readonly secondDegree: number;
+  readonly secondKnots: readonly number[];
 }
 
 /** Everything needed to write one side's correction down as a polynomial. */

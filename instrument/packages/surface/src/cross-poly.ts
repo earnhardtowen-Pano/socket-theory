@@ -391,6 +391,19 @@ export function fitEdgeField(
  * and how much of that one unit of μ delivers.
  */
 export interface SecondStation {
+  /**
+   * How much of this station's correction actually survives — the corner
+   * window at this parameter.
+   *
+   * The objective is the error in the DELIVERED correction, ρ·μ·response,
+   * not in the correction that was asked for. Inside the fade the window is
+   * taking the answer to zero anyway, and grading μ on the full ask there
+   * asks it to chase a near-pole: `response` is the shared normal read
+   * against the owner's own, and it vanishes exactly where the two patches
+   * have not converged on a plane. Weighting by ρ is what makes the ladder
+   * converge; without it 44 of the P1's owners hit the span cap at 46 %.
+   */
+  readonly weight: number;
   readonly tau: number;
   /** Δ²·N̂ — the change in the owner's inward second derivative ALONG ITS OWN
    *  normal that lands its II(ê,ê) on the average. */
@@ -435,9 +448,9 @@ export function fitSecondMagnitude(
   for (const st of stations) {
     const usable = Math.abs(st.response) >= MIN_NORMAL_RESPONSE * st.scale;
     weak.push(!usable);
-    const gain = usable ? st.response : st.scale;
+    const gain = (usable ? st.response : st.scale) * st.weight;
     rows.push(bsplineBasis(degree, knots, st.tau).map((bi) => bi * gain));
-    rhs.push(usable ? st.effect : 0);
+    rhs.push(usable ? st.effect * st.weight : 0);
   }
   const coeffs = solveLeastSquares(rows, rhs);
   // Reported over the stations the model was actually asked about: a station
@@ -447,9 +460,10 @@ export function fitSecondMagnitude(
     if (weak[i]) continue;
     const st = stations[i]!;
     const m = bsplineAt(coeffs, degree, knots, st.tau);
-    const e = m * st.response - st.effect;
+    const e = (m * st.response - st.effect) * st.weight;
     worst = Math.max(worst, e < 0 ? -e : e);
-    scale = Math.max(scale, st.effect < 0 ? -st.effect : st.effect);
+    const asked = st.effect * st.weight;
+    scale = Math.max(scale, asked < 0 ? -asked : asked);
   }
   return { coeffs, relative: scale > 0 ? worst / scale : 0 };
 }
@@ -463,3 +477,79 @@ export const planeResidual = (e: Pt3, normal: Pt3): number => {
   const nl = len3(normal), el = len3(e);
   return nl === 0 || el === 0 ? 0 : Math.abs(dot3(e, normal)) / (nl * el);
 };
+
+/** A lazy second-order station source, so the ladder samples only as densely
+ *  as the span count it is currently trying actually needs. */
+export type SecondSampler = (tau: number) => SecondStation | null;
+
+export interface SecondFit {
+  readonly coeffs: readonly number[];
+  readonly degree: number;
+  readonly knots: readonly number[];
+  readonly spans: number;
+  /** Worst |μ·response − effect| over the CHECK stations, relative. */
+  readonly relative: number;
+  readonly converged: boolean;
+}
+
+/**
+ * Fit μ with its own span ladder, instead of borrowing the G1 field's knots.
+ *
+ * The G1 fit chose its knots by doubling until the CROSS-DERIVATIVE residual
+ * met tolerance. μ carries a different function — the curvature the two owners
+ * have to meet in the middle of, which is `effect/response` and therefore
+ * rational even where the field it rides on is not — and nobody ever asked
+ * whether those knots were enough for it. They are not, and that gap was the
+ * whole of the P1's G2 residual.
+ *
+ * Same discipline as `fitEdgeField`, one order up: double until the worst
+ * CHECK station meets tolerance, fit on the even stations and check on all of
+ * them so the answer is never graded on its own homework, and hold
+ * `MIN_POINTS_PER_SPAN` per piece so the doubling cannot stall in
+ * overfitting.
+ */
+export function fitSecondAdaptive(
+  sample: SecondSampler,
+  opts: { degree: number; maxSpans: number; tolerance: number },
+): SecondFit {
+  const degree = opts.degree;
+  let best: SecondFit | null = null;
+
+  for (const spans of SPAN_LADDER) {
+    if (spans > opts.maxSpans) break;
+    const knots = uniformKnots(degree, spans);
+    const count = bsplineCount(degree, knots);
+    const n = 2 * MIN_POINTS_PER_SPAN * spans + 1;
+    const all: SecondStation[] = [];
+    for (let m = 1; m <= n; m++) {
+      const st = sample(m / (n + 1));
+      if (st) all.push(st);
+    }
+    if (all.length < 2 * count) break;
+
+    const fitOn = all.filter((_, i) => i % 2 === 0);
+    if (fitOn.length < count) break;
+    const { coeffs } = fitSecondMagnitude(fitOn, degree, knots);
+    if (coeffs.length === 0) break;
+
+    let worst = 0, scale = 0;
+    for (const st of all) {
+      if (Math.abs(st.response) < MIN_NORMAL_RESPONSE * st.scale) continue;
+      const e = (bsplineAt(coeffs, degree, knots, st.tau) * st.response - st.effect) * st.weight;
+      worst = Math.max(worst, e < 0 ? -e : e);
+      const asked = st.effect * st.weight;
+      scale = Math.max(scale, asked < 0 ? -asked : asked);
+    }
+    const relative = scale > 0 ? worst / scale : 0;
+    const converged = relative <= opts.tolerance;
+    if (!best || relative < best.relative) {
+      best = { coeffs, degree, knots, spans, relative, converged };
+    }
+    if (converged) break;
+  }
+
+  return best ?? {
+    coeffs: [], degree, knots: uniformKnots(degree, 1), spans: 1,
+    relative: 0, converged: false,
+  };
+}
