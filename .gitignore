@@ -16,3 +16,10 @@ shots/lenses.svg
 # `npx tsx scripts/export-viewer.ts`; the template beside it is the source.
 instrument/apps/viewer-payload.json
 instrument/apps/bench/bench.html
+
+# Render pages inline the whole tessellation (3-4 MB each) and regenerate from
+# `npx tsx scripts/render-car.ts <car> <out>`. The template beside them is the
+# source; the PNGs in shots/ are the artefacts.
+instrument/apps/render/*.html
+!instrument/apps/render/template.html
+instrument/apps/render/*.png

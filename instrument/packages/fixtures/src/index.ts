@@ -30,3 +30,8 @@ export {
   BATTERY_TOLERANCE_MM,
   type ExpectedPoint,
 } from "./from-spec.js";
+export {
+  miataConfig, MX5_WHEELBASE, MX5_FRONT_OVERHANG, MX5_REAR_OVERHANG, MX5_FRONT_TRACK,
+  MX5_REAR_TRACK, MX5_RAIL_HEIGHT, MX5_LENGTH, MX5_WIDTH, MX5_HEIGHT, MX5_DIAMETER,
+  MX5_TIRE_WIDTH,
+} from "./miata.js";
