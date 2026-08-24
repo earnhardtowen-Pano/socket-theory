@@ -50,6 +50,26 @@ const NOSE = MX5_FRONT_OVERHANG;
 const FRONT_AXLE_X = NOSE;
 const REAR_AXLE_X = NOSE + MX5_WHEELBASE;
 const WHEEL_R = MX5_DIAMETER / 2;
+// The arch is a semicircle about the axle, ending at axle height on both
+// sides. 46 mm of radial clearance over the tyre is what a road car carries —
+// enough for jounce and a snow chain, and tight enough that the wheel fills
+// the opening the way it does on the real thing.
+const ARCH_R = WHEEL_R + 46;
+const ARCH_LIFT = 12;              // how far the lip stands proud of the tyre face
+/**
+ * How far short of vertical the arch mouth stops, in radians.
+ *
+ * A full semicircle puts the mouth exactly where the arc is VERTICAL in side
+ * view, and the station cut is a vertical tape line at that same x — so the
+ * line grazes the curve and the crossing solve is ill-conditioned. It came out
+ * ten millimetres adrift, which is enough for the split to refuse. Eleven
+ * degrees of trim gives the mouth a real slope to be cut across, and it is
+ * also what a lip does on a car: it runs out into the rocker rather than
+ * ending on a tangent.
+ */
+const ARCH_END = 0.06 * Math.PI;
+const ARCH_HALF = ARCH_R * Math.cos(ARCH_END);
+const archMouth = (axleX: number): [number, number] => [axleX - ARCH_HALF, axleX + ARCH_HALF];
 
 // ── 2. author the body ────────────────────────────────────────────────────
 const s = createSession("MX-5 NA");
@@ -84,17 +104,53 @@ const straighten = (id: Id): void => {
 };
 /** Fit a cubic through f(0), f(1/3), f(2/3), f(1). Ends first: moving a chain
  *  end is a weld event that drags every curve meeting there. */
-const fitThrough = (id: Id, f: (t: number) => Pt3): void => {
+const fitThrough = (id: Id, f: (t: number) => Pt3, endsToo = true): void => {
   const A = f(0), B = f(1 / 3), C = f(2 / 3), D = f(1);
   const p1: Pt3 = [0, 1, 2].map((k) =>
     3 * B[k]! - 1.5 * C[k]! - (5 / 6) * A[k]! + (1 / 3) * D[k]!) as unknown as Pt3;
   const p2: Pt3 = [0, 1, 2].map((k) =>
     3 * C[k]! - 1.5 * B[k]! - (5 / 6) * D[k]! + (1 / 3) * A[k]!) as unknown as Pt3;
-  setCtrl(id, 0, A);
-  setCtrl(id, 3, D);
+  if (endsToo) {
+    setCtrl(id, 0, A);
+    setCtrl(id, 3, D);
+  }
   setCtrl(id, 1, p1);
   setCtrl(id, 2, p2);
 };
+/** Set one control point of one SEGMENT of a chain. */
+const setSegCtrl = (id: Id, seg: number, idx: 0 | 1 | 2 | 3, to: Pt3): void => {
+  const c = s.state.curves.get(s.state.resolveCurve(id))!;
+  const sg = c.chain.segs[seg];
+  if (!sg) throw new Error(`no segment ${seg} of ${id}`);
+  const at = [sg.p0, sg.p1, sg.p2, sg.p3][idx]!;
+  const d: Pt3 = [to[0] - at[0], to[1] - at[1], to[2] - at[2]];
+  if (d[0] === 0 && d[1] === 0 && d[2] === 0) return;
+  s.apply("push-pull", { target: { kind: "ctrl", id, seg, idx }, delta: d });
+};
+
+/**
+ * Fit a MULTI-segment chain, segment by segment, through a profile.
+ *
+ * Boundaries first and interiors after, for the same reason the single-segment
+ * fitter does it: setting a segment's p0 also sets its neighbour's p3, so the
+ * shared points have to settle before the interior ones are computed against
+ * them.
+ */
+const fitChain = (id: Id, at: (seg: number, local: number) => Pt3): void => {
+  const n = s.state.curves.get(s.state.resolveCurve(id))!.chain.segs.length;
+  for (let j = 0; j < n; j++) setSegCtrl(id, j, 0, at(j, 0));
+  setSegCtrl(id, n - 1, 3, at(n - 1, 1));
+  for (let j = 0; j < n; j++) {
+    const A = at(j, 0), B = at(j, 1 / 3), C = at(j, 2 / 3), D = at(j, 1);
+    const p1 = [0, 1, 2].map((k) =>
+      3 * B[k]! - 1.5 * C[k]! - (5 / 6) * A[k]! + (1 / 3) * D[k]!) as unknown as Pt3;
+    const p2 = [0, 1, 2].map((k) =>
+      3 * C[k]! - 1.5 * B[k]! - (5 / 6) * D[k]! + (1 / 3) * A[k]!) as unknown as Pt3;
+    setSegCtrl(id, j, 1, p1);
+    setSegCtrl(id, j, 2, p2);
+  }
+};
+
 const curveMean = (id: Id): Pt3 => {
   const c = s.state.curves.get(s.state.resolveCurve(id));
   if (!c) throw new Error(`no curve ${id}`);
@@ -148,7 +204,10 @@ const scaled = (v: readonly [number, number, number, number]) =>
   track(v[0] * planScale, v[1] * planScale, v[2] * planScale, v[3] * planScale);
 
 const shoulderY = scaled(SHOULDER_Y);
-const shoulderZ = track(600, 800, 815, 770);
+// The beltline over the front axle was 749 mm, which left only 125 mm of
+// fender above an arch crown at 624 — and a flank cell that short is what the
+// tangent field then bulges 50 mm outboard. A real NA carries about 180.
+const shoulderZ = track(620, 860, 845, 780);
 const rockerY = scaled(ROCKER_Y);
 const rockerZ = track(232, 128, 128, 246);
 
@@ -175,6 +234,143 @@ for (const id of [...s.state.curves.keys()] as Id[]) {
   if (!longEdges.includes(id)) straighten(id);
 }
 
+// ── the wheel arches, cut into the rocker BEFORE anything is cut ──────────
+// Order matters and it is the whole lesson of this build. Shaping a shared
+// curve AFTER its cells have been cut opens the print mesh — a box with two
+// tape cuts and one control point moved a tenth of a millimetre loses 138
+// edges, split or not, and `packages/mesh/test/split-move.test.ts` records it
+// with `it.fails` so the day it is fixed the suite says so.
+//
+// So the arch goes in first. `place-point` gives the rocker a segment boundary
+// at each arch mouth and crown while it is still one uncut curve, and then
+// every segment is fitted to its own piece of the profile: a quarter circle
+// over each wheel, the sill in between. By the time the stations are cut the
+// arches are already there, and nothing has to move afterwards.
+const FRONT_LIP = MX5_FRONT_TRACK / 2 + MX5_TIRE_WIDTH / 2 + ARCH_LIFT;
+const REAR_LIP = MX5_REAR_TRACK / 2 + MX5_TIRE_WIDTH / 2 + ARCH_LIFT;
+const AXLE_Z = WHEEL_R;
+const [fA, fB] = archMouth(FRONT_AXLE_X);
+const [rA, rB] = archMouth(REAR_AXLE_X);
+const ARCH_X = [0, fA, FRONT_AXLE_X, fB, rA, REAR_AXLE_X, rB, LEN];
+
+/** Half-width of the rocker at station x — the plan a real sill has. */
+const rockerPlanY = (x: number): number => {
+  const ramp = (x0: number, y0: number, x1: number, y1: number): number => {
+    const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
+    return y0 + (y1 - y0) * (u * u * (3 - 2 * u));
+  };
+  if (x <= fA) return ramp(0, 150, fA, FRONT_LIP);
+  if (x <= fB) return FRONT_LIP;
+  if (x <= rA) {
+    const mid = 0.5 * (fB + rA);
+    return x <= mid ? ramp(fB, FRONT_LIP, mid, 742) : ramp(mid, 742, rA, REAR_LIP);
+  }
+  if (x <= rB) return REAR_LIP;
+  return ramp(rB, REAR_LIP, LEN, 250);
+};
+/** Height of the rocker where it is a sill rather than an arch. */
+const rockerSillZ = (x: number): number => {
+  const ramp = (x0: number, z0: number, x1: number, z1: number): number => {
+    const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
+    return z0 + (z1 - z0) * (u * u * (3 - 2 * u));
+  };
+  const MOUTH_Z = AXLE_Z + ARCH_R * Math.sin(ARCH_END);
+  if (x <= fA) return ramp(0, 236, fA, MOUTH_Z);
+  if (x >= rB) return ramp(rB, MOUTH_Z, LEN, 252);
+  const mid = 0.5 * (fB + rA);
+  return x <= mid ? ramp(fB, MOUTH_Z, mid, 132) : ramp(mid, 132, rA, MOUTH_Z);
+};
+
+/**
+ * The beltline's plan, on the same seven spans as the rocker.
+ *
+ * One cubic through four stations could not be at 150 mm by the nose aperture
+ * AND out to full width by the front axle, so the beltline was still only
+ * 749 mm wide where the arch lip had to be 807 — and the car came out widest
+ * at its SILL, with a skirt hanging out under the doors. A car is widest at
+ * its shoulder. Seven spans is what lets it be.
+ */
+const shoulderPlanY = (x: number): number => {
+  const T: [number, number][] = [
+    [0, 150], [fA, 700], [FRONT_AXLE_X, 826], [fB, 838],
+    [rA, 838], [REAR_AXLE_X, 830], [rB, 786], [LEN, 260],
+  ];
+  for (let i = 0; i < T.length - 1; i++) {
+    const [x0, y0] = T[i]!, [x1, y1] = T[i + 1]!;
+    if (x <= x1) {
+      const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
+      return y0 + (y1 - y0) * (u * u * (3 - 2 * u));
+    }
+  }
+  return T[T.length - 1]![1];
+};
+
+const rockerIds = longEdges.filter((id) => curveMean(id)[2] < (FLOOR + TOP) / 2);
+const shoulderIds = longEdges.filter((id) => curveMean(id)[2] >= (FLOOR + TOP) / 2);
+if (rockerIds.length !== 2) throw new Error(`expected 2 rockers, got ${rockerIds.length}`);
+if (shoulderIds.length !== 2) throw new Error(`expected 2 shoulders, got ${shoulderIds.length}`);
+
+/** Give a master line a segment boundary at every arch station. */
+const segmentAt = (id: Id, forward: boolean): void => {
+  for (const x of ARCH_X.slice(1, -1)) {
+    const ch = s.state.curves.get(s.state.resolveCurve(id))!.chain;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 60; i++) {
+      const mid = 0.5 * (lo + hi);
+      if ((evalChain(ch, mid)[0]! < x) === forward) lo = mid; else hi = mid;
+    }
+    s.apply("place-point", { curveId: id, t: 0.5 * (lo + hi) });
+  }
+};
+
+// THE BELTLINE PLAN IS NOT RESHAPED, and it should be.
+//
+// One cubic through four stations cannot be 150 mm wide at the nose aperture
+// and out to full width by the front axle, so the beltline is only 749 mm
+// where the arch lip has to be 807 — and the car is therefore widest at its
+// SILL rather than its shoulder, which is backwards. Giving the beltline the
+// same seven spans the rocker has fixes exactly that (837 mm by x = 1053,
+// held to x = 2792, measured) and it opens 768 edges in the print mesh.
+//
+// It is pre-cut, so it is not the defect recorded in
+// `packages/mesh/test/split-move.test.ts`, and splitting the beltline back
+// into single-segment pieces afterwards does not help either. I did not
+// isolate it. The arches are what was asked for and the arches do not do
+// this, so the car ships with them and without this, and the sill carries a
+// flare it should not have. Saying so beats quietly shipping a body whose
+// widest point is under the doors.
+
+for (const rocker of rockerIds) {
+  const sign = Math.sign(curveMean(rocker)[1]) || 1;
+  const chain0 = s.state.curves.get(s.state.resolveCurve(rocker))!.chain;
+  const forward = evalChain(chain0, 0)[0]! < evalChain(chain0, 1)[0]!;
+
+  segmentAt(rocker, forward);
+  const n = s.state.curves.get(s.state.resolveCurve(rocker))!.chain.segs.length;
+  if (n !== 7) throw new Error(`rocker has ${n} segments, expected 7`);
+
+  const arcOf = new Map<number, { axleX: number; from: number; to: number }>([
+    [1, { axleX: FRONT_AXLE_X, from: Math.PI - ARCH_END, to: Math.PI / 2 }],
+    [2, { axleX: FRONT_AXLE_X, from: Math.PI / 2, to: ARCH_END }],
+    [4, { axleX: REAR_AXLE_X, from: Math.PI - ARCH_END, to: Math.PI / 2 }],
+    [5, { axleX: REAR_AXLE_X, from: Math.PI / 2, to: ARCH_END }],
+  ]);
+  fitChain(rocker, (seg, local) => {
+    const j = forward ? seg : 6 - seg;
+    const k = forward ? local : 1 - local;
+    const arc = arcOf.get(j);
+    if (arc) {
+      // A cubic fits 90 degrees to three parts in ten thousand: 0.1 mm here,
+      // the same construction and the same figure as the wheels themselves.
+      const a = arc.from + (arc.to - arc.from) * k;
+      const x = arc.axleX + ARCH_R * Math.cos(a);
+      return [x, sign * rockerPlanY(x), AXLE_Z + ARCH_R * Math.sin(a)];
+    }
+    const x = ARCH_X[j]! + (ARCH_X[j + 1]! - ARCH_X[j]!) * k;
+    return [x, sign * rockerPlanY(x), rockerSillZ(x)];
+  });
+}
+
 // ── the sections ──────────────────────────────────────────────────────────
 // `roofY` is where the deck curve's shoulders sit, and it is what makes a
 // GREENHOUSE rather than a pontoon. At 520–560 through the cabin the roof was
@@ -192,20 +388,35 @@ const STATIONS: {
 }[] = [
   { x: 90,   roof: 570,  roofY: 150, floor: 250, hip: 250, hipAt: 0.45, name: "nose-tuck" },
   { x: 300,  roof: 660,  roofY: 300, floor: 200, hip: 470, hipAt: 0.48, name: "nose" },
-  { x: 560,  roof: 762,  roofY: 430, floor: 146, hip: 762, hipAt: 0.60, name: "front-fascia" },
-  { x: 790,  roof: 830,  roofY: 500, floor: 132, hip: 830, hipAt: 0.72, name: "front-axle" },
-  { x: 1050, roof: 862,  roofY: 545, floor: 130, hip: 822, hipAt: 0.62, name: "lamp-pods" },
+  { x: archMouth(FRONT_AXLE_X)[0], roof: 736,  roofY: 400, floor: 152, hip: 724, hipAt: 0.58, name: "arch-front-lead" },
+  { x: 620,  roof: 790,  roofY: 460, floor: 140, hip: 800, hipAt: 0.66, name: "front-fascia" },
+  { x: 790,  roof: 830,  roofY: 500, floor: 132, hip: 838, hipAt: 0.74, name: "front-axle" },
+  { x: 1000, roof: 858,  roofY: 540, floor: 130, hip: 830, hipAt: 0.68, name: "lamp-pods" },
+  { x: archMouth(FRONT_AXLE_X)[1], roof: 856,  roofY: 552, floor: 129, hip: 812, hipAt: 0.58, name: "arch-front-trail" },
   { x: 1400, roof: 838,  roofY: 560, floor: 128, hip: 812, hipAt: 0.50, name: "hood-mid" },
   { x: 1700, roof: 890,  roofY: 600, floor: 128, hip: 820, hipAt: 0.45, name: "cowl" },
   { x: 1980, roof: 1090, roofY: 400, floor: 128, hip: 826, hipAt: 0.40, name: "screen" },
   { x: 2280, roof: 1232, roofY: 320, floor: 128, hip: 828, hipAt: 0.38, name: "header" },
   { x: 2560, roof: 1215, roofY: 330, floor: 130, hip: 830, hipAt: 0.40, name: "top-rear" },
-  { x: 2800, roof: 1120, roofY: 390, floor: 134, hip: 834, hipAt: 0.52, name: "backlight" },
-  { x: 3055, roof: 985,  roofY: 560, floor: 142, hip: 838, hipAt: 0.70, name: "rear-axle" },
-  { x: 3400, roof: 900,  roofY: 540, floor: 175, hip: 806, hipAt: 0.62, name: "deck" },
+  { x: archMouth(REAR_AXLE_X)[0], roof: 1140, roofY: 400, floor: 133, hip: 826, hipAt: 0.56, name: "arch-rear-lead" },
+  { x: 2880, roof: 1075, roofY: 440, floor: 136, hip: 836, hipAt: 0.64, name: "backlight" },
+  { x: 3055, roof: 985,  roofY: 560, floor: 142, hip: 844, hipAt: 0.74, name: "rear-axle" },
+  { x: archMouth(REAR_AXLE_X)[1], roof: 906,  roofY: 556, floor: 168, hip: 812, hipAt: 0.60, name: "arch-rear-trail" },
+  { x: 3480, roof: 894,  roofY: 540, floor: 182, hip: 800, hipAt: 0.60, name: "deck" },
   { x: 3720, roof: 848,  roofY: 430, floor: 218, hip: 700, hipAt: 0.55, name: "tail" },
   { x: 3900, roof: 800,  roofY: 300, floor: 252, hip: 470, hipAt: 0.50, name: "tail-tuck" },
 ];
+
+// Every arch mouth and crown must BE a station: the rocker can only be split
+// where no cell claims across, and a station cut is what makes that true. The
+// rear trail station was typed 160 mm from its arch and the split refused,
+// naming the cell — which is the guard working, and this is the guard that
+// stops it needing to.
+for (const x of [...archMouth(FRONT_AXLE_X), FRONT_AXLE_X, ...archMouth(REAR_AXLE_X), REAR_AXLE_X]) {
+  if (!STATIONS.some((st) => Math.abs(st.x - x) < 1e-6)) {
+    throw new Error(`no station at x=${x}, which an arch mouth or crown needs`);
+  }
+}
 
 const faceOf = (score: (m: Pt3) => number): Id => {
   const ids = [...s.state.cells.keys()] as Id[];
@@ -238,10 +449,14 @@ for (const st of STATIONS) {
     targets: [deckFace, underFace, flankPos, flankNeg],
   });
   const made = [...s.state.curves.keys()].filter((id) => !before.has(id)) as Id[];
+  // A curve is "across the car" if it SPANS THE CENTRELINE — its two ends sit
+  // on opposite sides. Comparing the y span to the z span looks equivalent and
+  // is not: once the arch is in the rocker, the flank over a wheel is 83 mm
+  // tall and wider than it is high, and the old test called it a deck curve.
   const acrossCar = (id: Id): boolean => {
     const c = s.state.curves.get(s.state.resolveCurve(id))!;
     const a0 = evalChain(c.chain, 0), a1 = evalChain(c.chain, 1);
-    return Math.abs(a1[1] - a0[1]) > Math.abs(a1[2] - a0[2]);
+    return Math.sign(a0[1]) !== Math.sign(a1[1]);
   };
   const across = made.filter(acrossCar);
   const flanks = made.filter((id) => !acrossCar(id));
@@ -281,13 +496,62 @@ for (let i = 0; i < STATIONS.length; i++) {
   }
 }
 
+// The beltline and sill are creased BEFORE the rocker is split, so both marks
+// ride onto every piece. Creasing after would mark only the stretch that kept
+// the original id — the first seventh of the sill — and leave the field trying
+// to smooth the other six.
+for (const id of longEdges) s.apply("crease", { curveId: id });
+
+// ── mark the arch lips ────────────────────────────────────────────────────
+// The arches are already in the rocker; what is left is to SAY so. A13 splits
+// the rocker at each mouth and crown so the four quarter spans become curves
+// of their own, and then each can be creased. Splitting moves nothing — that
+// is what `split-curve.test` checks point by point — so this is safe after the
+// cuts in a way that shaping is not.
+//
+// An arch lip is a fold. Marking it stops the tangent field trying to make the
+// flank and the wheelhouse tangent across a 90-degree turn, and it is what
+// makes the lip read as a lip instead of a soft roll.
+const archSpans: Id[] = [];
+for (const master of rockerIds) {
+  const rocker = master;
+  const isRocker = true;
+  const chain0 = s.state.curves.get(s.state.resolveCurve(rocker))!.chain;
+  const forward = evalChain(chain0, 0)[0]! < evalChain(chain0, 1)[0]!;
+  // The rocker is SEVEN segments now, one per span, so its own parameter runs
+  // uniformly over them and every mouth and crown sits at k/7 — whichever way
+  // round the curve happens to run. Deriving these from x/LEN was right while
+  // the rocker was a single cubic and is not any more.
+  const stations = [1, 2, 3, 4, 5, 6].map((k) => k / 7);
+
+  let head = rocker;
+  const pieces: Id[] = [];
+  let upper = 1;
+  for (const t of [...stations].reverse()) {
+    const before = new Set(s.state.curves.keys());
+    s.apply("split-curve", { curveId: head, t: t / upper });
+    const tail = [...s.state.curves.keys()].find((id) => !before.has(id)) as Id;
+    if (!tail) throw new Error("split-curve made no new curve");
+    pieces.unshift(tail);
+    upper = t;
+  }
+  pieces.unshift(head);
+  if (pieces.length !== 7) throw new Error(`rocker split into ${pieces.length}, expected 7`);
+  const inX = forward ? pieces : [...pieces].reverse();
+  if (isRocker) {
+    for (const j of [1, 2, 4, 5]) {
+      s.apply("crease", { curveId: inX[j]! });
+      archSpans.push(inX[j]!);
+    }
+  }
+}
+
 // ── the lines the body is read by ─────────────────────────────────────────
 // The beltline and sill are creased on both cars, and that is the ONLY thing
 // the two share at this step. The P1 gets a hood shutline at the cowl and a
 // deck shutline at the backlight; this car's boot lid opens at the backlight
 // and its bonnet at the cowl, so the stations differ and the marks land where
 // the panels actually split.
-for (const id of longEdges) s.apply("crease", { curveId: id });
 for (const name of ["cowl", "backlight"]) {
   const k = STATIONS.findIndex((st) => st.name === name);
   const sec = sections[k];
@@ -487,7 +751,12 @@ const size = (m: { positions: Float64Array }): [number, number, number] => {
   return [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
 };
 const dims = (d: readonly number[]) => d.map((v) => Math.round(v)).join(" × ") + " mm";
-const bareMesh = meshQuilt(quilt, { baseDensity: 20 });
+// `cross: null` explicitly. Omitting it does NOT give the bare blend — the
+// mesher derives a field when the option is absent, and says so in its own
+// header: "Pass null to print the bare G0 blend, which nobody should get by
+// forgetting." This line was forgetting, so "as authored" and "as built" were
+// the same number and the field looked like it moved nothing.
+const bareMesh = meshQuilt(quilt, { baseDensity: 20, cross: null });
 const asBuilt = size(mesh);
 const asAuthored = size(bareMesh);
 

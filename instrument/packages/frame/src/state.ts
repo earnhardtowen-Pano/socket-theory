@@ -596,6 +596,32 @@ export class FrameState {
       }
       case "ctrl": {
         const curve = this.mustCurve(target.id);
+        // Every junction ON this curve, as a parameter: the two ends, and every
+        // interior trim boundary — the T-points where another curve lands.
+        //
+        // Moving a control point changes the curve's SHAPE, so the point at a
+        // given parameter moves even when no control point of that name did.
+        // Anything welded there has to follow, and until now nothing did: the
+        // branch below maintained coincidence only when a chain END moved, so
+        // shaping a curve that had already been cut tore every T-junction on
+        // it off the surface. `deformCurves` has always done this for curve
+        // and cell targets — its own comment says "chain endpoints PLUS their
+        // interior trim boundaries" — and the ctrl path simply never got it.
+        //
+        // It is invisible until you shape a long edge AFTER cutting it, which
+        // is exactly what a wheel arch is. A box with two cuts and one control
+        // point moved 0.1 mm opens 138 edges; move it 1e-9 mm and it does not,
+        // because that is under the coincidence tolerance.
+        const junctionParams: number[] = [0, 1];
+        for (const trim of curve.trims) {
+          for (const p of [trim.t0, trim.t1]) {
+            if (p > PARAM_EPS && p < 1 - PARAM_EPS && !junctionParams.includes(p)) {
+              junctionParams.push(p);
+            }
+          }
+        }
+        const junctionsBefore = junctionParams.map((p) => evalChain(curve.chain, p));
+
         const segs = [...curve.chain.segs];
         const seg = segs[target.seg];
         if (!seg) throw new Error(`ctrl target out of range: seg ${target.seg} of ${curve.id}`);
@@ -614,23 +640,29 @@ export class FrameState {
           if (next) segs[target.seg + 1] = { ...next, p0: moved };
         }
         curve.chain = { segs };
-        // a chain-end control point is a junction: preserve weld coincidence
-        const isChainStart = target.seg === 0 && target.idx === 0;
-        const isChainEnd = target.seg === segs.length - 1 && target.idx === 3;
-        if (isChainStart || isChainEnd) {
+
+        // Carry every junction on this curve to where it now is. The ends are
+        // in this list too, which subsumes the chain-end case that used to be
+        // handled on its own.
+        for (let j = 0; j < junctionParams.length; j++) {
+          const was = junctionsBefore[j]!;
+          const now = evalChain(curve.chain, junctionParams[j]!);
+          const shift: Pt3 = [now[0] - was[0], now[1] - was[1], now[2] - was[2]];
+          if (Math.abs(shift[0]) + Math.abs(shift[1]) + Math.abs(shift[2]) === 0) continue;
           for (const other of this.curves.values()) {
             if (other.id === curve.id) continue;
-            if (samePt(chainStart(other.chain), old)) {
-              other.chain = dragChainEnd(other.chain, "start", delta);
+            if (samePt(chainStart(other.chain), was)) {
+              other.chain = dragChainEnd(other.chain, "start", shift);
             }
-            if (samePt(chainEnd(other.chain), old)) {
-              other.chain = dragChainEnd(other.chain, "end", delta);
+            if (samePt(chainEnd(other.chain), was)) {
+              other.chain = dragChainEnd(other.chain, "end", shift);
             }
           }
           for (const v of this.vertices.values()) {
-            if (samePt(v.at, old)) v.at = moved;
+            if (samePt(v.at, was)) v.at = now;
           }
         }
+        void old; void moved;
         return;
       }
     }
@@ -818,6 +850,16 @@ export class FrameState {
   }
 
   /**
+   * How far a requested split may be from a claim boundary and still mean it.
+   *
+   * Generous on purpose: the caller's number has usually been through several
+   * divisions and the boundary's own value is always the better one. Anything
+   * this close is the same place, and anything further is a genuinely
+   * different parameter that gets used as given.
+   */
+  private static readonly SPLIT_SNAP = 1e-3;
+
+  /**
    * Split one shared curve into two at parameter `t` — amendment A13.
    *
    * A tape split subdivides a curve's TRIMS, never the curve, so a long edge
@@ -844,6 +886,28 @@ export class FrameState {
       throw new Error(`split-curve: t must be strictly inside (0,1), got ${t}`);
     }
     const curve = this.mustCurve(curveId);
+
+    // SNAP to a claim boundary. A split is nearly always asked for at a
+    // parameter where a cell's side already ends — that is the precondition
+    // for it being legal at all — and the caller has usually arrived at that
+    // number through several divisions. Six successive splits of one rocker
+    // put the caller's parameter 1e-4 from the boundary it meant, which is
+    // enough for `onTail` below to send a cell to the wrong half and leave it
+    // claiming a stale sub-range. Using the boundary's OWN value instead makes
+    // `toHead` and `toTail` land on exactly 1 and exactly 0 for it.
+    let split = t;
+    let best = FrameState.SPLIT_SNAP;
+    for (const cell of this.cells.values()) {
+      for (const side of cell.sides) {
+        if (side.curveId !== curve.id) continue;
+        for (const p of [side.t0, side.t1]) {
+          const d = p < t ? t - p : p - t;
+          if (d < best && p > PARAM_EPS && p < 1 - PARAM_EPS) { best = d; split = p; }
+        }
+      }
+    }
+    t = split;
+
     for (const cell of this.cells.values()) {
       for (const side of cell.sides) {
         if (side.curveId !== curve.id) continue;
@@ -875,8 +939,12 @@ export class FrameState {
 
     const headSegs = curve.chain.segs.slice(0, k);
     const tailSegs = curve.chain.segs.slice(k);
-    const toHead = (p: number): number => Math.min(1, Math.max(0, p / tSplit));
-    const toTail = (p: number): number => Math.min(1, Math.max(0, (p - tSplit) / (1 - tSplit)));
+    // Rescaling is exact at the ends by construction, and `crisp` says so
+    // rather than leaving a 1e-17 residue for the next split to compound.
+    const crisp = (v: number): number =>
+      v < PARAM_EPS ? 0 : v > 1 - PARAM_EPS ? 1 : v;
+    const toHead = (p: number): number => crisp(Math.min(1, Math.max(0, p / tSplit)));
+    const toTail = (p: number): number => crisp(Math.min(1, Math.max(0, (p - tSplit) / (1 - tSplit))));
     const onTail = (a: number, b: number): boolean => Math.min(a, b) >= tSplit - PARAM_EPS;
 
     const tailId = alloc.next("curve");
