@@ -35,3 +35,7 @@ export {
   MX5_REAR_TRACK, MX5_RAIL_HEIGHT, MX5_LENGTH, MX5_WIDTH, MX5_HEIGHT, MX5_DIAMETER,
   MX5_TIRE_WIDTH,
 } from "./miata.js";
+
+export {
+  MX5_PROFILE, MX5_PROFILE_TOLERANCE_MM, type ProfileStation,
+} from "./miata-reference.js";

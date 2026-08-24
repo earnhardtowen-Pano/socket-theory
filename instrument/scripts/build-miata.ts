@@ -25,11 +25,12 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { makeAllocator, type Id, type Pt3 } from "@car/schema";
 import { assembleCar, shoulderAboveHip95M, shoulderBreadth95M } from "@car/types";
-import { CATALOGUE } from "@car/skin";
+import { CATALOGUE, finishOf, sectionAt } from "@car/skin";
 import { solve } from "@car/pack";
 import { cabinLens, type CabinPerson } from "@car/lens";
 import {
-  miataConfig, MX5_DIAMETER, MX5_FRONT_OVERHANG, MX5_FRONT_TRACK, MX5_REAR_TRACK,
+  miataConfig, MX5_DIAMETER, MX5_FRONT_OVERHANG, MX5_FRONT_TRACK,
+  MX5_PROFILE, MX5_PROFILE_TOLERANCE_MM, MX5_REAR_TRACK,
   MX5_TIRE_WIDTH, MX5_WHEELBASE,
 } from "@car/fixtures";
 import { createSession } from "@car/history";
@@ -248,7 +249,10 @@ const shoulderY = scaled(SHOULDER_Y);
 // beltline that starts at 620 puts the SHOULDER of the tip above the ROOF
 // just behind it — the body turns inside out over the last 90 mm and closes
 // on a flat plate standing proud of everything around it. Both ends had it.
-const shoulderZ = track(470, 860, 845, 700);
+// 640 at the nose and 720 at the tail. It was 470 and 700, which put the
+// beltline of the tip 230 mm below the real car's and left the body climbing
+// to full height over the first tenth of its length. See BLUNT ENDS below.
+const shoulderZ = track(640, 860, 845, 720);
 const rockerY = scaled(ROCKER_Y);
 const rockerZ = track(232, 128, 128, 246);
 
@@ -310,14 +314,14 @@ const rockerPlanY = (x: number): number => {
     const u = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
     return y0 + (y1 - y0) * (u * u * (3 - 2 * u));
   };
-  if (x <= fA) return ramp(0, 110, fA, FRONT_LIP);
+  if (x <= fA) return ramp(0, 320, fA, FRONT_LIP);
   if (x <= fB) return FRONT_LIP;
   if (x <= rA) {
     const mid = 0.5 * (fB + rA);
     return x <= mid ? ramp(fB, FRONT_LIP, mid, 742) : ramp(mid, 742, rA, REAR_LIP);
   }
   if (x <= rB) return REAR_LIP;
-  return ramp(rB, REAR_LIP, LEN, 180);
+  return ramp(rB, REAR_LIP, LEN, 560);
 };
 /** Height of the rocker where it is a sill rather than an arch. */
 const rockerSillZ = (x: number): number => {
@@ -329,8 +333,8 @@ const rockerSillZ = (x: number): number => {
   // The aperture the body closes on: 220 x 170 at the nose and 360 x 370 at
   // the tail, rather than 300 x 384 and 520 x 528. A bumper is a moulding
   // wrapped round a tip, not a plate bolted to a cut-off.
-  if (x <= fA) return ramp(0, 300, fA, MOUTH_Z);
-  if (x >= rB) return ramp(rB, MOUTH_Z, LEN, 330);
+  if (x <= fA) return ramp(0, 330, fA, MOUTH_Z);
+  if (x >= rB) return ramp(rB, MOUTH_Z, LEN, 360);
   const mid = 0.5 * (fB + rA);
   return x <= mid ? ramp(fB, MOUTH_Z, mid, 132) : ramp(mid, 132, rA, MOUTH_Z);
 };
@@ -346,8 +350,24 @@ const rockerSillZ = (x: number): number => {
  */
 const shoulderPlanY = (x: number): number => {
   const T: [number, number][] = [
-    [0, 110], [fA, 700], [FRONT_AXLE_X, 826], [fB, 838],
-    [rA, 838], [REAR_AXLE_X, 830], [rB, 786], [LEN, 180],
+    // BLUNT ENDS. This table used to run [0, 110] -> [fA, 700]: a nose 220 mm
+    // wide swelling to 1600 over the first tenth of the car. Sectioning the
+    // built body against the real one found the whole fault in two rows —
+    // everything from 10% to 90% of the length is within 5 mm, and both TIPS
+    // are pinched to a point:
+    //
+    //     x/L    half-width  built / real
+    //     0.00      112 / 640      -528
+    //     0.05      408 / 720      -312
+    //     0.10      772 / 790       -18      <- correct from here on
+    //
+    // A body that goes from a point to full width in 400 mm is a balloon, and
+    // it is a balloon whatever the surfacing does. The four entries per span
+    // are exactly where `fitChain` samples, so these ARE the built widths.
+    [0, 340], [154, 700], [307, 762], [fA, 800],
+    [FRONT_AXLE_X, 826], [fB, 838],
+    [rA, 838], [REAR_AXLE_X, 830],
+    [rB, 800], [3579, 790], [3775, 730], [LEN, 600],
   ];
   let base = T[T.length - 1]![1];
   for (let i = 0; i < T.length - 1; i++) {
@@ -482,10 +502,10 @@ for (const rocker of rockerIds) {
 const STATIONS: {
   x: number; roof: number; roofY: number; floor: number; hip: number; hipAt: number; name: string;
 }[] = [
-  { x: 90,   roof: 570,  roofY: 150, floor: 250, hip: 250, hipAt: 0.45, name: "nose-tuck" },
-  { x: 300,  roof: 660,  roofY: 300, floor: 200, hip: 470, hipAt: 0.48, name: "nose" },
-  { x: archMouth(FRONT_AXLE_X)[0], roof: 736,  roofY: 400, floor: 152, hip: 724, hipAt: 0.58, name: "arch-front-lead" },
-  { x: 620,  roof: 790,  roofY: 460, floor: 140, hip: 800, hipAt: 0.66, name: "front-fascia" },
+  { x: 90,   roof: 706,  roofY: 420, floor: 300, hip: 660, hipAt: 0.45, name: "nose-tuck" },
+  { x: 300,  roof: 758,  roofY: 500, floor: 240, hip: 755, hipAt: 0.50, name: "nose" },
+  { x: archMouth(FRONT_AXLE_X)[0], roof: 790,  roofY: 540, floor: 152, hip: 800, hipAt: 0.58, name: "arch-front-lead" },
+  { x: 620,  roof: 812,  roofY: 560, floor: 140, hip: 822, hipAt: 0.66, name: "front-fascia" },
   { x: 790,  roof: 830,  roofY: 500, floor: 132, hip: 838, hipAt: 0.74, name: "front-axle" },
   { x: 1000, roof: 858,  roofY: 540, floor: 130, hip: 830, hipAt: 0.68, name: "lamp-pods" },
   { x: archMouth(FRONT_AXLE_X)[1], roof: 856,  roofY: 552, floor: 129, hip: 812, hipAt: 0.58, name: "arch-front-trail" },
@@ -511,9 +531,9 @@ const STATIONS: {
   // 985 at the rear axle against a belt of 830 — a dome nobody asked for.
   { x: 3055, roof: 884,  roofY: 560, floor: 142, hip: 844, hipAt: 0.74, name: "rear-axle" },
   { x: archMouth(REAR_AXLE_X)[1], roof: 862,  roofY: 556, floor: 168, hip: 812, hipAt: 0.60, name: "arch-rear-trail" },
-  { x: 3480, roof: 856,  roofY: 540, floor: 182, hip: 800, hipAt: 0.60, name: "deck" },
-  { x: 3720, roof: 848,  roofY: 430, floor: 218, hip: 700, hipAt: 0.55, name: "tail" },
-  { x: 3900, roof: 800,  roofY: 300, floor: 252, hip: 470, hipAt: 0.50, name: "tail-tuck" },
+  { x: 3480, roof: 856,  roofY: 540, floor: 182, hip: 810, hipAt: 0.60, name: "deck" },
+  { x: 3720, roof: 828,  roofY: 520, floor: 260, hip: 780, hipAt: 0.55, name: "tail" },
+  { x: 3900, roof: 772,  roofY: 460, floor: 300, hip: 660, hipAt: 0.50, name: "tail-tuck" },
 ];
 
 // Every arch mouth and crown must BE a station: the rocker can only be split
@@ -1071,6 +1091,7 @@ for (const cell of flatEnds) {
 // trim — and the render reads the class from the same place rather than
 // sniffing the name. A body and its chassis in two different silvers is the
 // whole reason the class exists.
+const skinCells = new Set<Id>();
 const MATERIALS = {
   paint: CATALOGUE["Classic Red"]!,
   frame: CATALOGUE["screen frame"]!,
@@ -1106,6 +1127,10 @@ const MATERIALS = {
     s.apply("assign-material", { targetId: cellId, name: m.name, color: m.color });
     used.set(m.name, (used.get(m.name) ?? 0) + 1);
     painted++;
+    // The profile check compares a BODY against a body, so it needs to know
+    // which cells are one. Structure and glazing are separate assemblies and
+    // sectioning them in reports the A-pillar as an error in the cowl.
+    if (finishOf(m.name, m.color).surfaceClass === "skin") skinCells.add(cellId);
   };
   for (const id of wheelTread) give(id, MATERIALS.tyre);
   for (const id of wheelDisc) give(id, MATERIALS.rim);
@@ -1299,5 +1324,36 @@ line("cockpit opening", cabin.aperture === null ? "NONE — the body is closed" 
     `median ${med.toFixed(1)}° · ${vals[0]!.toFixed(1)}° to ${vals[vals.length - 1]!.toFixed(1)}°`);
 }
 for (const f of cabin.faults) line("  cabin FAULT", f);
+
+// ── the body against the real car ─────────────────────────────────────────
+// The underlay, as arithmetic. This is what found the balloon: every station
+// from a tenth of the length to nine tenths sat within five millimetres, and
+// both TIPS were pinched to a point that inflated to full width over four
+// hundred. `scripts/body-profile.ts` prints the whole table.
+{
+  const keep = new Uint8Array(printed.indices.length / 3);
+  for (const r of mesh.ranges) {
+    const id = (r.id.endsWith("~m") ? r.id.slice(0, -2) : r.id) as Id;
+    if (!skinCells.has(id)) continue;
+    for (let t = r.start; t < r.start + r.count; t += 3) keep[t / 3] = 1;
+  }
+  const idx: number[] = [];
+  for (let t = 0; t < printed.indices.length; t += 3) {
+    if (keep[t / 3]) idx.push(printed.indices[t]!, printed.indices[t + 1]!, printed.indices[t + 2]!);
+  }
+  const skin = { positions: printed.positions, indices: Uint32Array.from(idx) };
+  let worstW = 0, worstZ = 0, over = 0, atW = 0;
+  for (const st of MX5_PROFILE) {
+    const x = Math.min(LEN - 3, Math.max(3, st.at * LEN));
+    const sec = sectionAt(skin, x, 500);
+    const dw = sec.width / 2 - st.halfWidth, dz = sec.top - st.top;
+    if (Math.abs(dw) > Math.abs(worstW)) { worstW = dw; atW = x; }
+    if (Math.abs(dz) > Math.abs(worstZ)) worstZ = dz;
+    if (Math.abs(dw) > MX5_PROFILE_TOLERANCE_MM || Math.abs(dz) > MX5_PROFILE_TOLERANCE_MM) over++;
+  }
+  line("profile vs the real car",
+    `worst ${worstW.toFixed(0)} mm wide at x ${atW.toFixed(0)} · ${worstZ.toFixed(0)} mm tall · ` +
+    `${over} of ${MX5_PROFILE.length} stations outside ${MX5_PROFILE_TOLERANCE_MM} mm (reference ASSUMED)`);
+}
 line("triangles", `${(mesh.indices.length / 3).toLocaleString("en-GB")}`);
 console.log("\nwrote cars/mx5-na.car.json and mx5-na.stl\n");
