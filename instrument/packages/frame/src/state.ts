@@ -63,6 +63,7 @@ import type {
   Material,
   PushPullTarget,
   SharedCurve,
+  Trim,
   SideRef,
   Vertex,
 } from "./records.js";
@@ -814,6 +815,114 @@ export class FrameState {
         }
       }
     }
+  }
+
+  /**
+   * Split one shared curve into two at parameter `t` — amendment A13.
+   *
+   * A tape split subdivides a curve's TRIMS, never the curve, so a long edge
+   * stays one curve for the life of the body however many times it is cut.
+   * That is the right law for a master line and it is why the rocker and the
+   * beltline survive sectioning. It is also, exactly, why three separate
+   * features have been unbuildable: a wheel arch needs the rocker lifted over
+   * ONE stretch, a door outline needs the beltline gapped over ONE stretch,
+   * and a screen aperture needs the same of the cowl. A mark is per-curve, so
+   * a feature that owns part of a curve cannot be marked at all.
+   *
+   * The head keeps the original id, so every reference to the stretch before
+   * `t` survives untouched; the tail gets a fresh one. Both inherit the marks,
+   * because a split is a change of BOOKKEEPING and must not change what the
+   * document says about the geometry.
+   *
+   * REFUSED when any cell claims across `t`. A cell has four sides by statute,
+   * so splitting a side it holds would make it five-sided — and the honest
+   * answer is that the caller must cut the cell there first, which is what
+   * `tape` already does. The error names the cell so that is actionable.
+   */
+  splitCurve(curveId: Id, t: number, alloc: IdAllocator): [Id, Id] {
+    if (!Number.isFinite(t) || t <= PARAM_EPS || t >= 1 - PARAM_EPS) {
+      throw new Error(`split-curve: t must be strictly inside (0,1), got ${t}`);
+    }
+    const curve = this.mustCurve(curveId);
+    for (const cell of this.cells.values()) {
+      for (const side of cell.sides) {
+        if (side.curveId !== curve.id) continue;
+        const lo = Math.min(side.t0, side.t1), hi = Math.max(side.t0, side.t1);
+        if (lo < t - PARAM_EPS && hi > t + PARAM_EPS) {
+          throw new Error(
+            `split-curve: ${cell.id} claims ${curve.id} across t=${t} ` +
+            `(its side runs ${lo} to ${hi}) — cut the cell there first`);
+        }
+      }
+    }
+
+    // A split has to land on a segment boundary, so put one there if the
+    // chain has not already got one. `placePoint` remaps every recorded
+    // parameter on the curve, so the split parameter is recomputed after.
+    const before = segAt(curve.chain, t);
+    let k: number;
+    if (before.u <= PARAM_EPS) {
+      k = before.i;
+    } else if (before.u >= 1 - PARAM_EPS) {
+      k = before.i + 1;
+    } else {
+      this.placePoint(curveId, t);
+      k = before.i + 1;
+    }
+    const n = curve.chain.segs.length;
+    if (k <= 0 || k >= n) throw new Error(`split-curve: t=${t} is at an end of ${curve.id}`);
+    const tSplit = k / n;
+
+    const headSegs = curve.chain.segs.slice(0, k);
+    const tailSegs = curve.chain.segs.slice(k);
+    const toHead = (p: number): number => Math.min(1, Math.max(0, p / tSplit));
+    const toTail = (p: number): number => Math.min(1, Math.max(0, (p - tSplit) / (1 - tSplit)));
+    const onTail = (a: number, b: number): boolean => Math.min(a, b) >= tSplit - PARAM_EPS;
+
+    const tailId = alloc.next("curve");
+    const tail: SharedCurve = {
+      id: tailId,
+      chain: { segs: tailSegs },
+      trims: [],
+      crease: curve.crease,
+      gap: curve.gap,
+    };
+
+    const keptTrims: Trim[] = [];
+    for (const trim of curve.trims) {
+      if (onTail(trim.t0, trim.t1)) {
+        tail.trims.push({
+          cellId: trim.cellId, t0: toTail(trim.t0), t1: toTail(trim.t1), reversed: trim.reversed,
+        });
+      } else {
+        trim.t0 = toHead(trim.t0);
+        trim.t1 = toHead(trim.t1);
+        keptTrims.push(trim);
+      }
+    }
+    curve.trims = keptTrims;
+    curve.chain = { segs: headSegs };
+
+    for (const cell of this.cells.values()) {
+      for (const side of cell.sides) {
+        if (side.curveId !== curve.id) continue;
+        if (onTail(side.t0, side.t1)) {
+          side.curveId = tailId;
+          side.t0 = toTail(side.t0);
+          side.t1 = toTail(side.t1);
+        } else {
+          side.t0 = toHead(side.t0);
+          side.t1 = toHead(side.t1);
+        }
+      }
+    }
+
+    this.curves.set(tailId, tail);
+    // The tail belongs to the same detach family as the head: a split is not a
+    // detach, and a later `detach` on either must still see one family.
+    const root = this.familyRoot(curve.id);
+    this.detachFamily.set(tailId, root);
+    return [curve.id, tailId];
   }
 
   fitThroughLine(points: readonly Pt3[], alloc: IdAllocator): Id {

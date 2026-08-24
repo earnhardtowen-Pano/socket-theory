@@ -97,6 +97,21 @@ export interface FullnessArgs {
   readonly amount: number;
 }
 
+/**
+ * Split one shared curve into two at `t` — amendment A13.
+ *
+ * The head keeps the original id and the tail gets a fresh one, so a mark can
+ * finally own PART of a long edge: an arch over one stretch of the rocker, a
+ * door outline over one stretch of the beltline, a screen aperture over one
+ * stretch of the cowl. Refused where a cell claims across `t`, because a cell
+ * has four sides by statute and splitting one it holds would make it five.
+ */
+export interface SplitCurveArgs {
+  readonly curveId: Id;
+  /** Strictly inside (0,1), in the curve's own uniform parameter. */
+  readonly t: number;
+}
+
 export interface GroupArgs {
   cellIds: Id[];
   name: string;
@@ -178,6 +193,7 @@ export interface VerbArgs {
   group: GroupArgs;
   fullness: FullnessArgs;
   "assign-material": AssignMaterialArgs;
+  "split-curve": SplitCurveArgs;
   "mirror-detach": MirrorDetachArgs;
   crease: CreaseArgs;
   gap: GapArgs;
@@ -425,6 +441,13 @@ export function validateVerbArgs<V extends VerbName>(verb: V, raw: unknown): Ver
         cellIds: checkIdArray(verb, a["cellIds"], "cell", "cellIds"),
         amount: amount as number,
       });
+    }
+    case "split-curve": {
+      const t = a["t"];
+      if (typeof t !== "number" || !Number.isFinite(t) || t <= 0 || t >= 1) {
+        fail(verb, "t must be a finite number strictly inside (0,1)");
+      }
+      return done({ curveId: checkId(verb, a["curveId"], "curve", "curveId"), t: t as number });
     }
     case "assign-material": {
       const targetId = a["targetId"];

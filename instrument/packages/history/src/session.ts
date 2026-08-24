@@ -197,6 +197,11 @@ class SessionImpl implements Session {
         state.setFullness(a.cellIds, a.amount);
         return;
       }
+      case "split-curve": {
+        const a = args as VerbArgs["split-curve"];
+        state.splitCurve(a.curveId, a.t, alloc);
+        return;
+      }
       case "assign-material": {
         const a = args as VerbArgs["assign-material"];
         state.assignMaterial(a.targetId, { name: a.name, color: a.color }, alloc);

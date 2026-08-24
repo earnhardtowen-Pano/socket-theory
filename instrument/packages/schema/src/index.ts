@@ -127,7 +127,9 @@ export type VerbName =
   | "fit-through-line" // datum by orthogonal least squares
   | "group"           // panel group; borders bind to gap curves
   | "fullness"        // how hard a panel leaves its seams — crown, not shape
+  | "split-curve"     // one shared curve becomes two, so a mark can own part of it
   | "fullness"        // how hard a panel leaves its seams — crown, not shape
+  | "split-curve"     // one shared curve becomes two, so a mark can own part of it
   | "assign-material"
   | "mirror-detach"   // Article VIII asymmetry
   | "crease"          // mark an edge as a deliberate crease / character line
