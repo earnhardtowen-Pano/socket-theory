@@ -38,7 +38,7 @@ import { FrameState, idCompare, viewToWorld } from "@car/frame";
 import { cellBoundary, type CrossPrescription } from "./boundary.js";
 import { tangentField } from "./tangent-field.js";
 import {
-  coonsBlend, coonsSu, coonsSv, coonsPhi, coonsPhiU, coonsPhiV,
+  coonsBlend, coonsSu, coonsSv, coonsPhi, coonsPhiU, coonsPhiV, splitShare,
   type PhiSample,
 } from "./coons.js";
 import { boundaryCoonsNormal } from "./coons.js";
@@ -119,14 +119,29 @@ export function tessellateQuilt(
     const xv: Pt3[][] = [[], [], [], []];
     const xd: Pt3[][] = [[], [], [], []];
     const xs: Pt3[][] = [[], [], [], []];
+    const xt: Pt3[][] = [[], [], [], []];
+    const xtd: Pt3[][] = [[], [], [], []];
+    const xb: number[] = [0, 0, 0, 0];
+    const xw: number[] = [0, 0, 0, 0];
     const ZERO: Pt3 = [0, 0, 0];
     if (b.cross) {
       const second = b.cross.second;
+      const share = b.cross.tightShare;
+      const shareD = b.cross.tightShareDeriv;
       for (let k = 0; k < 4; k++) {
+        xb[k] = b.cross.band ? b.cross.band(k) : 0;
+        xw[k] = b.cross.wideBand ? b.cross.wideBand(k) : 0;
         for (let i = 0; i <= n; i++) {
-          xv[k]!.push(b.cross.value(k, i / n));
-          xd[k]!.push(b.cross.deriv(k, i / n));
-          xs[k]!.push(second ? second(k, i / n) : ZERO);
+          const s = i / n;
+          const sp = splitShare(
+            b.cross.value(k, s), b.cross.deriv(k, s),
+            share ? share(k, s) : 0, shareD ? shareD(k, s) : 0,
+          );
+          xv[k]!.push(sp.wide);
+          xd[k]!.push(sp.wideDeriv);
+          xt[k]!.push(sp.tight);
+          xtd[k]!.push(sp.tightDeriv);
+          xs[k]!.push(second ? second(k, s) : ZERO);
         }
       }
     }
@@ -136,6 +151,10 @@ export function tessellateQuilt(
         value: [xv[0]![i]!, xv[1]![j]!, xv[2]![n - i]!, xv[3]![n - j]!],
         deriv: [xd[0]![i]!, xd[1]![j]!, xd[2]![n - i]!, xd[3]![n - j]!],
         second: [xs[0]![i]!, xs[1]![j]!, xs[2]![n - i]!, xs[3]![n - j]!],
+        tight: [xt[0]![i]!, xt[1]![j]!, xt[2]![n - i]!, xt[3]![n - j]!],
+        tightDeriv: [xtd[0]![i]!, xtd[1]![j]!, xtd[2]![n - i]!, xtd[3]![n - j]!],
+        band: [xb[0]!, xb[1]!, xb[2]!, xb[3]!],
+        wide: [xw[0]!, xw[1]!, xw[2]!, xw[3]!],
       };
     };
 

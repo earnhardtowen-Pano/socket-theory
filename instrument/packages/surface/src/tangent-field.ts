@@ -161,6 +161,10 @@ import {
 } from "./adjacency.js";
 import { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
 import {
+  bandRadius, blendPlan, partnerBand, radiusAt, rollingBallOffset,
+  type BlendStation, type EdgeBlend, type SoftenSpec,
+} from "./blend.js";
+import {
   evalCrossDeriv, fitEdgeField, fitSecondAdaptive, sharedNormal,
   type EdgeSample, type OwnerCoeffs, type SecondStation,
 } from "./cross-poly.js";
@@ -365,6 +369,25 @@ export interface CrossField {
   sideField(cellId: Id, k: number): SideField | null;
   /** True if any of this cell's four sides carries a prescription. */
   has(cellId: Id): boolean;
+  /**
+   * α_k(s): the share of side k's correction that rides the TIGHT bump — how
+   * a feature line gets a radius in millimetres rather than the one its panel
+   * happens to give it. Zero everywhere on a body with no softening authored,
+   * which is every body built before this existed.
+   */
+  tightShare(cellId: Id, k: number, s: number): number;
+  /** dα_k/ds. Zero at both ends, like every other field on an edge. */
+  tightShareDeriv(cellId: Id, k: number, s: number): number;
+  /** Width of side k's tight bump, in that side's own inward parameter. */
+  band(cellId: Id, k: number): number;
+  /**
+   * Width of side k's WIDE bump. Zero — every side of every unsoftened body —
+   * means the panel-wide cubic. Positive means BOTH of a softened side's bumps
+   * are compact, so the blend cannot reach a panel it was not asked to reach.
+   */
+  wideBand(cellId: Id, k: number): number;
+  /** What each softened edge asked for and what it got. Empty with none. */
+  readonly blends: readonly EdgeBlend[];
   readonly stats: CrossFieldStats;
 }
 
@@ -578,14 +601,39 @@ export function fieldFromAdjacency(
   // The decision is made ONCE PER EDGE, not per station. Deciding per sample
   // would let the correction switch on partway along a join and put a
   // tangent-plane step exactly where the field exists to remove one.
+  /**
+   * The radius a designer asked each feature line to be rounded to.
+   *
+   * A SOFTENED EDGE IS KEPT WHATEVER ITS BREAK, and that is the whole change
+   * to this loop. Creased means "the two owners are meant to disagree here" and
+   * the field stands down; sharp means "they disagree by more than anybody
+   * would call a defect" and it stands down again. Both are the right default
+   * and both were the ONLY answer available — a marked line was a knife edge
+   * for its whole length and stopped dead at its own end.
+   *
+   * `soften` is the designer saying how the disagreement is to be resolved:
+   * not by ignoring it and not by removing it, but by packing it into a band
+   * whose width is a radius in millimetres. So the edge comes back into the
+   * field, with a plan attached.
+   */
+  const softening: ReadonlyMap<Id, SoftenSpec> = adj.quilt.softening ?? new Map();
+  const asks = (e: SharedEdge): SoftenSpec | null => {
+    const spec = softening.get(e.curveId);
+    if (!spec) return null;
+    return spec.start > 0 || (spec.end ?? spec.start) > 0 ? spec : null;
+  };
+
   const kept: SharedEdge[] = [];
+  const softEdges: SharedEdge[] = [];
   for (const e of adj.edges) {
-    if (e.creased) { creasedEdges++; continue; }
-    if (medianOf(edgeDefectProfile(adj, e, classifySamples)) > breakAngle) {
-      sharpEdges++;
-      continue;
+    const spec = asks(e);
+    if (e.creased) {
+      if (!spec) { creasedEdges++; continue; }
+    } else if (medianOf(edgeDefectProfile(adj, e, classifySamples)) > breakAngle) {
+      if (!spec) { sharpEdges++; continue; }
     }
     kept.push(e);
+    if (spec) softEdges.push(e);
   }
 
   /** The natural bisector at one station, seen from the queried owner. */
@@ -822,6 +870,173 @@ export function fieldFromAdjacency(
     return out;
   };
 
+  // ── the blend plans ──────────────────────────────────────────────────────
+  /**
+   * One side's rounding: how wide its tight bump is, and what it was for.
+   *
+   * The BAND IS PER SIDE and cannot be otherwise. It is the position of a KNOT
+   * — the tight bump is one polynomial inside it and identically zero outside —
+   * and a knot that wandered along the edge would stop the patch being a tensor
+   * product, which would take the control net and any hope of a STEP file with
+   * it. So the width is sized once from the tightest radius the side is asked
+   * for, and every softer station is reached by mixing back toward the wide
+   * bump, which is a coefficient rather than a knot.
+   *
+   * φ and w are the side's MEDIANS, not per-station values, for the same
+   * reason and one better: r = band·w/(2φ) has the break in the denominator,
+   * so holding the mix and letting φ vary is exactly what makes a feature line
+   * grow its radius where its two surfaces drift together, and die on its own
+   * where they meet. The station-by-station truth is measured afterwards by
+   * `blendProbe` and reported against the ask; it is not asserted here.
+   */
+  interface SideBlend {
+    readonly band: number;
+    readonly spec: SoftenSpec;
+    readonly phi: number;
+    readonly dtds: number;
+  }
+  const sideBlends = new Map<string, SideBlend>();
+  const blends: EdgeBlend[] = [];
+  const BLEND_STATIONS = 9;
+
+  const median = (xs: number[]): number => {
+    if (xs.length === 0) return 0;
+    const s = [...xs].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)]!;
+  };
+
+  for (const e of softEdges) {
+    const spec = asks(e);
+    if (!spec) continue;
+    const profile = edgeDefectProfile(adj, e, BLEND_STATIONS);
+    const phi = (median(profile) * Math.PI) / 180;
+    const plans: (ReturnType<typeof blendPlan> | null)[] = [null, null];
+    let offset = 0;
+    const radii: number[] = [];
+    const owners: [Id, number][] = [[e.a.cellId, e.a.k], [e.b.cellId, e.b.k]];
+    for (let oi = 0; oi < 2; oi++) {
+      const [cellId, k] = owners[oi]!;
+      const b = adj.boundaries.get(cellId);
+      if (!b) continue;
+      const side = b.sides[k]!;
+      const stations: BlendStation[] = [];
+      const speeds: number[] = [];
+      for (let m = 0; m <= BLEND_STATIONS; m++) {
+        const t = e.lo + ((e.hi - e.lo) * m) / BLEND_STATIONS;
+        const s = clamp(sideParamOf(side, t), 0, 1);
+        const speed = len3(naturalCross(b, k, s));
+        speeds.push(speed);
+        stations.push({ s, phi, speed, asked: radiusAt(spec, t) });
+      }
+      const plan = blendPlan(stations);
+      plans[oi] = plan;
+      // An affine map, so two evaluations give its slope exactly.
+      const dtds = side.curveParam(1) - side.curveParam(0);
+      sideBlends.set(`${cellId}#${k}`, { band: plan.band, spec, phi, dtds });
+      for (const r of plan.achieved) if (Number.isFinite(r)) radii.push(r);
+      offset = Math.max(offset, rollingBallOffset(median(plan.achieved.filter(Number.isFinite)), phi));
+    }
+    if (plans[0] && plans[1]) {
+      blends.push({
+        curveId: e.curveId, cellA: e.a.cellId, cellB: e.b.cellId, asked: spec,
+        plans: [plans[0], plans[1]], offset, medianRadius: median(radii),
+      });
+    }
+  }
+
+  /**
+   * Raw α before clamping, and its derivative in r.
+   *
+   * THE SPEED IS READ HERE, not taken from a median stored at plan time, and
+   * that was the other half of the wheel-arch defect. |S_ξ| varies along a
+   * side by a factor of eight on a real body — a wheelhouse floor is stretched
+   * where the arch is tight and slack where it is not — so a mix computed
+   * against the side's median is wrong at both ends of the side. It is one
+   * `naturalCross` per query, memoised beside the defect it goes with.
+   */
+  const mixAt = (
+    cellId: Id, k: number, s: number,
+  ): { a: number; dadr: number; sb: SideBlend | undefined; t: number } => {
+    const sb = sideBlends.get(`${cellId}#${k}`);
+    if (!sb) return { a: 0, dadr: 0, sb: undefined, t: 0 };
+    const at = locate(cellId, k, s);
+    if (!at) return { a: 0, dadr: 0, sb, t: 0 };
+    const r = radiusAt(sb.spec, at.t);
+    if (!(r > 0)) return { a: 0, dadr: 0, sb, t: at.t };
+    const speed = len3(naturalCross(at.b, k, s));
+    if (!(speed > 0)) return { a: 0, dadr: 0, sb, t: at.t };
+    // THE LOCAL BREAK, not the side's median, and both matter for the same
+    // reason: r = band·w/(2φ) and BOTH w and φ swing by an order along a real
+    // side. An arch lip breaks by 90° at its crown and by a few degrees at its
+    // mouth; a wheelhouse floor is stretched where the arch is tight. Mixed
+    // against medians, the McLaren's lips came out at twice the radius they
+    // were asked for. Read locally, the same band tracks the ask.
+    //
+    // And it is what makes a line DIE ON ITS OWN: as φ goes to zero the mix
+    // runs to all-tight and the delivered radius runs to infinity, which is
+    // the surface saying there is nothing here to round. Nobody authors that.
+    const phi = localBreak(cellId, k, s, at) ?? sb.phi;
+    const rWide = bandRadius(partnerBand(sb.band), speed, phi);
+    const rTight = bandRadius(sb.band, speed, phi);
+    if (!Number.isFinite(rWide)) return { a: 0, dadr: 0, sb, t: at.t };
+    const denom = 1 / rTight - 1 / rWide;
+    if (Math.abs(denom) < 1e-12) return { a: 0, dadr: 0, sb, t: at.t };
+    const raw = (1 / r - 1 / rWide) / denom;
+    const inRange = raw > 0 && raw < 1;
+    return {
+      a: clamp(raw, 0, 1),
+      dadr: inRange ? -1 / (r * r * denom) : 0,
+      sb, t: at.t,
+    };
+  };
+
+  /** Angle between the two owners' UNCORRECTED normals at one station, radians. */
+  const localBreak = (
+    cellId: Id, k: number, s: number,
+    at: { b: CellBoundary; side: BoundarySide; t: number; claim: Claim },
+  ): number | null => {
+    const bB = adj.boundaries.get(at.claim.otherCell);
+    if (!bB) return null;
+    const sB = sideParamOf(bB.sides[at.claim.otherK]!, at.t);
+    if (sB < 0 || sB > 1) return null;
+    const [ua, va] = uvOnSide(k, s);
+    const [ub, vb] = uvOnSide(at.claim.otherK, sB);
+    const nA = boundaryCoonsNormal(at.b, ua, va);
+    const nB = boundaryCoonsNormal(bB, ub, vb);
+    if (isZeroPt(nA) || isZeroPt(nB)) return null;
+    return natan2(len3(cross3(nA, nB)), dot3(nA, nB));
+  };
+
+  const shareCache = new Map<string, number>();
+  const tightShare = (cellId: Id, k: number, s: number): number => {
+    if (sideBlends.size === 0) return 0;
+    const key = `${cellId}#${k}#${s}`;
+    const hit = shareCache.get(key);
+    if (hit !== undefined) return hit;
+    const a = mixAt(cellId, k, s).a;
+    shareCache.set(key, a);
+    return a;
+  };
+
+  const tightShareDeriv = (cellId: Id, k: number, s: number): number => {
+    const m = mixAt(cellId, k, s);
+    if (!m.sb || m.dadr === 0) return 0;
+    const a = Math.max(0, m.sb.spec.start);
+    const b = Math.max(0, m.sb.spec.end ?? m.sb.spec.start);
+    const x = clamp(m.t, 0, 1);
+    // d/dt of the smootherstep radius ramp, then dt/ds.
+    const drdt = (b - a) * 30 * x * x * (x - 1) * (x - 1);
+    return m.dadr * drdt * m.sb.dtds;
+  };
+
+  const band = (cellId: Id, k: number): number =>
+    sideBlends.get(`${cellId}#${k}`)?.band ?? 0;
+
+  const wideBand = (cellId: Id, k: number): number => {
+    const sb = sideBlends.get(`${cellId}#${k}`);
+    return sb ? partnerBand(sb.band) : 0;
+  };
+
   const defect = (cellId: Id, k: number, s: number): Pt3 => {
     const [lo, hi] = fadesOf(cellId, k);
     const w = cornerWindow(s, lo, hi);
@@ -1055,7 +1270,25 @@ export function fieldFromAdjacency(
   const rawSecond = (cellId: Id, k: number, s: number): Pt3 =>
     memo("s", cellId, k, s, () => rawSecondUncached(cellId, k, s));
 
+  /**
+   * A SOFTENED EDGE GETS NO CURVATURE CORRECTION, and this is a statement
+   * about what a fillet is rather than a guard against a number.
+   *
+   * G2 across a seam means the two owners agree about II(ê,ê) there. A feature
+   * line is precisely a place where they do not and are not meant to: a
+   * rolling-ball fillet is G1 at its own tangency lines and every real one
+   * carries a curvature step there. Asking for G2 across a rounded break is
+   * asking the surface to be smooth across the thing that makes it a line.
+   *
+   * It is also, arithmetically, a disaster. Δ² carries the transverse
+   * magnitude SQUARED — it converts a curvature difference into a length — so
+   * on a wheelhouse floor a metre wide meeting an arch lip 370 mm in radius it
+   * came to 1943 mm of correction on a body 1141 mm tall. The G1 blend beside
+   * it was 2.4 mm. Every continuity probe reported a perfect surface, because
+   * the surface was perfectly continuous; it was also a metre out of the car.
+   */
   const secondDefect = (cellId: Id, k: number, s: number): Pt3 => {
+    if (sideBlends.has(`${cellId}#${k}`)) return ZERO;
     const [lo, hi] = fadesOf(cellId, k);
     const w = cornerWindow(s, lo, hi);
     if (w === 0) return ZERO;
@@ -1102,6 +1335,11 @@ export function fieldFromAdjacency(
     secondDefect,
     sideField,
     rawDefect,
+    tightShare,
+    tightShareDeriv,
+    band,
+    wideBand,
+    blends,
     has: (cellId: Id): boolean => cellsWithField.has(cellId),
     stats: {
       correctedSides: claims.size,

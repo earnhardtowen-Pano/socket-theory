@@ -36,7 +36,9 @@
 
 import type { FeedRange, Id, Pt3, QuiltSpec } from "@car/schema";
 import { lerp3 } from "@car/num";
-import { gBasis, hBasis, qBasis, rBasis, tangentField, type CrossPrescription } from "@car/surface";
+import {
+  coonsPhi, splitShare, tangentField, type CrossPrescription, type PhiSample,
+} from "@car/surface";
 import { compareId } from "./ids.js";
 import { buildSampleTable, type GlobalSampleTable, type SideSamples } from "./table.js";
 
@@ -211,23 +213,46 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
     // the grid coordinate directly; sides 2 and 3 run against it, so they are
     // read at 1-u and 1-v — the same convention the analytic evaluator uses,
     // which is what lets the two agree.
+    //
+    // BOTH SHARES, and the split is `splitShare` rather than four lines of
+    // arithmetic repeated here. This block used to hold its own copy of the Φ
+    // formula, and the day the G2 term landed the copy did not get it: the
+    // print, the aero map and the curvature lens described a body up to 85 mm
+    // away from the surface every analytic probe was reading, for as long as
+    // it took somebody to build a displacement map. There is one formula now
+    // and this calls it.
     const D0: Pt3[] = [], D1: Pt3[] = [], D2: Pt3[] = [], D3: Pt3[] = [];
+    const T0: Pt3[] = [], T1: Pt3[] = [], T2: Pt3[] = [], T3: Pt3[] = [];
     // The G2 tables, read from the SAME prescription. A field at order 1
     // returns zero here, so this costs nothing when there is no curvature
     // correction and is not a second code path.
     const S0: Pt3[] = [], S1: Pt3[] = [], S2: Pt3[] = [], S3: Pt3[] = [];
     const second = cross?.secondDefect;
     const ZERO: Pt3 = [0, 0, 0];
+    const band: [number, number, number, number] = [0, 0, 0, 0];
+    const wide: [number, number, number, number] = [0, 0, 0, 0];
     if (cross) {
+      const share = cross.tightShare, shareD = cross.tightShareDeriv;
+      for (let k = 0; k < 4; k++) {
+        band[k] = cross.band ? cross.band(cell.id, k) : 0;
+        wide[k] = cross.wideBand ? cross.wideBand(cell.id, k) : 0;
+      }
+      const at = (k: number, s: number): Pt3[] => {
+        const sp = splitShare(
+          cross.defect(cell.id, k, s), ZERO,
+          share ? share(cell.id, k, s) : 0, shareD ? shareD(cell.id, k, s) : 0,
+        );
+        return [sp.wide, sp.tight];
+      };
       for (const u of U) {
-        D0.push(cross.defect(cell.id, 0, u));
-        D2.push(cross.defect(cell.id, 2, 1 - u));
+        const [w0, t0] = at(0, u); D0.push(w0!); T0.push(t0!);
+        const [w2, t2] = at(2, 1 - u); D2.push(w2!); T2.push(t2!);
         S0.push(second ? second(cell.id, 0, u) : ZERO);
         S2.push(second ? second(cell.id, 2, 1 - u) : ZERO);
       }
       for (const v of V) {
-        D1.push(cross.defect(cell.id, 1, v));
-        D3.push(cross.defect(cell.id, 3, 1 - v));
+        const [w1, t1] = at(1, v); D1.push(w1!); T1.push(t1!);
+        const [w3, t3] = at(3, 1 - v); D3.push(w3!); T3.push(t3!);
         S1.push(second ? second(cell.id, 1, v) : ZERO);
         S3.push(second ? second(cell.id, 3, 1 - v) : ZERO);
       }
@@ -265,15 +290,17 @@ export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
                (1 - u) * v * P01[c]! + u * v * P11[c]!);
           }
           if (cross) {
-            const gv = gBasis(v), hu = hBasis(u), hv = hBasis(v), gu = gBasis(u);
-            const qv = qBasis(v), ru = rBasis(u), rv = rBasis(v), qu = qBasis(u);
-            const d0 = D0[i]!, d1 = D1[j]!, d2 = D2[i]!, d3 = D3[j]!;
-            const s0 = S0[i]!, s1 = S1[j]!, s2 = S2[i]!, s3 = S3[j]!;
-            for (let c = 0; c < 3; c++) {
-              q[c]! +=
-                gv * d0[c]! + hu * d1[c]! + hv * d2[c]! + gu * d3[c]! +
-                qv * s0[c]! + ru * s1[c]! + rv * s2[c]! + qu * s3[c]!;
-            }
+            const sample: PhiSample = {
+              value: [D0[i]!, D1[j]!, D2[i]!, D3[j]!],
+              deriv: [ZERO, ZERO, ZERO, ZERO],
+              second: [S0[i]!, S1[j]!, S2[i]!, S3[j]!],
+              tight: [T0[i]!, T1[j]!, T2[i]!, T3[j]!],
+              tightDeriv: [ZERO, ZERO, ZERO, ZERO],
+              band,
+              wide,
+            };
+            const f = coonsPhi(sample, u, v);
+            for (let c = 0; c < 3; c++) q[c]! += f[c]!;
           }
           vert = pushVert([q[0]!, q[1]!, q[2]!]);
           interiorCell.push(cell.id);

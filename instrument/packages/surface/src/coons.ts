@@ -71,6 +71,9 @@
 import type { Pt3 } from "@car/schema";
 import { clamp, cross3, dot3, norm3, scale3 } from "@car/num";
 import {
+  tightBasis, tightBasisHi, tightPrime, tightPrimeHi, tightPrime2, tightPrime2Hi,
+} from "./blend.js";
+import {
   cellBoundary,
   type CellBoundary,
   type CellLike,
@@ -149,29 +152,74 @@ const rPrime2 = (x: number): number => 0.5 * (6 * x - 24 * x * x + 20 * x ** 3);
  * The four side corrections and their along-edge derivatives, already
  * evaluated at this (u,v): index k holds Δ_k and Δ_k′ at side k's own loop
  * parameter (u, v, 1-u, 1-v respectively).
+ *
+ * `value` IS THE WIDE SHARE AND `tight` THE NARROW ONE, and together they are
+ * the whole correction. A blend whose width varies along an edge is
+ * algebraically two blends of fixed width on two profiles — see
+ * `blend.ts` — so the shape of the bump never depends on the edge parameter
+ * and none of the six functions below needs a chain rule for it. With no
+ * softening authored, `tight` is zero, `band` is irrelevant, and every term
+ * below vanishes: the arithmetic is bit-identical to what it was.
  */
 export interface PhiSample {
   readonly value: readonly [Pt3, Pt3, Pt3, Pt3];
   readonly deriv: readonly [Pt3, Pt3, Pt3, Pt3];
   /** The G2 corrections Δ²_k at the same parameters; zero when order 1. */
   readonly second: readonly [Pt3, Pt3, Pt3, Pt3];
+  /** The share of each side's correction carried by the tight bump. */
+  readonly tight: readonly [Pt3, Pt3, Pt3, Pt3];
+  /** Its along-edge derivative, same convention as `deriv`. */
+  readonly tightDeriv: readonly [Pt3, Pt3, Pt3, Pt3];
+  /** Width of each side's tight bump, in that side's inward parameter. */
+  readonly band: readonly [number, number, number, number];
+  /**
+   * Width of each side's WIDE bump. Zero means the panel-wide cubic, which is
+   * the right answer for a seam nobody softened; a positive value means the
+   * wide share is compact too, so nothing the blend does can reach past it.
+   */
+  readonly wide: readonly [number, number, number, number];
 }
 
 const ZERO3: Pt3 = [0, 0, 0];
 const ZERO4: readonly [Pt3, Pt3, Pt3, Pt3] = [ZERO3, ZERO3, ZERO3, ZERO3];
-export const NO_PHI: PhiSample = { value: ZERO4, deriv: ZERO4, second: ZERO4 };
+const NO_BAND: readonly [number, number, number, number] = [0, 0, 0, 0];
+export const NO_PHI: PhiSample = {
+  value: ZERO4, deriv: ZERO4, second: ZERO4,
+  tight: ZERO4, tightDeriv: ZERO4, band: NO_BAND, wide: NO_BAND,
+};
+
+/**
+ * The WIDE share's basis: the panel-wide cubic, or a compact bump when the
+ * side carries a radius.
+ *
+ * One selector, six functions, and the branch is on a number that is zero on
+ * every body built before softening existed — so the classic path is the
+ * classic arithmetic, bit for bit.
+ */
+const wLo = (x: number, w: number): number => (w > 0 ? tightBasis(x, w) : gBasis(x));
+const wHi = (x: number, w: number): number => (w > 0 ? tightBasisHi(x, w) : hBasis(x));
+const wLoP = (x: number, w: number): number => (w > 0 ? tightPrime(x, w) : gPrime(x));
+const wHiP = (x: number, w: number): number => (w > 0 ? tightPrimeHi(x, w) : hPrime(x));
+const wLoP2 = (x: number, w: number): number => (w > 0 ? tightPrime2(x, w) : gPrime2(x));
+const wHiP2 = (x: number, w: number): number => (w > 0 ? tightPrime2Hi(x, w) : hPrime2(x));
 
 /** Φ + Ψ at (u,v) — the whole correction. Zero on every edge. */
 export function coonsPhi(p: PhiSample, u: number, v: number): Pt3 {
   const [D0, D1, D2, D3] = p.value;
   const [S0, S1, S2, S3] = p.second;
-  const gv = gBasis(v), hu = hBasis(u), hv = hBasis(v), gu = gBasis(u);
+  const [T0, T1, T2, T3] = p.tight;
+  const [b0, b1, b2, b3] = p.band;
+  const [w0, w1, w2, w3] = p.wide;
+  const gv = wLo(v, w0), hu = wHi(u, w1), hv = wHi(v, w2), gu = wLo(u, w3);
   const qv = qBasis(v), ru = rBasis(u), rv = rBasis(v), qu = qBasis(u);
+  const tv = tightBasis(v, b0), tu1 = tightBasisHi(u, b1);
+  const tv2 = tightBasisHi(v, b2), tu = tightBasis(u, b3);
   const out: [number, number, number] = [0, 0, 0];
   for (let k = 0; k < 3; k++) {
     out[k] =
       gv * D0[k]! + hu * D1[k]! + hv * D2[k]! + gu * D3[k]! +
-      qv * S0[k]! + ru * S1[k]! + rv * S2[k]! + qu * S3[k]!;
+      qv * S0[k]! + ru * S1[k]! + rv * S2[k]! + qu * S3[k]! +
+      tv * T0[k]! + tu1 * T1[k]! + tv2 * T2[k]! + tu * T3[k]!;
   }
   return out;
 }
@@ -187,13 +235,20 @@ export function coonsPhiU(p: PhiSample, u: number, v: number): Pt3 {
   const [, D1, , D3] = p.value;
   const [E0, , E2] = p.deriv;
   const [, S1, , S3] = p.second;
-  const gv = gBasis(v), hv = hBasis(v), hpu = hPrime(u), gpu = gPrime(u);
+  const [, T1, , T3] = p.tight;
+  const [F0, , F2] = p.tightDeriv;
+  const [b0, b1, b2, b3] = p.band;
+  const [w0, w1, w2, w3] = p.wide;
+  const gv = wLo(v, w0), hv = wHi(v, w2), hpu = wHiP(u, w1), gpu = wLoP(u, w3);
   const rpu = rPrime(u), qpu = qPrime(u);
+  const tv = tightBasis(v, b0), tv2 = tightBasisHi(v, b2);
+  const tpu1 = tightPrimeHi(u, b1), tpu = tightPrime(u, b3);
   const out: [number, number, number] = [0, 0, 0];
   for (let k = 0; k < 3; k++) {
     out[k] =
       gv * E0[k]! + hpu * D1[k]! - hv * E2[k]! + gpu * D3[k]! +
-      rpu * S1[k]! + qpu * S3[k]!;
+      rpu * S1[k]! + qpu * S3[k]! +
+      tv * F0[k]! + tpu1 * T1[k]! - tv2 * F2[k]! + tpu * T3[k]!;
   }
   return out;
 }
@@ -203,13 +258,20 @@ export function coonsPhiV(p: PhiSample, u: number, v: number): Pt3 {
   const [D0, , D2] = p.value;
   const [, E1, , E3] = p.deriv;
   const [S0, , S2] = p.second;
-  const gpv = gPrime(v), hpv = hPrime(v), hu = hBasis(u), gu = gBasis(u);
+  const [T0, , T2] = p.tight;
+  const [, F1, , F3] = p.tightDeriv;
+  const [b0, b1, b2, b3] = p.band;
+  const [w0, w1, w2, w3] = p.wide;
+  const gpv = wLoP(v, w0), hpv = wHiP(v, w2), hu = wHi(u, w1), gu = wLo(u, w3);
   const qpv = qPrime(v), rpv = rPrime(v);
+  const tpv = tightPrime(v, b0), tpv2 = tightPrimeHi(v, b2);
+  const tu1 = tightBasisHi(u, b1), tu = tightBasis(u, b3);
   const out: [number, number, number] = [0, 0, 0];
   for (let k = 0; k < 3; k++) {
     out[k] =
       gpv * D0[k]! + hu * E1[k]! + hpv * D2[k]! - gu * E3[k]! +
-      qpv * S0[k]! + rpv * S2[k]!;
+      qpv * S0[k]! + rpv * S2[k]! +
+      tpv * T0[k]! + tu1 * F1[k]! + tpv2 * T2[k]! - tu * F3[k]!;
   }
   return out;
 }
@@ -228,10 +290,16 @@ export function coonsPhiV(p: PhiSample, u: number, v: number): Pt3 {
 export function coonsPhiEdgeVV(p: PhiSample, u: number, v: number): Pt3 {
   const [D0, , D2] = p.value;
   const [S0, , S2] = p.second;
-  const gppv = gPrime2(v), hppv = hPrime2(v), qppv = qPrime2(v), rppv = rPrime2(v);
+  const [T0, , T2] = p.tight;
+  const [b0, , b2] = p.band;
+  const [w0, , w2] = p.wide;
+  const gppv = wLoP2(v, w0), hppv = wHiP2(v, w2), qppv = qPrime2(v), rppv = rPrime2(v);
+  const tppv = tightPrime2(v, b0), tppv2 = tightPrime2Hi(v, b2);
   const out: [number, number, number] = [0, 0, 0];
   for (let k = 0; k < 3; k++) {
-    out[k] = gppv * D0[k]! + hppv * D2[k]! + qppv * S0[k]! + rppv * S2[k]!;
+    out[k] =
+      gppv * D0[k]! + hppv * D2[k]! + qppv * S0[k]! + rppv * S2[k]! +
+      tppv * T0[k]! + tppv2 * T2[k]!;
   }
   return out;
 }
@@ -240,10 +308,16 @@ export function coonsPhiEdgeVV(p: PhiSample, u: number, v: number): Pt3 {
 export function coonsPhiEdgeUU(p: PhiSample, u: number, v: number): Pt3 {
   const [, D1, , D3] = p.value;
   const [, S1, , S3] = p.second;
-  const gppu = gPrime2(u), hppu = hPrime2(u), qppu = qPrime2(u), rppu = rPrime2(u);
+  const [, T1, , T3] = p.tight;
+  const [, b1, , b3] = p.band;
+  const [, w1, , w3] = p.wide;
+  const gppu = wLoP2(u, w3), hppu = wHiP2(u, w1), qppu = qPrime2(u), rppu = rPrime2(u);
+  const tppu1 = tightPrime2Hi(u, b1), tppu = tightPrime2(u, b3);
   const out: [number, number, number] = [0, 0, 0];
   for (let k = 0; k < 3; k++) {
-    out[k] = hppu * D1[k]! + gppu * D3[k]! + rppu * S1[k]! + qppu * S3[k]!;
+    out[k] =
+      hppu * D1[k]! + gppu * D3[k]! + rppu * S1[k]! + qppu * S3[k]! +
+      tppu1 * T1[k]! + tppu * T3[k]!;
   }
   return out;
 }
@@ -251,12 +325,54 @@ export function coonsPhiEdgeUU(p: PhiSample, u: number, v: number): Pt3 {
 /** ∂²(Φ+Ψ)/∂u∂v on an edge. */
 export function coonsPhiEdgeUV(p: PhiSample, u: number, v: number): Pt3 {
   const [E0, E1, E2, E3] = p.deriv;
-  const gpv = gPrime(v), hpv = hPrime(v), hpu = hPrime(u), gpu = gPrime(u);
+  const [F0, F1, F2, F3] = p.tightDeriv;
+  const [b0, b1, b2, b3] = p.band;
+  const [w0, w1, w2, w3] = p.wide;
+  const gpv = wLoP(v, w0), hpv = wHiP(v, w2), hpu = wHiP(u, w1), gpu = wLoP(u, w3);
+  const tpv = tightPrime(v, b0), tpu1 = tightPrimeHi(u, b1);
+  const tpv2 = tightPrimeHi(v, b2), tpu = tightPrime(u, b3);
   const out: [number, number, number] = [0, 0, 0];
   for (let k = 0; k < 3; k++) {
-    out[k] = gpv * E0[k]! + hpu * E1[k]! - hpv * E2[k]! - gpu * E3[k]!;
+    out[k] =
+      gpv * E0[k]! + hpu * E1[k]! - hpv * E2[k]! - gpu * E3[k]! +
+      tpv * F0[k]! + tpu1 * F1[k]! - tpv2 * F2[k]! - tpu * F3[k]!;
   }
   return out;
+}
+
+/** One side's correction, split into the share each bump carries. */
+export interface ShareSplit {
+  readonly wide: Pt3;
+  readonly tight: Pt3;
+  readonly wideDeriv: Pt3;
+  readonly tightDeriv: Pt3;
+}
+
+/**
+ * Split one side's correction between the two bumps.
+ *
+ * THE ONLY PLACE THIS ARITHMETIC LIVES. Three callers build a `PhiSample` —
+ * the analytic evaluator, the mesher and the feed — and the last time one of
+ * them grew a term the other two did not, the print described a body 85 mm
+ * different from every probe that was reading it. So the split is a function,
+ * and `wide + tight` is `total` by construction rather than by three people
+ * agreeing.
+ */
+export function splitShare(total: Pt3, dtotal: Pt3, a: number, da: number): ShareSplit {
+  return {
+    wide: [total[0] * (1 - a), total[1] * (1 - a), total[2] * (1 - a)],
+    tight: [total[0] * a, total[1] * a, total[2] * a],
+    wideDeriv: [
+      dtotal[0] * (1 - a) - total[0] * da,
+      dtotal[1] * (1 - a) - total[1] * da,
+      dtotal[2] * (1 - a) - total[2] * da,
+    ],
+    tightDeriv: [
+      dtotal[0] * a + total[0] * da,
+      dtotal[1] * a + total[1] * da,
+      dtotal[2] * a + total[2] * da,
+    ],
+  };
 }
 
 /** Sample a boundary's cross field at (u,v), in the layout Φ and Ψ expect. */
@@ -267,15 +383,37 @@ export function phiAt(b: CellBoundary, u: number, v: number): PhiSample {
   const value: Pt3[] = [];
   const deriv: Pt3[] = [];
   const second: Pt3[] = [];
+  const tight: Pt3[] = [];
+  const tightDeriv: Pt3[] = [];
+  const band: number[] = [];
+  const wide: number[] = [];
   for (let k = 0; k < 4; k++) {
-    value.push(x.value(k, args[k]!));
-    deriv.push(x.deriv(k, args[k]!));
-    second.push(x.second ? x.second(k, args[k]!) : ZERO3);
+    const s = args[k]!;
+    // `x.value` is the WHOLE correction to the cross-derivative — every caller
+    // that only wants "what does this edge leave at" keeps its old answer. The
+    // split into a wide and a tight share happens here and nowhere else, so
+    // there is one place where the two can fail to add up to it.
+    const sp = splitShare(
+      x.value(k, s), x.deriv(k, s),
+      x.tightShare ? x.tightShare(k, s) : 0,
+      x.tightShareDeriv ? x.tightShareDeriv(k, s) : 0,
+    );
+    value.push(sp.wide);
+    tight.push(sp.tight);
+    deriv.push(sp.wideDeriv);
+    tightDeriv.push(sp.tightDeriv);
+    second.push(x.second ? x.second(k, s) : ZERO3);
+    band.push(x.band ? x.band(k) : 0);
+    wide.push(x.wideBand ? x.wideBand(k) : 0);
   }
   return {
     value: value as unknown as PhiSample["value"],
     deriv: deriv as unknown as PhiSample["deriv"],
     second: second as unknown as PhiSample["second"],
+    tight: tight as unknown as PhiSample["tight"],
+    tightDeriv: tightDeriv as unknown as PhiSample["tightDeriv"],
+    band: band as unknown as PhiSample["band"],
+    wide: wide as unknown as PhiSample["wide"],
   };
 }
 

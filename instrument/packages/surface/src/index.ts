@@ -106,6 +106,8 @@ export {
   coonsPartials,
   boundaryCoonsEdgeJet,
   coonsPhi,
+  splitShare,
+  type ShareSplit,
   coonsPhiU,
   coonsPhiV,
   coonsPoint,
@@ -151,3 +153,15 @@ export {
   type CellNet,
   type CellNetOptions,
 } from "./bezier-patch.js";
+
+export {
+  blendPlan, radiusAt, rollingBallOffset, tightRadius, wideRadius,
+  tightBasis, tightBasisHi, tightPrime, tightPrimeHi, tightPrime2, tightPrime2Hi,
+  q5, Q5_CURVATURE_PEAK, MIN_BAND,
+  type SoftenSpec, type BlendPlan, type BlendStation, type BlendOptions, type EdgeBlend,
+} from "./blend.js";
+
+export {
+  blendProbe,
+  type BlendReading, type BlendReport, type BlendProbeOptions,
+} from "./blend-probe.js";

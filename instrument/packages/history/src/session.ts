@@ -222,6 +222,11 @@ class SessionImpl implements Session {
         state.markGap(a.curveId);
         return;
       }
+      case "soften": {
+        const a = args as VerbArgs["soften"];
+        state.softenCurve(a.curveId, a.radius, a.endRadius);
+        return;
+      }
       case "fair-corners": {
         const a = args as VerbArgs["fair-corners"];
         // TWO passes, and not more. Moving a control point moves any trim

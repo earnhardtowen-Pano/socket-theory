@@ -23,6 +23,13 @@ export const npow = (b: number, e: number): number => Math.pow(b, e);
 export const nexp = (x: number): number => Math.exp(x);
 export const nlog = (x: number): number => Math.log(x);
 export const nsqrt = (x: number): number => Math.sqrt(x); // IEEE-deterministic; wrapped for uniformity
+/**
+ * Length of a 2-vector. `Math.hypot` is NOT IEEE-pinned — it is allowed to be
+ * more accurate than the naive form and implementations differ in how — so it
+ * is written out here rather than wrapped, and every caller in the model cone
+ * gets the same bits on every engine.
+ */
+export const nhypot2 = (x: number, y: number): number => nsqrt(x * x + y * y);
 export const nabs = (x: number): number => Math.abs(x);
 export const nmin = (a: number, b: number): number => Math.min(a, b);
 export const nmax = (a: number, b: number): number => Math.max(a, b);

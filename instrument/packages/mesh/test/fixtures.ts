@@ -51,6 +51,7 @@ class Builder {
         curves: this.curves,
         creases: new Set<Id>(),
         fullness: new Map<Id, number>(),
+        softening: new Map<Id, { start: number; end?: number }>(),
         gaps: new Set<Id>(),
       },
       curve: this.curveKey,

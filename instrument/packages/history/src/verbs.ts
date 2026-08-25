@@ -153,6 +153,50 @@ export interface GapArgs {
 }
 
 /**
+ * Give a feature line a radius, in millimetres — amendment A12.
+ *
+ * WHAT THE TOOL COULD SAY BEFORE THIS. Two things. `crease` switched the
+ * tangent field off across a curve, and the two patches met at whatever angle
+ * their boundaries gave: a knife edge, the same knife edge for the whole
+ * length, ending dead wherever the curve did. Nothing switched it off and the
+ * seam was invisible. There was no third thing, and real bodies are almost
+ * entirely the third thing — a line that is crisp over a wing, opens across a
+ * door, and is gone before the quarter.
+ *
+ * The McLaren made the case in one build. Its wing crown creased engraved a
+ * chine down the length of a bonnet that is a single pressing; uncreased there
+ * was no line at all. Both are in the commit history and neither is the car.
+ *
+ * `radius` is at the curve's t = 0 and `endRadius` at t = 1, ramped between by
+ * a smootherstep so a radius profile does not put a curvature step at either
+ * end of its own run. Both in millimetres, because that is what a stylist says
+ * and what a section shows.
+ *
+ *   radius 0     a knife edge — the same instruction as `crease` alone
+ *   radius small crisp: the turn is packed into a narrow band
+ *   radius large soft: the turn is spread across the panel and the line goes
+ *
+ * AND THE LINE DIES ON ITS OWN WHERE ITS BREAK DOES. The delivered radius goes
+ * as band·speed/(2·break), so a feature line whose two surfaces drift into one
+ * plane grows its radius without being asked. That is how a real one runs out
+ * and it costs nothing to author.
+ *
+ * WHAT IT IS NOT. Not a rolling-ball fillet cut into the body: the edge stays
+ * exactly on the shared curve, because that bit-for-bit identity is the whole
+ * of how G0 holds here and trimming it away for a sewing tolerance is not a
+ * trade worth making. The gap between this and a true fillet is r(sec(φ/2)−1)
+ * and `blendProbe` publishes it per edge — 69 microns on a 15° line at 8 mm,
+ * 0.41 mm on a 45° break at 5.
+ */
+export interface SoftenArgs {
+  curveId: Id;
+  /** Radius at the curve's t = 0, mm. Zero is a knife edge. */
+  radius: number;
+  /** Radius at t = 1, mm. Absent means constant along the line. */
+  endRadius?: number;
+}
+
+/**
  * Bring the curve network coplanar where two curves cross.
  *
  * A patch has no freedom at a corner — its tangent plane there is spanned by
@@ -197,6 +241,7 @@ export interface VerbArgs {
   "mirror-detach": MirrorDetachArgs;
   crease: CreaseArgs;
   gap: GapArgs;
+  soften: SoftenArgs;
   "fair-corners": FairCornersArgs;
   "apply-entry": ApplyEntryArgs;
 }
@@ -465,6 +510,15 @@ export function validateVerbArgs<V extends VerbName>(verb: V, raw: unknown): Ver
     case "crease":
     case "gap":
       return done({ curveId: checkId(verb, a["curveId"], "curve", "curveId") });
+    case "soften": {
+      const curveId = checkId(verb, a["curveId"], "curve", "curveId");
+      const radius = checkNum(verb, a["radius"], "radius");
+      if (!(radius >= 0)) fail(verb, "radius must be zero or more, in millimetres");
+      const hasEnd = a["endRadius"] !== undefined;
+      const endRadius = hasEnd ? checkNum(verb, a["endRadius"], "endRadius") : radius;
+      if (!(endRadius >= 0)) fail(verb, "endRadius must be zero or more, in millimetres");
+      return done(hasEnd ? { curveId, radius, endRadius } : { curveId, radius });
+    }
     case "fair-corners": {
       const maxBreakDeg = checkNum(verb, a["maxBreakDeg"], "maxBreakDeg");
       if (maxBreakDeg <= 0 || maxBreakDeg >= 180) {

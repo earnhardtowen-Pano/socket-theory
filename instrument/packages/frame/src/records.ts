@@ -32,6 +32,15 @@ export interface SharedCurve {
   chain: CurveChain;
   trims: Trim[];
   crease: boolean;
+  /**
+   * The radius this feature line is rounded to, mm, along its own parameter.
+   *
+   * Absent is what every curve in every car built before this had: creased is
+   * a knife edge and uncreased is an invisible seam, with nothing in between
+   * and nothing that changes along a line. Present says the break is to be
+   * ROUNDED, and how much — see `@car/surface/blend.ts`.
+   */
+  soften?: { start: number; end?: number };
   gap: boolean;
 }
 

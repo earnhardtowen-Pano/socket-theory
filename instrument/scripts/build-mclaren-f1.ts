@@ -41,9 +41,9 @@ import { createSession } from "@car/history";
 import { memberKit, suspensionCorner } from "./lib/members.js";
 import { computeQuilt } from "@car/frame";
 import {
-  bySize, cellBezier, cellBoundary, continuityProbe, curvatureJoinProbe, fieldDisplacement,
-  boundaryCoonsPoint, netAt, networkObstruction, panelsOf, quiltAdjacency, tangentField,
-  DEFAULT_CREASE_ANGLE,
+  blendProbe, bySize, cellBezier, cellBoundary, continuityProbe, curvatureJoinProbe,
+  fieldDisplacement, boundaryCoonsPoint, netAt, networkObstruction, panelsOf, quiltAdjacency,
+  tangentField, DEFAULT_CREASE_ANGLE,
 } from "@car/surface";
 import {
   closedMeshCheck, creaseNormals, engraveGrooves, meshQuilt, mirrorSymmetry, writeStlBinary,
@@ -1472,20 +1472,36 @@ for (const rocker of rockerIds) {
   for (const id of rockerSpans.get(rocker)!) s.apply("gap", { curveId: id });
 }
 
-// THE ROOF RAIL IS MARKED AS NOTHING, ANYWHERE, and it is the only line in
-// the file that is. It is still SPLIT at both rings, because a curve that
-// spans three panels has to be able to belong to three panels, but no piece
-// of it is creased and no piece is gapped.
+// THE WING CROWN, WITH A RADIUS ON IT — the line this tool could not draw
+// until amendment A12 and the reason it exists.
 //
-// Over the cabin there is nothing to mark: the doors take the roof with them,
-// so the shut crosses the rail rather than following it and the two rings
-// already say so. Ahead of the cowl the line IS the wing crown, and creasing
-// it was tried: it puts a hard chine down the length of a bonnet that is one
-// pressing, and the nose came out as two flat planes meeting at a ridge. A
-// crown is a fold in a surface, not a fold in a panel, and the tangent field
-// is the thing that knows the difference.
+// The rail ahead of the cowl IS the crown of the front wing: the fold between
+// the nose panel's valley and the top of the wing over the wheel. Every
+// photograph of this car has it and it is one of the two or three lines that
+// make the front read as an F1 rather than as a wedge.
+//
+// BOTH ANSWERS THIS FILE COULD GIVE BEFORE WERE WRONG, and both are in the
+// history. Creased, it engraves a chine down the length of a bonnet that is a
+// single pressing — the nose came out as two flat planes meeting at a ridge
+// and the commit says so. Unmarked, the tangent field blends it away and there
+// is no line at all; that is the version this car shipped with, and it is why
+// the front three-quarter reads soft where the real car reads taut.
+//
+// A radius is the third thing. 14 mm at the arch, opening to 70 by the cowl:
+// crisp where the wing is doing its work over the wheel, and gone into the
+// scuttle by the time it reaches the screen. That is what the line does on the
+// car and it is now a sentence rather than a choice between two mistakes.
+//
+// It is CREASED as well, and the two marks say different things. The crease
+// tells the field the owners are meant to disagree here; the radius tells it
+// how much of the disagreement to round and over what band. Without the crease
+// the field would treat the crown as a defect and flatten it before the blend
+// ever ran.
 for (const rail of railIds) {
-  cutSpanAt(cutSpanAt(rail, stationX(NOSE_SHUT))[1], stationX(TAIL_SHUT));
+  const [fwd, aft] = cutSpanAt(rail, stationX(NOSE_SHUT));
+  cutSpanAt(aft, stationX(TAIL_SHUT));
+  s.apply("crease", { curveId: fwd });
+  s.apply("soften", { curveId: fwd, radius: 14, endRadius: 70 });
 }
 
 // THE ARCH MOUTHS. Where the lip ends and the sill begins there is a fold,
@@ -1507,6 +1523,21 @@ for (const rail of railIds) {
 for (const name of ["arch-front-lead", "arch-front-trail", "arch-rear-lead", "arch-rear-trail"]) {
   const sec = stationOf(name);
   for (const id of [...sec.flanks, sec.under]) s.apply("crease", { curveId: id });
+}
+
+// AND THE LIP ITSELF GETS A RADIUS. An arch flange is not a knife edge — it is
+// a tight roll, four or five millimetres on a pressed panel and rather more on
+// a moulding — and until now the only way to say "this is an edge" was to say
+// "this is infinitely sharp". The four arch spans of each rocker are the lip,
+// so they are the four curves that carry it.
+//
+// SIX MILLIMETRES, which is the same number `ARCH_LIFT` uses for how far the
+// lip stands proud of the tyre, and for the same reason: on this car there are
+// eight and a half millimetres between the front tyre and the flank, and a lip
+// with a bigger roll than that has nowhere to be.
+for (const rocker of rockerIds) {
+  const spans = rockerSpans.get(rocker)!;
+  for (const j of [1, 2, 4, 5]) s.apply("soften", { curveId: spans[j]!, radius: 6 });
 }
 
 // THE TAIL EDGE. Where the engine cover stops and the tail panel starts there
@@ -2395,6 +2426,39 @@ if (process.env["DBG"] === "1") {
   };
   for (const c of [...net.open].sort((a, b) => b.angleDeg - a.angleDeg).slice(0, 8)) {
     console.log(`  DBG corner ${c.angleDeg.toFixed(1)}° at [${c.at.map((v) => v.toFixed(0)).join(", ")}] · ${c.curveId} ${c.cellA}[${ext(c.cellA)}] | ${c.cellB}[${ext(c.cellB)}]`);
+  }
+}
+// ── the feature lines, asked against delivered ────────────────────────────
+// A radius is a number a designer says and a number a section finds, and the
+// two are not the same number. `blendProbe` walks the built surface across
+// each softened seam and reads the tightest radius along it from positions
+// alone — nothing it uses came from the field the blend was made with — so a
+// disagreement here is real. Published rather than assumed, like everything
+// else in this report.
+{
+  const bl = blendProbe(quilt, { adjacency: adj, cross, stations: 5, samples: 60 });
+  if (bl.edges > 0) {
+    const asks = [...new Set(cross.blends.map((b) =>
+      b.asked.end === undefined || b.asked.end === b.asked.start
+        ? `R${b.asked.start}`
+        : `R${b.asked.start}\u2192${b.asked.end}`))];
+    line("feature lines", `${bl.edges} softened seam${bl.edges === 1 ? "" : "s"} · ${asks.join(", ")}`);
+    line("  radius delivered", bl.live === 0
+      ? "nothing to measure — every softened stretch has washed out"
+      : `within ${(bl.medianRelative * 100).toFixed(0)}% median, ` +
+        `${(bl.worstRelative * 100).toFixed(0)}% worst, over ${bl.live} live stations`);
+    if (bl.washedOut > 0) {
+      line("  washed out", `${bl.washedOut} of ${bl.stations} stations break by less than half a degree — ` +
+        "the two surfaces have met and there is no line left to round. That is a feature line dying, " +
+        "which is what they do, and it is why the radius above is measured only where there IS one");
+    }
+    line("  break left standing", bl.worstResidualDeg < 1e-6
+      ? "none — every softened line is tangent-continuous at its own curve"
+      : `${bl.worstResidualDeg.toFixed(2)}\u00b0 worst on ${bl.worstResidualAt} — inside the corner fade, ` +
+        "where the correction is deliberately only part-applied so it cannot reach the next side along");
+    line("  vs a rolling ball", `${bl.worstOffset.toFixed(2)} mm worst at ` +
+      `[${bl.worstOffsetAt.map((v) => v.toFixed(0)).join(", ")}] — the edge stays ON the curve, ` +
+      "so a true fillet would cut the corner off by this much and this body does not");
   }
 }
 line("field moved body", `${phi.median.toFixed(1)} mm median · ${phi.p90.toFixed(1)} p90 · ${phi.worst.toFixed(0)} worst`);

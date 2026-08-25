@@ -239,12 +239,14 @@ export function computeQuilt(state: FrameState): QuiltSpec {
   const curves = new Map<Id, CurveChain>();
   const creases = new Set<Id>();
   const gaps = new Set<Id>();
+  const softening = new Map<Id, { start: number; end?: number }>();
   for (const curveId of [...state.curves.keys()].sort(idCompare)) {
     const curve = state.curves.get(curveId);
     if (!curve) continue;
     curves.set(curveId, curve.chain);
     if (curve.crease) creases.add(curveId);
     if (curve.gap) gaps.add(curveId);
+    if (curve.soften) softening.set(curveId, curve.soften);
   }
   for (const mId of [...mirrors.mirroredCurves.keys()].sort(idCompare)) {
     const chain = mirrors.mirroredCurves.get(mId);
@@ -254,6 +256,9 @@ export function computeQuilt(state: FrameState): QuiltSpec {
     const source = state.curves.get(sourceId);
     if (source?.crease) creases.add(mId);
     if (source?.gap) gaps.add(mId);
+    // A twin inherits its master's radius for the same reason it inherits its
+    // crown: a feature line is not softer down one side of a car.
+    if (source?.soften) softening.set(mId, source.soften);
   }
-  return { cells, curves, creases, gaps, fullness: crown };
+  return { cells, curves, creases, gaps, fullness: crown, softening };
 }

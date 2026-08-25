@@ -153,6 +153,18 @@ export interface CrossPrescription {
   /** The same field as coefficients, for callers doing exact algebra. Absent
    *  when the prescription was not built in polynomial form. */
   sideField?(cellId: Id, k: number): SideField | null;
+  /**
+   * α_k(s) ∈ [0,1]: how much of this side's correction rides the TIGHT bump
+   * rather than the panel-wide one — see `blend.ts`. Absent, or zero, is the
+   * behaviour every car in this repository had before softening existed.
+   */
+  tightShare?(cellId: Id, k: number, s: number): number;
+  /** dα_k/ds along the edge. Zero at s = 0 and s = 1, like everything else. */
+  tightShareDeriv?(cellId: Id, k: number, s: number): number;
+  /** Width of side k's tight bump, in that side's inward parameter. */
+  band?(cellId: Id, k: number): number;
+  /** Width of side k's WIDE bump; zero means the panel-wide cubic. */
+  wideBand?(cellId: Id, k: number): number;
 }
 
 /** The same thing, already bound to one cell. */
@@ -160,6 +172,10 @@ export interface CrossDefects {
   value(k: number, s: number): Pt3;
   deriv(k: number, s: number): Pt3;
   second?(k: number, s: number): Pt3;
+  tightShare?(k: number, s: number): number;
+  tightShareDeriv?(k: number, s: number): number;
+  band?(k: number): number;
+  wideBand?(k: number): number;
 }
 
 export interface CellBoundary {
@@ -253,6 +269,16 @@ export function cellBoundary(
           deriv: (k: number, s: number): Pt3 => cross.defectDeriv(cell.id, k, s),
           ...(cross.secondDefect
             ? { second: (k: number, s: number): Pt3 => cross.secondDefect!(cell.id, k, s) }
+            : {}),
+          ...(cross.tightShare
+            ? {
+                tightShare: (k: number, s: number): number => cross.tightShare!(cell.id, k, s),
+                tightShareDeriv: (k: number, s: number): number =>
+                  cross.tightShareDeriv ? cross.tightShareDeriv(cell.id, k, s) : 0,
+                band: (k: number): number => (cross.band ? cross.band(cell.id, k) : 0),
+                wideBand: (k: number): number =>
+                  cross.wideBand ? cross.wideBand(cell.id, k) : 0,
+              }
             : {}),
         }
       : null,

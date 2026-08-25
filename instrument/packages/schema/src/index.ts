@@ -135,6 +135,7 @@ export type VerbName =
   | "crease"          // mark an edge as a deliberate crease / character line
   | "gap"             // mark a curve as a panel gap — a shutline (amendment A10)
   | "fair-corners"    // bring crossing curves coplanar at vertices (amendment A11)
+  | "soften"          // give a feature line a radius, in mm (amendment A12)
   | "apply-entry";    // splice a catalog entry (itself a verb document) — one grammar
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -343,6 +344,21 @@ export interface QuiltSpec {
    * far they reach into it.
    */
   readonly fullness: ReadonlyMap<Id, number>;
+  /**
+   * The radius each softened feature line is rounded to, in millimetres,
+   * along its own curve parameter.
+   *
+   * A curve with no entry here behaves as it always has: creased means a knife
+   * edge and uncreased means an invisible seam. An entry says the break is to
+   * be ROUNDED — the two owners still leave the curve in one tangent plane,
+   * and the turn back to their own shapes is packed into a band whose width is
+   * this radius. See `@car/surface/blend.ts` for what that is and, more to the
+   * point, what it is not: the edge stays exactly on the curve, so this is a
+   * rounding of the surface rather than a rolling ball cut into it, and the
+   * difference between the two is published per edge rather than assumed
+   * small.
+   */
+  readonly softening: ReadonlyMap<Id, { readonly start: number; readonly end?: number }>;
 }
 
 // ---------------------------------------------------------------------------

@@ -715,6 +715,30 @@ export class FrameState {
   }
 
   /**
+   * Give a feature line a radius, in millimetres — amendment A12.
+   *
+   * A radius of zero CLEARS the mark rather than storing a zero, so that
+   * `soften(c, 0)` and never having softened `c` are the same document state
+   * and the same hash. A knife edge is the absence of a radius, not a radius
+   * of nothing.
+   */
+  softenCurve(curveId: Id, radius: number, endRadius?: number): void {
+    if (!Number.isFinite(radius) || radius < 0) {
+      throw new Error(`soften: radius must be zero or more, got ${radius}`);
+    }
+    const end = endRadius ?? radius;
+    if (!Number.isFinite(end) || end < 0) {
+      throw new Error(`soften: endRadius must be zero or more, got ${end}`);
+    }
+    const curve = this.mustCurve(curveId);
+    if (radius === 0 && end === 0) {
+      delete curve.soften;
+      return;
+    }
+    curve.soften = endRadius === undefined ? { start: radius } : { start: radius, end };
+  }
+
+  /**
    * Set how hard the named cells leave their seams — crown, in the surfacer's
    * sense, and the first control this frame has ever had over a patch INTERIOR.
    *
