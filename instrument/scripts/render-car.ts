@@ -13,6 +13,11 @@
  * Nothing here measures anything. That is the point of it.
  *
  *   npx tsx scripts/render-car.ts <car.json> <out.html> [paint]
+ *
+ * The page then takes ?light=dark|high|day. `dark` is the studio above and is
+ * the right light to JUDGE a surface in; `high` is a white cyclorama and is
+ * the right light to SEE a car in, which is not the same thing; `day` is
+ * outdoors. Also ?ghost=1, ?yaw, ?pitch, ?dist, ?fov.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { load } from "@car/history";

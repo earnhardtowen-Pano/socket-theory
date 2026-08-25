@@ -38,6 +38,58 @@ if (!gl) throw new Error("webgl2 required");
 gl.getExtension("EXT_color_buffer_float");
 gl.getExtension("OES_element_index_uint");
 
+// ── which room the car is standing in ───────────────────────────────────────
+// ?light=dark is the original: a black room, two long softboxes, a cool
+// kicker. It is the right light to JUDGE a surface in — a highlight travelling
+// down a flank against a dark ground is what a surfacer looks at — and it is
+// the wrong light to SEE a car in. A dark green body in a black room is a
+// silhouette with two stripes on it, and that is what the first E-Type
+// photographs were.
+//
+// ?light=high is a cyclorama: white walls, white floor, light from every
+// direction and almost no shadow. Nothing about the surface is flattered and
+// nothing is hidden either — every square millimetre of the body returns
+// something to the camera, so the FORM reads instead of the highlights.
+//
+// ?light=day is outdoors: a real sky gradient, a sun, and a ground bounce.
+// The one that tells you whether the shape works, because it is the light
+// the car would actually be looked at in.
+const lightParams = new URLSearchParams(location.search);
+const LIGHT = lightParams.get("light") ?? "dark";
+const RIG = {
+  dark: {
+    ground: "vec3(0.030, 0.031, 0.036)", horizon: "vec3(0.115, 0.125, 0.145)",
+    sky: "vec3(0.330, 0.370, 0.430)", boxes: "2.30, 1.35, 0.85",
+    boxTint: "vec3(1.00, 0.97, 0.93)", kick: "0.55", fillTint: "vec3(0.62, 0.64, 0.68)",
+    fill: "0.38", sun: "0.0", page: "#0a0a0c",
+    floorNear: "vec3(0.085, 0.088, 0.098)", floorFar: "vec3(0.020, 0.021, 0.026)",
+    floorRefl: "0.30", floorDark: "0.10", floorAlpha: "0.0",
+  },
+  high: {
+    // A cyclorama. The softboxes stay — without them a curved panel has no
+    // highlight to travel and reads as flat paper — but they sit on a ground
+    // that is already bright, so they shape rather than reveal.
+    ground: "vec3(0.760, 0.770, 0.790)", horizon: "vec3(0.880, 0.890, 0.910)",
+    sky: "vec3(1.020, 1.030, 1.060)", boxes: "1.15, 0.70, 0.45",
+    boxTint: "vec3(1.00, 0.99, 0.97)", kick: "0.10", fillTint: "vec3(0.90, 0.91, 0.94)",
+    fill: "0.55", sun: "0.0", page: "#e9eaec",
+    floorNear: "vec3(0.780, 0.788, 0.800)", floorFar: "vec3(0.700, 0.708, 0.724)",
+    floorRefl: "0.22", floorDark: "0.42", floorAlpha: "0.82",
+  },
+  day: {
+    ground: "vec3(0.240, 0.235, 0.220)", horizon: "vec3(0.640, 0.700, 0.800)",
+    sky: "vec3(0.300, 0.480, 0.880)", boxes: "0.30, 0.18, 0.12",
+    boxTint: "vec3(1.00, 0.98, 0.94)", kick: "0.12", fillTint: "vec3(0.72, 0.68, 0.60)",
+    fill: "0.40", sun: "12.0", page: "#8fb4d8",
+    floorNear: "vec3(0.310, 0.305, 0.290)", floorFar: "vec3(0.250, 0.248, 0.240)",
+    floorRefl: "0.16", floorDark: "0.34", floorAlpha: "0.74",
+  },
+}[LIGHT] ?? null;
+if (!RIG) throw new Error("light must be dark, high or day");
+const CLEAR = { dark: [0.020, 0.021, 0.026, 1], high: [0.905, 0.912, 0.925, 1], day: [0.400, 0.560, 0.870, 1] }[LIGHT];
+document.documentElement.style.background = RIG.page;
+document.body.style.background = RIG.page;
+
 // ── the studio, shared by every shader ──────────────────────────────────────
 // A procedural environment rather than an image: two long softboxes overhead,
 // a cool kicker low and behind, a graded floor. The long boxes are the whole
@@ -46,9 +98,9 @@ gl.getExtension("OES_element_index_uint");
 const ENV = `
 vec3 studio(vec3 d, float rough) {
   float up = clamp(d.z, -1.0, 1.0);
-  vec3 ground  = vec3(0.030, 0.031, 0.036);
-  vec3 horizon = vec3(0.115, 0.125, 0.145);
-  vec3 sky     = vec3(0.330, 0.370, 0.430);
+  vec3 ground  = ${RIG.ground};
+  vec3 horizon = ${RIG.horizon};
+  vec3 sky     = ${RIG.sky};
   vec3 c = mix(horizon, sky, smoothstep(0.0, 0.9, up));
   c = mix(ground, c, smoothstep(-0.10, 0.03, up));
 
@@ -58,18 +110,28 @@ vec3 studio(vec3 d, float rough) {
   float b1 = exp(-70.0 * k * pow(d.y - 0.34, 2.0)) * smoothstep(0.10, 0.72, up);
   float b2 = exp(-95.0 * k * pow(d.y + 0.46, 2.0)) * smoothstep(0.16, 0.80, up);
   float b3 = exp(-40.0 * k * pow(d.y - 0.02, 2.0)) * smoothstep(0.55, 0.98, up);
-  c += vec3(1.00, 0.97, 0.93) * (2.30 * b1 + 1.35 * b2 + 0.85 * b3);
+  vec3 gain = vec3(${RIG.boxes});
+  c += ${RIG.boxTint} * (gain.x * b1 + gain.y * b2 + gain.z * b3);
 
   // A cool kicker behind the car, low, to separate the tail from the ground.
   float back = smoothstep(0.15, 1.0, -d.x) * exp(-6.0 * pow(up + 0.05, 2.0));
-  c += vec3(0.42, 0.52, 0.70) * back * 0.55;
+  c += vec3(0.42, 0.52, 0.70) * back * ${RIG.kick};
 
   // A bounce card at floor level on the camera side. Without it everything
   // below the beltline is a void: all three softboxes are overhead, and a
   // flank that turns down from them has nothing left to reflect. A real
   // studio puts a white card on the floor for exactly this reason.
   float fill = exp(-2.2 * pow(up + 0.28, 2.0)) * smoothstep(-0.2, 0.9, d.y);
-  c += vec3(0.62, 0.64, 0.68) * fill * 0.38;
+  c += ${RIG.fillTint} * fill * ${RIG.fill};
+
+  // The sun, outdoors only. Small, hard and hot — the thing that makes a
+  // highlight snap off a crown instead of smearing along it.
+  float sunGain = ${RIG.sun};
+  if (sunGain > 0.0) {
+    vec3 sunDir = normalize(vec3(-0.42, 0.46, 0.78));
+    float s = max(dot(normalize(d), sunDir), 0.0);
+    c += vec3(1.00, 0.95, 0.86) * sunGain * pow(s, mix(2200.0, 24.0, rough));
+  }
   return c;
 }
 vec3 aces(vec3 x) {
@@ -221,14 +283,17 @@ void main(){
   // The floor is a dark polished slab: a graded base, the room reflected in
   // it at grazing angles, and the car's own contact shadow eating both.
   float d = length(vW.xy - uCentre) / 5200.0;
-  vec3 base = mix(vec3(0.085, 0.088, 0.098), vec3(0.020, 0.021, 0.026),
-                  clamp(d, 0.0, 1.0));
+  vec3 base = mix(${RIG.floorNear}, ${RIG.floorFar}, clamp(d, 0.0, 1.0));
   vec3 v = normalize(uEye - vW);
   float grazing = pow(1.0 - clamp(v.z, 0.0, 1.0), 4.0);
-  base += studio(reflect(-v, vec3(0.0, 0.0, 1.0)), 0.45) * grazing * 0.30;
+  base += studio(reflect(-v, vec3(0.0, 0.0, 1.0)), 0.45) * grazing * ${RIG.floorRefl};
 
-  base *= mix(1.0, 0.10, occ * 0.95);
-  outColor = vec4(aces(base), occ);
+  base *= mix(1.0, ${RIG.floorDark}, occ * 0.95);
+  // How much of the reflection under it survives. A black polished slab wants
+  // all of it — that is what the room is for. A white cyclorama wants almost
+  // none: a full mirror image of a dark car on a white floor is a second car,
+  // and it competes with the one being photographed.
+  outColor = vec4(aces(base), mix(${RIG.floorAlpha}, 1.0, occ));
 }`;
 
 function compile(src, type) {
@@ -349,7 +414,9 @@ function draw() {
   resize();
   const { mvp: M, eye } = mvp();
   gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.clearColor(0.020, 0.021, 0.026, 1);
+  // The sky BEHIND the car, above the floor's horizon. It has to come off the
+  // same rig or a bright room ends at a black wall.
+  gl.clearColor(...CLEAR);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.CULL_FACE);
