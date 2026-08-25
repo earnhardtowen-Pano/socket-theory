@@ -19,6 +19,14 @@
  *                  placed at the track and the axle station with no member
  *                  within half a metre of them. They were drawn, not carried.
  *
+ *   SUPPORT        does the SKIN have anything under it? A roof is a panel
+ *                  the size of a table with a person under it, and until
+ *                  pillars existed there was nothing beneath any of it — the
+ *                  surfacing sat on air. This is the same distance question
+ *                  asked of the body instead of the chassis, and the caller
+ *                  chooses which skin to ask about, because a wing panel is
+ *                  unsupported on purpose and a roof is not.
+ *
  * WHAT IT IS NOT, and the exclusion is the same one `makeSubstrate` states in
  * code: this is not a strength check. There is no load path, no section
  * property and no material. It says the members TOUCH and that they reach
@@ -77,6 +85,17 @@ export interface CornerFit {
   readonly onMainIsland: boolean;
 }
 
+/** How well a sampled patch of skin is carried by what is under it. */
+export interface SkinSupport {
+  readonly points: number;
+  /** Furthest any sampled point sits from a member, mm, and where. */
+  readonly worst: number;
+  readonly worstAt: Pt3;
+  readonly median: number;
+  /** How many sit further than the reach a panel of this kind may span. */
+  readonly over: number;
+}
+
 export interface StructureReport {
   readonly members: number;
   /**
@@ -92,6 +111,8 @@ export interface StructureReport {
   readonly corners: readonly CornerFit[];
   /** Total mass of parts with no structure in reach. */
   readonly orphanedKg: number;
+  /** Null unless the caller passed skin to test. */
+  readonly skin: SkinSupport | null;
   readonly faults: readonly string[];
 }
 
@@ -102,6 +123,12 @@ export interface StructureOptions {
   readonly reach?: number;
   /** A corner further than this from every member is not carried. */
   readonly cornerReach?: number;
+  /** Sampled points of the skin that must be carried — a roof, typically. */
+  readonly skin?: readonly Pt3[];
+  /** How far that skin may span between members. */
+  readonly skinReach?: number;
+  /** What the skin is, for the fault line. Defaults to "skin". */
+  readonly skinName?: string;
 }
 
 /**
@@ -145,6 +172,22 @@ const CORNER_REACH = assumed(
 );
 
 /**
+ * How far a roof panel may sit from the nearest thing holding it up.
+ *
+ * ASSUMED. A roof is a metre square of thin steel with a person under it and
+ * it is carried by bows and rails, not by being a roof — the spacing between
+ * them is what a stamping can span without drumming, and on the cars that
+ * have been taken apart to look it is a few hundred millimetres. 380 mm is
+ * inside that and outside anything a designer would call a hole in the
+ * structure. It is a distance to a MEMBER'S BOX, so a panel resting directly
+ * on a rail reads zero.
+ */
+export const SKIN_REACH = assumed(
+  380, "mm",
+  "how far a roof panel may sit from the nearest member carrying it, which is a bow-to-bow spacing — no source consulted; 380 mm ASSUMED",
+);
+
+/**
  * How many member names an island fault lists before eliding.
  *
  * ASSUMED, and it is a legibility choice rather than a claim about a car —
@@ -155,6 +198,47 @@ const NAMES_SHOWN = assumed(
   3, "count",
   "how many member names an island fault lists before eliding — a legibility choice, not a fact about a car; 3 ASSUMED",
 );
+
+/**
+ * How well a patch of skin is carried — exported, because a car has more than
+ * one kind of panel and they do not span the same distance.
+ *
+ * A roof is carried by bows at a few hundred millimetres. A door skin is
+ * carried by its own frame and one intrusion beam across the middle. A bumper
+ * moulding is carried by the beam behind it and nothing else. A wing is
+ * carried at its edges and is unsupported over its whole area ON PURPOSE,
+ * which is why the caller chooses what to ask about rather than the lens
+ * sweeping the body and calling every panel a defect.
+ */
+export function skinSupport(
+  members: readonly StructureMember[],
+  points: readonly Pt3[],
+  reach: number,
+): SkinSupport {
+  const gaps: number[] = [];
+  let worst = 0;
+  let worstAt: Pt3 = [0, 0, 0];
+  let over = 0;
+  for (const p of points) {
+    let best = Infinity;
+    for (const m of members) {
+      const g = pointGap(p, m);
+      if (g < best) best = g;
+    }
+    if (!Number.isFinite(best)) best = Infinity;
+    gaps.push(best);
+    if (best > worst) { worst = best; worstAt = p; }
+    if (best > reach) over++;
+  }
+  gaps.sort((a, b) => a - b);
+  return {
+    points: gaps.length,
+    worst,
+    worstAt,
+    median: gaps.length === 0 ? 0 : gaps[Math.floor(gaps.length / 2)]!,
+    over,
+  };
+}
 
 /** Axis-aligned box-to-box distance. Zero when they overlap or touch. */
 function boxGap(a: { lo: Pt3; hi: Pt3 }, b: { lo: Pt3; hi: Pt3 }): number {
@@ -237,6 +321,12 @@ export function structureFit(
   let orphanedKg = 0;
   for (const a of anchorage) if (!a.carried) orphanedKg += a.massKg ?? 0;
 
+  const skinReach = opts.skinReach ?? SKIN_REACH.value;
+  const skinName = opts.skinName ?? "skin";
+  const skin = opts.skin && opts.skin.length > 0
+    ? skinSupport(members, opts.skin, skinReach)
+    : null;
+
   const faults: string[] = [];
   if (islands.length > 1) {
     faults.push(
@@ -252,6 +342,13 @@ export function structureFit(
       (a.massKg === null ? "" : ` — ${a.massKg.toFixed(0)} kg with nothing under it`),
     );
   }
+  if (skin !== null && skin.over > 0) {
+    faults.push(
+      `${skin.over} of ${skin.points} ${skinName} points have nothing within ${skinReach} mm holding them up — ` +
+      `worst ${skin.worst.toFixed(0)} mm at [${skin.worstAt.map((v) => v.toFixed(0)).join(", ")}]. ` +
+      "The surfacing is sitting on air there",
+    );
+  }
   for (const c of cornerFits) {
     if (c.gap > cornerReach) {
       faults.push(
@@ -263,5 +360,5 @@ export function structureFit(
     }
   }
 
-  return { members: n, islands, anchorage, corners: cornerFits, orphanedKg, faults };
+  return { members: n, islands, anchorage, corners: cornerFits, orphanedKg, skin, faults };
 }

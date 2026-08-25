@@ -147,6 +147,21 @@ export interface ChassisFitOptions {
   readonly coverageStations?: number;
   /** Fraction of covered points that may sit tight before it reads as a region. */
   readonly tightFraction?: number;
+  /**
+   * Boxes where structure is BONDED to the skin, and clearance is not a
+   * question there.
+   *
+   * A mount pad is the small case and gets handled by `padHalf`; a
+   * greenhouse is the large one. A cantrail is welded to the roof for the
+   * whole length of the roof, a header rail is welded to the screen surround,
+   * and every one of those points reads zero millimetres to the skin because
+   * that is what a weld is. Without this the read-through fault fires on the
+   * entire perimeter of a coupe's roof, which is a design and not a defect.
+   *
+   * The CALLER declares these, because only the caller knows which of its
+   * members are bonded and which are merely near.
+   */
+  readonly contact?: readonly { readonly lo: Pt3; readonly hi: Pt3 }[];
 }
 
 /**
@@ -242,8 +257,12 @@ export function chassisFit(
   // this the car reads "structure comes within 0 mm of the skin" at the exact
   // eight places where zero is the whole objective.
   const pads = mounts.map((m) => ({ at: m.at, half: m.padHalf ?? DEFAULT_PAD_HALF.value }));
-  const onAPad = (x: number, y: number, z: number): boolean => pads.some((p) =>
-    Math.abs(x - p.at[0]) <= p.half && Math.abs(y - p.at[1]) <= p.half && Math.abs(z - p.at[2]) <= p.half);
+  const bonded = opts.contact ?? [];
+  const onAPad = (x: number, y: number, z: number): boolean =>
+    pads.some((p) =>
+      Math.abs(x - p.at[0]) <= p.half && Math.abs(y - p.at[1]) <= p.half && Math.abs(z - p.at[2]) <= p.half)
+    || bonded.some((b) =>
+      x >= b.lo[0]! && x <= b.hi[0]! && y >= b.lo[1]! && y <= b.hi[1]! && z >= b.lo[2]! && z <= b.hi[2]!);
 
   const verts = sampledVertices(structure, limit);
   const n = verts.length;

@@ -37,10 +37,10 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { makeAllocator, type Id, type Pt3 } from "@car/schema";
 import { assembleCar, shoulderAboveHip95M, shoulderBreadth95M } from "@car/types";
-import { CATALOGUE, finishOf, scanUp, sectionAt, sliceSection } from "@car/skin";
+import { CATALOGUE, finishOf, scanAt, scanUp, sectionAt, sliceSection } from "@car/skin";
 import { solve } from "@car/pack";
 import {
-  cabinLens, chassisFit, structureFit, MIN_SKIN_CLEARANCE,
+  cabinLens, chassisFit, skinSupport, structureFit, MIN_SKIN_CLEARANCE, SKIN_REACH,
   type BodyMount, type CabinPerson, type CarriedPart, type SectionMesh, type StructureMember,
 } from "@car/lens";
 import {
@@ -1246,6 +1246,19 @@ if (process.env["NOWHEELS"] !== "1") {
   wheel(REAR_AXLE_X, WHEEL_R, HALF, ETYPE_REAR_TRACK / 2 - HALF);
 }
 
+// ── where the greenhouse begins and ends ──────────────────────────────────
+// Hoisted above the chassis because the STRUCTURE under the roof is built on
+// the same four stations the glass is, and a pillar that does not know where
+// the windscreen ends is a pillar somebody typed.
+const SCREEN_FROM = stationX(BONNET_SHUT);   // 2560 — the scuttle
+const SCREEN_TO = stationX("screen-top");    // 2980 — the header
+const GLASS_FROM = SCREEN_TO;                // door glass starts where the screen ends
+const GLASS_TO = stationX(TAIL_SHUT);        // 3480
+const BACKLIGHT_FROM = GLASS_TO;
+const BACKLIGHT_TO = stationX("arch-rear-trail");
+/** Top of the windscreen header — the number the cabin lens reads the eye against. */
+const HEADER_TOP_Z = crownZ(SCREEN_TO);
+
 // ── the chassis: TWO structures, which is what this car is ────────────────
 // An E-Type is a monocoque tub from the scuttle back and a bolted tubular
 // frame ahead of it. That is not trivia, it is the layout: the tub is the
@@ -1339,7 +1352,34 @@ if (process.env["NOCHASSIS"] !== "1") {
   const FRAME_NOSE = Math.min(rad.lo[0], engine.lo[0]) - TUBE_CLEAR;
   const LOW_Y = Math.max(engine.hi[1], rad.hi[1]) + TUBE_CLEAR;
   const UP_Y = LOW_Y + 58;
+
+  // AND CLAMPED TO THE BODY. Reading the tube's height off the engine alone
+  // put the picture frame's lower rail 24 mm out through the underside at the
+  // nose, because the engine does not know where the valance is. The body's
+  // own underside at the frame's nose is the other bound, and both are read.
+  // The ring spans the whole width, so ONE reading of the underside is not
+  // enough: at the frame's nose the underside is curling up into the wheel
+  // arch, so it is 165 mm at the centreline and past 300 at the rocker, and
+  // clamping to the height under the TUBE left the ring's cross-car rail 24 mm
+  // out through the valance at y = 264. The bound is the worst of the span.
+  // The clearance is measured from the ROCKER and not from the middle. At the
+  // frame's nose the underbody is an arch curling up into the wheel arch, and
+  // a horizontal rail across it is only inside the body if it clears the
+  // arch's HIGHEST point — the middle of the span sits under the car, in the
+  // open, at any height below that. Reading the underside beneath the tube
+  // alone put the ring's cross rail 24 mm out through the valance.
+  let underWorst = 0;
+  for (let k = 0; k <= 16; k++) {
+    const u = undersideAt(FRAME_NOSE, (rockerPlanY(FRAME_NOSE) * k) / 16);
+    if (Number.isFinite(u) && u > underWorst) underWorst = u;
+  }
   const LOW_Z = Math.max(RAIL_Z - RAIL_H / 2, engine.lo[2] + 120);
+  if (process.env["DBG"] === "1") {
+    console.log(`  DBG frame LOW_Z ${LOW_Z.toFixed(0)} underWorst ${underWorst.toFixed(0)} FRAME_NOSE ${FRAME_NOSE.toFixed(0)} LOW_Y ${LOW_Y.toFixed(0)} UP_Y ${UP_Y.toFixed(0)}`);
+    for (const y of [0, 120, 264, 319, 377]) {
+      console.log(`  DBG under x829 y${y} = ${undersideAt(829, y).toFixed(0)} · x${FRAME_NOSE.toFixed(0)} = ${undersideAt(FRAME_NOSE, y).toFixed(0)}`);
+    }
+  }
   const UP_Z = engine.hi[2] - 30;
 
   // ── the tub ─────────────────────────────────────────────────────────────
@@ -1490,6 +1530,100 @@ if (process.env["NOCHASSIS"] !== "1") {
   strut("radius-arm", [REAR_AXLE_X, ETYPE_REAR_TRACK / 2 - 62, AXLE_Z - 130],
     [3200, SILL_Y - 40, 260], 34, 34, true);
 
+  // ── the greenhouse: what the roof sits ON ───────────────────────────────
+  // Until now the roof was skin and nothing else. A coupe's roof is a metre
+  // of thin steel with a person under it, and there was no pillar, no rail
+  // and no bow anywhere near it — the surfacing sat on air, and the only
+  // reason nothing said so is that nothing asked. `skinSupport` asks.
+  //
+  // Every point below is READ off the two master lines the greenhouse is
+  // built on. The A-pillar's top is where the roof rail is at the header
+  // station; the cantrail follows the rail aft; the bows sit under the crown.
+  // Move the roofline and the structure under it moves with it.
+  const PILLAR_W = 62, PILLAR_D = 74;
+  // Inboard of the rail by a little, not outboard by half a pillar: the sail
+  // band leans in hard on this car, so a pillar centred ON the rail puts its
+  // outboard corner six millimetres through the side glass.
+  const railAt = (x: number): Pt3 => [x, railPlanY(x) - 6, railZ(x) - 50];
+  const SCUTTLE_TOP: Pt3 = [SCREEN_FROM, 604, 786];
+  const aTop = railAt(SCREEN_TO);
+  const bcTop = railAt(GLASS_TO);
+  // The A-pillar. Its base is ON the bulkhead — the one member near it — which
+  // is what stops the whole greenhouse being an island of its own.
+  strut("a-pillar", SCUTTLE_TOP, aTop, PILLAR_W, PILLAR_D, true);
+  // Down the inside of the cowl to the sill, because a pillar that stops at
+  // the scuttle is a pillar balanced on a panel.
+  strut("a-pillar-foot", [SCREEN_FROM, SILL_Y, 320], SCUTTLE_TOP, PILLAR_W, PILLAR_D, true);
+  // The B/C pillar, which on a Series 1 coupe is one pillar and not two: the
+  // door glass ends at it and there is no rear quarter light behind it.
+  strut("bc-pillar", [GLASS_TO, SILL_Y, 320], bcTop, PILLAR_W, PILLAR_D, true);
+  // Header rail over the screen, rear header over the backlight, and the
+  // cantrail joining them down each side.
+  beam("header-rail", {
+    view: { kind: "front" as const },
+    a: [-aTop[1], aTop[2] - 30], b: [aTop[1], aTop[2] + 30], depth: 64, at: SCREEN_TO - 32,
+  });
+  beam("rear-header", {
+    view: { kind: "front" as const },
+    a: [-bcTop[1], bcTop[2] - 30], b: [bcTop[1], bcTop[2] + 30], depth: 64, at: GLASS_TO - 32,
+  });
+  strut("cantrail", aTop, bcTop, 58, 58, true);
+  // Roof bows, under the crown and between the cantrails. Two of them puts
+  // nothing further than a bow-and-a-half from a member, which is what a
+  // stamping this size can span.
+  for (const bx of [SCREEN_TO + (GLASS_TO - SCREEN_TO) / 3, SCREEN_TO + (2 * (GLASS_TO - SCREEN_TO)) / 3]) {
+    beam(`roof-bow@${bx.toFixed(0)}`, {
+      view: { kind: "front" as const },
+      a: [-railPlanY(bx), crownZ(bx) - 74], b: [railPlanY(bx), crownZ(bx) - 30],
+      depth: 52, at: bx - 26,
+    });
+  }
+
+  // ── crash structure, which is also what backs the panels ────────────────
+  // A bumper is a moulding on a beam, and a door skin is a pressing on a bar.
+  // Neither beam nor bar existed, so the nose, the tail and both doors were
+  // unbacked panels — which is a crash structure question and a panel
+  // stiffness question at the same time, and the same members answer both.
+  //
+  // THE CRUSH STROKES ARE THE SUBSTRATE'S OWN. `makeSubstrate` has published
+  // `crushStrokeFront` and `crushStrokeRear` since the first car and nothing
+  // has ever read them. The bumper beams sit exactly that far ahead of the
+  // frame and behind the tub, so the stroke is a length of structure rather
+  // than a number in a report.
+  const crushF = sub.crushStrokeFront?.value ?? 600;
+  const crushR = sub.crushStrokeRear?.value ?? 450;
+  const noseBeamX = Math.max(60, FRAME_NOSE - crushF);
+  const tailBeamX = Math.min(LEN - 60, TUB_REAR + crushR);
+  for (const [nm, bx, z, half] of [
+    ["bumper-front", noseBeamX, 470, 300], ["bumper-rear", tailBeamX, 620, 420],
+  ] as const) {
+    beam(nm, {
+      view: { kind: "front" as const },
+      a: [-half, z - 52], b: [half, z + 52], depth: 76, at: bx,
+    });
+  }
+  // The crush rails themselves: nose beam back to the frame's ring, tail beam
+  // forward to the tub. Sloped, because the beam sits at bumper height and
+  // the structure it feeds does not.
+  strut("crush-rail-front", [noseBeamX + 40, 240, 470], [FRAME_NOSE, LOW_Y, LOW_Z], 62, 62, true);
+  strut("crush-rail-rear", [tailBeamX + 30, 340, 620], [TUB_REAR - 40, RAIL_Y, RAIL_Z], 62, 62, true);
+  // Door intrusion beams: one bar across each door, low enough to take a pole
+  // on the hip and high enough to miss the sill it would otherwise duplicate.
+  // Its ENDS ARE THE PILLARS, and they have to be. A bar floating inside a
+  // door skin is what the first version authored, and the lens called the two
+  // of them separate bodies — correctly, because a beam that reaches nothing
+  // carries nothing. In a side impact the load goes beam, latch, pillar; the
+  // model earns that by having the three touch.
+  strut("door-beam", [SCREEN_FROM + 20, SILL_Y + 20, 430], [GLASS_TO - 20, SILL_Y + 30, 520], 46, 92, true);
+
+  // EVERYTHING SINCE `frameBefore` IS STRUCTURE, and the collection has to
+  // happen after the last of it is authored. It used to sit half way up this
+  // block, so the greenhouse and the crash members were never added to
+  // `chassisCells` — which meant the material pass painted them as BODY, the
+  // body mesh grew an eleven-millimetre wall at y = 300 that no station table
+  // had ever asked for, and the chassis lens reported a crush rail sticking
+  // out through it. A collection loop in the wrong place looks like a
+  // geometry defect from every direction except this one.
   for (const id of [...s.state.cells.keys()] as Id[]) {
     if (frameBefore.has(id)) continue;
     frameCells.push(id);
@@ -1537,14 +1671,6 @@ if (process.env["NOCHASSIS"] !== "1") {
 // and a rebate is a hole with a lip. On a car whose screen is bonded nearly
 // flush that is a small lie; on a car with deep gutters it would be a large
 // one. Said here rather than discovered in a render.
-const SCREEN_FROM = stationX(BONNET_SHUT);   // 2560 — the scuttle
-const SCREEN_TO = stationX("screen-top");    // 2980 — the header
-const GLASS_FROM = SCREEN_TO;                // door glass starts where the screen ends
-const GLASS_TO = stationX(TAIL_SHUT);        // 3480
-const BACKLIGHT_FROM = GLASS_TO;
-const BACKLIGHT_TO = stationX("arch-rear-trail");
-/** Top of the windscreen header — the number the cabin lens reads the eye against. */
-const HEADER_TOP_Z = crownZ(SCREEN_TO);
 const pillarCells: Id[] = [];
 const glazingCells: Id[] = [];
 
@@ -1604,6 +1730,10 @@ const bodyCells = new Set<Id>();
  * open air.
  */
 const envelopeCells = new Set<Id>();
+/** The panels whose support is worth asking about, by what they are. */
+const roofCells = new Set<Id>();
+const doorCells = new Set<Id>();
+const endCells = new Set<Id>();
 const MATERIALS = {
   paint: CATALOGUE["British Racing Green"]!,
   screen: CATALOGUE["windscreen"]!,
@@ -1679,12 +1809,19 @@ const MATERIALS = {
       // windscreen IS the roof of a car for the length of the windscreen.
       if (inBand(SCREEN_FROM, SCREEN_TO)) give(id, MATERIALS.screen);
       else if (inBand(BACKLIGHT_FROM, BACKLIGHT_TO)) give(id, MATERIALS.backlight);
-      else give(id, MATERIALS.paint);
+      else {
+        if (inBand(SCREEN_TO, BACKLIGHT_FROM)) roofCells.add(id);
+        give(id, MATERIALS.paint);
+      }
       continue;
     }
+    if (endFace) endCells.add(id);
     const isSail = !across && !endFace && lo[2]! > shoulderZprofile(mid) - 25;
     if (isSail && inBand(GLASS_FROM, GLASS_TO)) give(id, MATERIALS.sideGlass);
-    else give(id, MATERIALS.paint);
+    else {
+      if (!across && !endFace && !isSail && inBand(SCREEN_FROM, GLASS_TO)) doorCells.add(id);
+      give(id, MATERIALS.paint);
+    }
   }
   console.log(`  materials                 ${painted} cells · ` +
     [...used].map(([n, c]) => `${n} ${c}`).join(" · "));
@@ -1773,6 +1910,33 @@ const bodySplit = ((): { body: SectionMesh; structure: SectionMesh; envelope: Se
   };
 })();
 const bodyMesh = bodySplit.body;
+/**
+ * Sampled points of one named set of cells — what a panel IS, as points.
+ *
+ * The support reading needs the skin of a PARTICULAR panel, because a roof
+ * and a wing do not span the same distance and the lens must be asked about
+ * one at a time.
+ */
+const panelPoints = (cells: ReadonlySet<Id>, limit = 500): Pt3[] => {
+  const keep = new Uint8Array(printed.indices.length / 3);
+  for (const r of mesh.ranges) {
+    const id = (r.id.endsWith("~m") ? r.id.slice(0, -2) : r.id) as Id;
+    if (cells.has(id)) for (let t = r.start; t < r.start + r.count; t += 3) keep[t / 3] = 1;
+  }
+  const seen = new Set<number>();
+  for (let t = 0; t < printed.indices.length; t += 3) {
+    if (!keep[t / 3]) continue;
+    for (let k = 0; k < 3; k++) seen.add(printed.indices[t + k]!);
+  }
+  const all = [...seen].sort((a, b) => a - b);
+  const step = Math.max(1, Math.floor(all.length / limit));
+  const out: Pt3[] = [];
+  for (let i = 0; i < all.length; i += step) {
+    const v = all[i]!;
+    out.push([printed.positions[v * 3]!, printed.positions[v * 3 + 1]!, printed.positions[v * 3 + 2]!]);
+  }
+  return out;
+};
 const structMesh = bodySplit.structure;
 const envelopeMesh = bodySplit.envelope;
 
@@ -1945,7 +2109,17 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
   // is hidden; clearance says whether a panel would read it through; the
   // mounts say whether the body sits on the frame or merely near it.
   const structure = structMesh;
-  const fit = chassisFit(skin, structure, mounts);
+  // The greenhouse is WELDED to the skin it carries, so its footprint is
+  // contact rather than clearance — see `chassisFit`'s `contact`.
+  const BONDED = /^(a-pillar|bc-pillar|header-rail|rear-header|cantrail|roof-bow|door-beam|bumper-)/;
+  // AGAINST THE ENVELOPE, not the painted body. Containment asks whether the
+  // structure is inside the CAR, and a windscreen is part of the car — so
+  // testing against skin-and-trim puts a hole over the cabin and reports the
+  // header rail under the screen as 264 mm outside the bodywork. The profile
+  // check keeps the glassless body, because there a screen really would read
+  // as an error in the bonnet. Two meshes, two questions.
+  const fit = chassisFit(envelopeMesh, structure, mounts,
+    { contact: members.filter((m) => BONDED.test(m.name)) });
   line("chassis hidden by the skin",
     `${fit.points - fit.outsideVisible} of ${fit.points} points · ${fit.exposedBelow} slung under the floor` +
     (fit.outsideVisible === 0
@@ -1997,6 +2171,15 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
       rlo[k] = Math.min(rlo[k]!, m.lo[k]!); rhi[k] = Math.max(rhi[k]!, m.hi[k]!);
     }
     console.log(`  DBG register  ${rlo.map((v) => v.toFixed(0)).join(",")} .. ${rhi.map((v) => v.toFixed(0)).join(",")}`);
+    for (const x of [829, 1612]) {
+      const sec = sliceSection(bodyMesh, x);
+      console.log(`  DBG slice x${x} segs ${sec.length} · scanAt(272) [${scanAt(sec, 272).map((v) => v.toFixed(0)).join(", ")}] · scanUp(-264) [${scanUp(sec, -264).map((v) => v.toFixed(0)).join(", ")}]`);
+    }
+    const w = fit.worstProtrusionAt;
+    for (const m of members) {
+      const inBox = [0, 1, 2].every((k) => w[k]! >= m.lo[k]! - 3 && w[k]! <= m.hi[k]! + 3);
+      if (inBox) console.log(`  DBG worst-protrusion member ${m.name} ${m.lo.map((v) => v.toFixed(0)).join(",")} .. ${m.hi.map((v) => v.toFixed(0)).join(",")}`);
+    }
     const seen = new Set<number>();
     for (const i of structMesh.indices) seen.add(i);
     let mlo = [Infinity, Infinity, Infinity], mhi = [-Infinity, -Infinity, -Infinity];
@@ -2018,6 +2201,26 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
     (frameRead.orphanedKg === 0 ? "" : ` · ${frameRead.orphanedKg.toFixed(0)} kg with nothing under it`));
   line("  wheels carried", frameRead.corners.map((c) =>
     `${c.name.slice(-2)} ${c.gap.toFixed(0)}`).join(" / ") + " mm to the nearest member");
+  // ── what the surfacing sits on ─────────────────────────────────────────
+  // The question in Owen's words, and it needed pillars before it could be
+  // asked at all. A roof is carried by bows and rails; a door skin by its
+  // frame and one bar; a bumper moulding by the beam behind it. A wing is
+  // carried at its edges and unsupported over its area ON PURPOSE, which is
+  // why each panel is asked about separately and with its own reach.
+  for (const [what, cells, reach] of [
+    ["roof", roofCells, SKIN_REACH.value],
+    ["doors", doorCells, 460],
+    ["nose and tail", endCells, 340],
+  ] as const) {
+    const pts = panelPoints(cells);
+    if (pts.length === 0) { line(`  ${what} carried`, "no cells of that kind"); continue; }
+    const sup = skinSupport(members, pts, reach);
+    line(`  ${what} carried`, `${sup.points - sup.over} of ${sup.points} points within ${reach} mm of a member · ` +
+      `median ${sup.median.toFixed(0)} · worst ${sup.worst.toFixed(0)} at [${sup.worstAt.map((v) => v.toFixed(0)).join(", ")}]`);
+    if (sup.over > 0) {
+      line("  panel FAULT", `${sup.over} of ${sup.points} ${what} points have nothing within ${reach} mm holding them up — the surfacing is sitting on air there`);
+    }
+  }
   for (const f of frameRead.faults) line("  structure FAULT", f);
 
   line("profile vs the real car",

@@ -215,22 +215,30 @@ export function cabinLens(
     sections.reduce((best, s) => (Math.abs(s.x - x) < Math.abs(best.x - x) ? s : best), sections[0]!);
 
   const atHead = nearest(person.head[0]);
+  // Is anything above the occupant's shoulder, in the occupant's own column,
+  // at the head's own station? That is the whole test, and several readings
+  // below branch on it, so it is settled first.
+  const overhead = scanUp(sliceSection(mesh, atHead.x), person.hip[1]);
+  const roofed = overhead.some((z) => z > shoulderZ + ROOF_MARGIN.value);
   const atEye = nearest(person.eye[0]);
   const atHip = sectionAt(mesh, person.hip[0], shoulderRoomAtZ, drop);
   const hipOwn = sectionAt(mesh, person.hip[0], person.hip[2], drop);
 
   const headAboveBody = person.head[2] - atHead.top;
-  // Is anything above the occupant's shoulder, in the occupant's own column,
-  // at the head's own station? That is the whole test.
-  const overhead = scanUp(sliceSection(mesh, atHead.x), person.hip[1]);
-  const roofed = overhead.some((z) => z > shoulderZ + ROOF_MARGIN.value);
   const headroom = roofed ? -headAboveBody : null;
   const eyeAboveBelt = person.eye[2] - atEye.beltZ;
   const eyeAboveHeader = opts.headerTopZ === undefined ? null : person.eye[2] - opts.headerTopZ;
   const eyeAboveHeaderRelaxed = opts.headerTopZ === undefined
     ? null
     : person.eye[2] - (opts.eyeSlumpMm ?? 0) - opts.headerTopZ;
-  const hipAboveWell = atHip.wellFloor === null ? null : person.hip[2] - atHip.wellFloor;
+  // A ROOFED body has no well. `wellFloor` scans up for the first height with
+  // an interior and on a closed car the first thing it finds is a wheelhouse
+  // or a tunnel void — which is how an E-Type reported its H-point 30 mm
+  // below a cockpit floor it does not have. Same limit as `shoulderRoom`, so
+  // the same guard: unreadable, and said so, rather than a number.
+  const hipAboveWell = roofed || atHip.wellFloor === null
+    ? null
+    : person.hip[2] - atHip.wellFloor;
   const shoulderRoom = atHip.interiorHalfWidth === null ? null : atHip.interiorHalfWidth * 2;
   const hipRoom = hipOwn.interiorHalfWidth === null ? null : hipOwn.interiorHalfWidth * 2;
   const seats = opts.seatsAbreast ?? 1;

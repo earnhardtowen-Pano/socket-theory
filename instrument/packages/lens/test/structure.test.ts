@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { structureFit, type StructureMember } from "../src/index.js";
+import { skinSupport, structureFit, type StructureMember } from "../src/index.js";
 
 const box = (name: string, lo: [number, number, number], hi: [number, number, number]): StructureMember =>
   ({ name, lo, hi });
@@ -110,5 +110,45 @@ describe("structureFit: corners", () => {
     const r = structureFit(detached, [], [{ name: "wheel-FL", at: [1430, 640, 337] }]);
     expect(r.corners[0]!.onMainIsland).toBe(false);
     expect(r.faults.join(" ")).toMatch(/not part of the main structure/);
+  });
+});
+
+describe("skinSupport: what the surfacing sits on", () => {
+  // A roof carried by two bows 900 apart, and the panel between them.
+  const bows: StructureMember[] = [
+    box("bow-fwd", [1000, -400, 1100], [1060, 400, 1140]),
+    box("bow-aft", [1900, -400, 1100], [1960, 400, 1140]),
+  ];
+  const panel = (n: number): [number, number, number][] =>
+    Array.from({ length: n }, (_, i) => [1000 + (960 * i) / (n - 1), 0, 1160] as [number, number, number]);
+
+  it("reads zero over a bow and the half-span between them", () => {
+    const r = skinSupport(bows, panel(11), 380);
+    expect(r.points).toBe(11);
+    // Directly over a bow the panel is 20 mm above its top face.
+    expect(r.median).toBeLessThan(300);
+    // Mid-span: 420 mm along to the nearer bow's face, 20 up to the panel.
+    expect(r.worst).toBeGreaterThan(415);
+    expect(r.worst).toBeLessThan(425);
+    expect(r.over).toBeGreaterThan(0);
+  });
+
+  it("passes the same panel once a third bow closes the span", () => {
+    const closer = [...bows, box("bow-mid", [1450, -400, 1100], [1510, 400, 1140])];
+    const r = skinSupport(closer, panel(11), 380);
+    expect(r.over).toBe(0);
+    expect(r.worst).toBeLessThan(380);
+  });
+
+  it("calls a roof with nothing under it what it is", () => {
+    // The state every car in this repository was in before pillars existed.
+    const r = skinSupport([box("rail", [0, 300, 200], [3000, 360, 300])], panel(9), 380);
+    expect(r.over).toBe(9);
+    expect(r.worst).toBeGreaterThan(800);
+  });
+
+  it("reports the worst point's location, not just its distance", () => {
+    const r = skinSupport(bows, panel(11), 380);
+    expect(r.worstAt[0]).toBeCloseTo(1480, 0);
   });
 });

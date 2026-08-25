@@ -33,11 +33,14 @@ export {
 
 export {
   structureFit,
+  skinSupport,
+  SKIN_REACH,
   type StructureMember,
   type CarriedPart,
   type Corner,
   type Anchorage,
   type CornerFit,
+  type SkinSupport,
   type StructureReport,
   type StructureOptions,
 } from "./structure.js";

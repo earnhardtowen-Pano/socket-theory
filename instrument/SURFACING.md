@@ -765,6 +765,76 @@ out of the mirror law. Mirroring is per member now.
 | wheel to nearest member | 26 mm | 30 mm |
 | structure showing | 0 | 0 |
 
+### Pillars, and the roof that now sits on something
+
+A coupe's roof is a metre of thin steel with a person under it, and until this
+week there was no pillar, no rail and no bow anywhere near any of it. The
+surfacing sat on air. `skinSupport` is the reading, and it is asked per PANEL
+because a roof and a wing do not span the same distance — a wing is
+unsupported over its whole area on purpose, and a roof is not.
+
+The E-Type gets what a monocoque coupe has: A-pillars raking up from the
+bulkhead with their feet carried down inside the cowl to the sill, a header
+rail over the screen, a cantrail down each side of the roof, a single B/C
+pillar (a Series 1 coupe has one, not two — the door glass ends at it and
+there is no quarter light behind), a rear header over the backlight, and two
+roof bows. Every point is READ off the two master lines the greenhouse is
+built on: the A-pillar's top is where the roof rail is at the header station,
+the bows sit under the crown. Move the roofline and the structure moves.
+
+The MX-5 gets what an open car has — A-pillars and a hoop, no B and no C —
+and the pillars are now authored with `strut` rather than a box sheared by
+hand four curves at a time. Their FEET are new: a pillar that stops at the
+cowl is a bar balanced on a panel, and the lens called the whole screen frame
+an island half a metre above the nearest member. It was right.
+
+| carried within | MX-5 | E-Type |
+|---|---|---|
+| roof | no roof | 654 of 654 at 380 mm · median 32 |
+| doors | 696 of 696 at 460 · median 182 | 637 of 637 · median 127 |
+| nose and tail | 882 of 882 at 340 · median 150 | 962 of 962 · median 221 |
+
+### Crash structure, which is the same members
+
+A bumper is a moulding on a beam and a door skin is a pressing on a bar.
+Neither existed, so the nose, the tail and both doors were unbacked panels —
+a crash question and a panel-stiffness question at once, answered by the same
+members. Bumper beams front and rear, crush rails sloping from beam height to
+the structure they feed, and one intrusion beam across each door with its ends
+ON the pillars, because a bar floating inside a door skin carries nothing and
+the lens called it a separate body.
+
+The crush strokes are the SUBSTRATE'S OWN. `makeSubstrate` has published
+`crushStrokeFront` and `crushStrokeRear` since the first car and nothing had
+ever read them; the beams now sit exactly that far ahead of the frame and
+behind the tub. Which immediately found this:
+
+    crush stroke   front 270 of 600 declared · rear 260 of 450
+                   — the rails start too far forward to carry the stroke
+                     the substrate declares
+
+### Three more the lens found on the way
+
+**The greenhouse and the crash members were being painted as BODY.** The
+collection loop that adds structure to `chassisCells` sat half way up the
+chassis block, so everything authored after it was classified as skin — the
+body mesh grew an eleven-millimetre wall at y = 300 that no station table had
+asked for, and the chassis lens reported a crush rail sticking out through it.
+A collection loop in the wrong place looks like a geometry defect from every
+direction except the right one.
+
+**Containment was being tested against a body with its glass removed.** A
+windscreen is part of the car, so testing the structure against skin-and-trim
+put a hole over the cabin and reported the header rail under the screen as
+264 mm outside the bodywork. The envelope for containment; the glassless body
+for the profile check. Two meshes, two questions — the same lesson the cabin
+lens learned a day earlier, in a different place.
+
+**A cantrail welded to a roof is a weld, not a read-through.** The clearance
+fault fired on the entire perimeter of the coupe's greenhouse. `chassisFit`
+now takes a `contact` list, and the CALLER declares it, because only the
+caller knows which of its members are bonded and which are merely near.
+
 ### And the shape now comes from what it carries
 
 The frame's nose is the radiator's front face less a tube's clearance. Its
