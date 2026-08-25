@@ -8,7 +8,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { scanAt, sectionAt, sliceSection } from "../src/index.js";
+import {
+  coverClearance, sampledVertices, scanAt, sectionAt, sectionCache, sliceSection, wallClearance,
+} from "../src/index.js";
 
 /** A closed box from lo to hi, as 12 triangles. */
 function box(lo: [number, number, number], hi: [number, number, number]): {
@@ -172,3 +174,63 @@ describe("sectionAt", () => {
   });
 });
 
+describe("coverClearance", () => {
+  // A hollow-ish body: walls at +-800, a floor at 350, a deck at 900.
+  const carried = merge(box([0, -800, 350], [3000, 800, 900]));
+  const at = (y: number, z: number): number =>
+    coverClearance(sliceSection(carried, 1500), y, z);
+
+  it("ignores skin below the point, which is what it is standing on", () => {
+    // 40 mm above the floor: `wallClearance` says 40, and 40 is the weld.
+    expect(wallClearance(sliceSection(carried, 1500), 0, 390)).toBeCloseTo(40, 6);
+    expect(at(0, 390)).toBeCloseTo(510, 6);   // the deck at 900, not the floor
+  });
+
+  it("counts skin beside the point, which is the flat-spot defect", () => {
+    expect(at(795, 600)).toBeCloseTo(5, 6);
+  });
+
+  it("looks past the pan to the panel, for a rail slung under the car", () => {
+    // 150 mm under the floor. Without the floor rule that pan is the answer
+    // and the rail reads as tight; with it the nearest PANEL is the deck 700
+    // above, which is a clearance nobody will ever fault.
+    expect(at(0, 200)).toBeCloseTo(150, 6);
+    expect(coverClearance(sliceSection(carried, 1500), 0, 200, () => 350)).toBeCloseTo(700, 6);
+  });
+
+  it("returns Infinity where nothing at all is above the point", () => {
+    // Out past the flank: no skin over it, so no read-through to measure.
+    expect(at(2000, 1200)).toBe(Infinity);
+  });
+
+  it("skips the floor pan when told where the floor is", () => {
+    const section = sliceSection(carried, 1500);
+    const floorAt = (): number => 350;
+    // Directly under the pan and nowhere near a flank: without the floor rule
+    // this is 10 mm and a fault, with it the deck 540 above.
+    expect(coverClearance(section, 0, 340)).toBeCloseTo(10, 6);
+    expect(coverClearance(section, 0, 340, floorAt)).toBeCloseTo(560, 6);
+  });
+});
+
+describe("sectionCache and sampledVertices", () => {
+  const carried = merge(box([0, -800, 350], [3000, 800, 900]));
+
+  it("gives the same section as slicing it directly", () => {
+    const { sectionAtX } = sectionCache(carried);
+    expect(sectionAtX(1500).length).toBe(sliceSection(carried, 1500).length);
+    // And the same object twice: the cache is the point.
+    expect(sectionAtX(1500)).toBe(sectionAtX(1500));
+  });
+
+  it("reads the body's underside off a column", () => {
+    const { floorAtX } = sectionCache(carried);
+    expect(floorAtX(1500)(0)).toBeCloseTo(350, 6);
+    expect(floorAtX(1500)(2000)).toBe(-Infinity);   // no body out there
+  });
+
+  it("samples every vertex when it can afford to, and thins when it cannot", () => {
+    expect(sampledVertices(carried).length).toBe(8);
+    expect(sampledVertices(carried, 2).length).toBeLessThanOrEqual(2);
+  });
+});

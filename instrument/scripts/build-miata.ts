@@ -25,9 +25,9 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { makeAllocator, type Id, type Pt3 } from "@car/schema";
 import { assembleCar, shoulderAboveHip95M, shoulderBreadth95M } from "@car/types";
-import { CATALOGUE, finishOf, sectionAt } from "@car/skin";
+import { CATALOGUE, finishOf, scanUp, sectionAt, sliceSection } from "@car/skin";
 import { solve } from "@car/pack";
-import { cabinLens, type CabinPerson } from "@car/lens";
+import { cabinLens, chassisFit, MIN_SKIN_CLEARANCE, type BodyMount, type CabinPerson } from "@car/lens";
 import {
   miataConfig, MX5_DIAMETER, MX5_FRONT_OVERHANG, MX5_FRONT_TRACK,
   MX5_PROFILE, MX5_PROFILE_TOLERANCE_MM, MX5_REAR_TRACK,
@@ -487,6 +487,53 @@ for (const rocker of rockerIds) {
   });
 }
 
+// ── the frame, as numbers, hoisted ────────────────────────────────────────
+// These belong to the chassis block four hundred lines down and are read here
+// because the BODY has to know where the frame is. That is the whole of the
+// yin and yang: a floor that does not know the rail height is a floor that
+// happens to be near one.
+const sub = miataConfig.substrate;
+const RAIL_Y = sub.railSpacing.value / 2;
+const RAIL_H = sub.railSectionHeight.value, RAIL_W = sub.railSectionWidth.value;
+const RAIL_Z = miataConfig.placement.railHeight.value;
+/** Top face of a rail — what a floor pan would land on. */
+const RAIL_TOP = RAIL_Z + RAIL_H / 2;
+/** Pad plan size, and the least daylight a pad is worth making. */
+const MOUNT_PAD = 90, MOUNT_H = 12;
+/** Stations with a crossmember, and so the candidates for a body mount. */
+const MOUNT_X = [620, 1700, 2560, 3320];
+/** Top of the transmission tunnel — propshaft, PPF and exhaust, licensed. */
+const TUNNEL_TOP = RAIL_Z - RAIL_H / 2 + sub.tunnelHeight.value;
+/**
+ * The least the cockpit floor may sit above the tunnel under it.
+ *
+ * Read off the LENS rather than typed, so the body clears the structure by
+ * exactly the figure the lens will hold it to. The first cockpit floor was
+ * typed at 410 with a tunnel topping out at 402, and the chassis lens found
+ * 229 of 3,112 structure points inside its own threshold — a tunnel pressing
+ * into a cabin floor down its whole length, which on a real car is a hump and
+ * here is a collision.
+ */
+const WELL_FLOOR_MIN = TUNNEL_TOP + MIN_SKIN_CLEARANCE.value;
+
+/**
+ * Where the body lands on the frame: rail top plus the mount's own height.
+ *
+ * THE FLOOR PAN IS THIS NUMBER. It is what makes the two halves one object —
+ * the `floor` column of the station table through the cabin is set from it
+ * rather than typed, so moving the rails moves the body's floor and the lens
+ * that checks the two agree cannot be quietly wrong.
+ *
+ * It is the CENTRELINE floor, and that is not the same as the floor over a
+ * rail. The underbody is an arch: its crown is this number and it falls away
+ * to the rockers, so at the rail's own y it reads twelve to thirty
+ * millimetres lower — which was enough to slice the top off the cowl
+ * crossmember and stand five structure points out in the open air. The arch
+ * is measured and corrected for below, at `clearTheRails`, rather than being
+ * guessed at here with a bigger number.
+ */
+const PAD_TOP = RAIL_TOP + MOUNT_H;
+
 // ── the sections ──────────────────────────────────────────────────────────
 // `roofY` is where the deck curve's shoulders sit, and it is what makes a
 // GREENHOUSE rather than a pontoon. At 520–560 through the cabin the roof was
@@ -509,8 +556,8 @@ const STATIONS: {
   { x: 790,  roof: 830,  roofY: 500, floor: 132, hip: 838, hipAt: 0.74, name: "front-axle" },
   { x: 1000, roof: 858,  roofY: 540, floor: 130, hip: 830, hipAt: 0.68, name: "lamp-pods" },
   { x: archMouth(FRONT_AXLE_X)[1], roof: 856,  roofY: 552, floor: 129, hip: 812, hipAt: 0.58, name: "arch-front-trail" },
-  { x: 1400, roof: 838,  roofY: 560, floor: 128, hip: 826, hipAt: 0.48, name: "hood-mid" },
-  { x: 1700, roof: 892,  roofY: 560, floor: 128, hip: 834, hipAt: 0.45, name: "cowl" },
+  { x: 1400, roof: 838,  roofY: 560, floor: PAD_TOP - 60, hip: 826, hipAt: 0.48, name: "hood-mid" },
+  { x: 1700, roof: 892,  roofY: 560, floor: PAD_TOP, hip: 834, hipAt: 0.45, name: "cowl" },
   // ── the cockpit ─────────────────────────────────────────────────────────
   // `roof` BELOW the beltline is a well, not a roof, and that is the whole
   // change: the section runs up the body side to the belt and then turns in
@@ -521,12 +568,12 @@ const STATIONS: {
   // car has no transmission tunnel — a tunnel is a rise BETWEEN two footwells
   // and a cubic across the car has one extremum, not two. Same limit the lamp
   // pods hit. Said here rather than discovered later.
-  { x: 1980, roof: 430,  roofY: 470, floor: 128, hip: 838, hipAt: 0.42, name: "screen" },
-  { x: 2280, roof: 385,  roofY: 460, floor: 128, hip: 840, hipAt: 0.42, name: "header" },
-  { x: 2560, roof: 400,  roofY: 460, floor: 130, hip: 840, hipAt: 0.44, name: "top-rear" },
-  { x: archMouth(REAR_AXLE_X)[0], roof: 430, roofY: 470, floor: 133, hip: 826, hipAt: 0.56, name: "arch-rear-lead" },
+  { x: 1980, roof: Math.max(448, WELL_FLOOR_MIN), roofY: 470, floor: PAD_TOP, hip: 838, hipAt: 0.42, name: "screen" },
+  { x: 2280, roof: Math.max(410, WELL_FLOOR_MIN), roofY: 460, floor: PAD_TOP, hip: 840, hipAt: 0.42, name: "header" },
+  { x: 2560, roof: Math.max(424, WELL_FLOOR_MIN), roofY: 460, floor: PAD_TOP, hip: 840, hipAt: 0.44, name: "top-rear" },
+  { x: archMouth(REAR_AXLE_X)[0], roof: Math.max(448, WELL_FLOOR_MIN), roofY: 470, floor: PAD_TOP - 40, hip: 826, hipAt: 0.56, name: "arch-rear-lead" },
   // ── and closed again: the tonneau behind the seats ──────────────────────
-  { x: 2880, roof: 878,  roofY: 500, floor: 136, hip: 836, hipAt: 0.64, name: "backlight" },
+  { x: 2880, roof: 878,  roofY: 500, floor: PAD_TOP - 80, hip: 836, hipAt: 0.64, name: "backlight" },
   // The boot lid of a roadster sits at the beltline, not above it. It was
   // 985 at the rear axle against a belt of 830 — a dome nobody asked for.
   { x: 3055, roof: 884,  roofY: 560, floor: 142, hip: 844, hipAt: 0.74, name: "rear-axle" },
@@ -599,16 +646,28 @@ for (const st of STATIONS) {
 }
 
 const bulge = (base: Pt3, sign: number, out: number): Pt3 => [base[0], base[1] + sign * out, base[2]];
+/**
+ * Put a cross-car curve's crown at `wantZ`, its shoulders at `wantY`.
+ *
+ * Both ends are pinned — they are the flank, and moving them would unweld the
+ * section — so the crown is reached by placing the two interior control
+ * points, and a cubic at its midpoint reads a quarter of its ends plus three
+ * quarters of its middle. That is the 0.25 / 0.75 below and it is the only
+ * arithmetic here.
+ */
+const setAcross = (id: Id, x: number, wantZ: number, wantY: number): void => {
+  const [p0, , , p3] = ctrlsOf(id);
+  const endZ = (p0[2] + p3[2]) / 2;
+  const ctrlZ = (wantZ - 0.25 * endZ) / 0.75;
+  const yAt = wantY > 0 ? wantY : ((Math.abs(p0[1]) + Math.abs(p3[1])) / 2) * 0.74;
+  setCtrl(id, 1, [x, Math.sign(p0[1]) * yAt, ctrlZ]);
+  setCtrl(id, 2, [x, Math.sign(p3[1]) * yAt, ctrlZ]);
+};
 for (let i = 0; i < STATIONS.length; i++) {
   const st = STATIONS[i]!;
   const sec = sections[i]!;
   for (const [id, wantZ, wantY] of [[sec.deck, st.roof, st.roofY], [sec.under, st.floor, 0]] as const) {
-    const [p0, , , p3] = ctrlsOf(id);
-    const endZ = (p0[2] + p3[2]) / 2;
-    const ctrlZ = (wantZ - 0.25 * endZ) / 0.75;
-    const yAt = wantY > 0 ? wantY : ((Math.abs(p0[1]) + Math.abs(p3[1])) / 2) * 0.74;
-    setCtrl(id, 1, [st.x, Math.sign(p0[1]) * yAt, ctrlZ]);
-    setCtrl(id, 2, [st.x, Math.sign(p3[1]) * yAt, ctrlZ]);
+    setAcross(id, st.x, wantZ, wantY);
   }
   for (const id of sec.flanks) {
     const [p0, , , p3] = ctrlsOf(id);
@@ -624,6 +683,96 @@ for (let i = 0; i < STATIONS.length; i++) {
     setCtrl(id, 2, bulge(lerp3p(p0, p3, 2 / 3), sign, d * (upward ? wHigh : wLow)));
   }
 }
+
+// ── the floor, told where the rails are ───────────────────────────────────
+
+/** The body's underside at (x, y), read off the section curve that owns it. */
+const undersideAtStation = (i: number, y: number): number => {
+  const c = s.state.curves.get(s.state.resolveCurve(sections[i]!.under))!;
+  const N = 96;
+  let prev = evalChain(c.chain, 0);
+  for (let k = 1; k <= N; k++) {
+    const q = evalChain(c.chain, k / N);
+    if ((prev[1] - y) * (q[1] - y) <= 0 && prev[1] !== q[1]) {
+      return prev[2] + (q[2] - prev[2]) * ((y - prev[1]) / (q[1] - prev[1]));
+    }
+    prev = q;
+  }
+  // The curve never reaches that y: the body is narrower there than the frame,
+  // which the caller has to hear about rather than have papered over.
+  return NaN;
+};
+
+/**
+ * The body's underside at (x, y) — the yin-and-yang function.
+ *
+ * Every other floor number in this file is TYPED. This one is READ, off the
+ * curves the section pass just placed, which is what lets the frame be built
+ * against the body instead of beside it. It interpolates between the two
+ * stations bracketing x, because that is what the surface does between them.
+ */
+const undersideAt = (x: number, y: number): number => {
+  let i = 0;
+  while (i < STATIONS.length - 2 && STATIONS[i + 1]!.x < x) i++;
+  const a = STATIONS[i]!, b = STATIONS[i + 1]!;
+  const za = undersideAtStation(i, y), zb = undersideAtStation(i + 1, y);
+  if (!Number.isFinite(za)) return zb;
+  if (!Number.isFinite(zb)) return za;
+  const f = b.x === a.x ? 0 : Math.min(1, Math.max(0, (x - a.x) / (b.x - a.x)));
+  return za + (zb - za) * f;
+};
+
+/**
+ * Lift the underbody clear of the rails wherever a mount is meant to be.
+ *
+ * THE DEFECT THIS EXISTS TO KILL. `floor: PAD_TOP` in the station table sets
+ * the CROWN of an arch whose ends are the rockers, and the rockers are lower,
+ * so over the rail at y = 350 the floor came out 12 to 27 mm under the number
+ * that was typed. Twenty-seven millimetres is more than the mount pad is
+ * tall: the outer skin passed straight through the cowl crossmember and stood
+ * five structure points out in the open, and every body mount read as buried
+ * in bodywork it was nowhere near carrying.
+ *
+ * The fix is a measurement, not a bigger constant. Raise the crown by exactly
+ * what the arch eats, look again — the ends are pinned, so a lift of d at the
+ * crown is less than d over the rail — and stop when the rail is clear. Three
+ * passes is plenty; the residual is reported either way.
+ */
+const clearTheRails = (): void => {
+  /** How far either side of a mount the lift is blended out to nothing. */
+  const SPAN = 700;
+  for (let pass = 0; pass < 4; pass++) {
+    // What each mount that is MEANT to carry the body still lacks. Where the
+    // underside sits below the rail's own centre the body wraps the frame —
+    // a nose over a crash member — and lifting the valance there would buy
+    // nothing but a taller nose.
+    const need: [number, number][] = [];
+    for (const mx of MOUNT_X) {
+      const have = undersideAt(mx, RAIL_Y);
+      if (!Number.isFinite(have) || have < RAIL_Z) continue;
+      const lift = PAD_TOP - have;
+      if (lift > 0.05) need.push([mx, lift]);
+    }
+    if (need.length === 0) break;
+    // BLENDED, and the first version was not. Lifting the mount's own station
+    // and leaving its neighbours put a forty-millimetre step into the
+    // underbody over a hundred and fifty of length: the curve network went
+    // from 16 degrees out of plane to 55, and G1 with it. A floor is a
+    // surface, so a correction to it has to be one too.
+    for (let i = 0; i < STATIONS.length; i++) {
+      const st = STATIONS[i]!;
+      let lift = 0;
+      for (const [mx, d] of need) {
+        const u = Math.min(1, Math.abs(st.x - mx) / SPAN);
+        lift = Math.max(lift, d * (1 - u * u * (3 - 2 * u)));
+      }
+      if (lift <= 0.05) continue;
+      st.floor += lift;
+      setAcross(sections[i]!.under, st.x, st.floor, 0);
+    }
+  }
+};
+clearTheRails();
 
 // The beltline and sill are creased BEFORE the rocker is split, so both marks
 // ride onto every piece. Creasing after would mark only the stretch that kept
@@ -847,11 +996,10 @@ if (process.env["NOWHEELS"] !== "1") {
 // It sits INSIDE the skin, as structure does. That is why the render has a
 // ghost pass and why the chassis wears its own silver: you cannot judge a
 // package you cannot see, and you cannot see two things that look identical.
-const sub = miataConfig.substrate;
-const RAIL_Y = sub.railSpacing.value / 2;
-const RAIL_H = sub.railSectionHeight.value, RAIL_W = sub.railSectionWidth.value;
-const RAIL_Z = miataConfig.placement.railHeight.value;
 const chassisCells: Id[] = [];
+const mounts: BodyMount[] = [];
+/** Crossmember stations the body WRAPS rather than sits on — reported, not faulted. */
+const wrapped: number[] = [];
 if (process.env["NOCHASSIS"] !== "1") {
   const chassisBefore = new Set(s.state.cells.keys());
   const mirroredBefore = new Set(s.state.cells.keys());
@@ -875,11 +1023,16 @@ if (process.env["NOCHASSIS"] !== "1") {
     a: [420, RAIL_Z - RAIL_H / 2], b: [3560, RAIL_Z + RAIL_H / 2],
     depth: RAIL_W, at: RAIL_Y - RAIL_W / 2,
   });
-  // The sills, likewise: `rockerHeight` x `rockerWidth`, inboard of the skin.
-  const SILL_Y = 700;
+  // The sills: `rockerHeight` x `rockerWidth`, INBOARD of the skin and short
+  // of both arches. The first version ran to 2880 at y = 700 and the chassis
+  // lens caught both mistakes in one line — 245 points outside the body, worst
+  // 163 mm at the rear wheel arch, and zero clearance at the rocker. A sill
+  // beam that touches the rocker is the same part as the rocker; a sill beam
+  // that runs into the arch is a beam through a wheel.
+  const SILL_Y = 655;
   beam({
     view: side,
-    a: [1560, 190], b: [2880, 190 + sub.rockerHeight.value],
+    a: [1560, 190], b: [rA - 40, 190 + sub.rockerHeight.value],
     depth: sub.rockerWidth.value, at: SILL_Y - sub.rockerWidth.value / 2,
   });
   const mirrored = [...s.state.cells.keys()].filter((id) => !mirroredBefore.has(id)) as Id[];
@@ -887,7 +1040,7 @@ if (process.env["NOCHASSIS"] !== "1") {
   // Crossmembers: front, dash, seat, rear — `crossmemberCount` of them, spaced
   // over the run the rails cover.
   const N = Math.max(2, Math.round(sub.crossmemberCount.value));
-  const xs = [620, 1700, 2560, 3320];
+  const xs = MOUNT_X;
   for (let i = 0; i < N; i++) {
     const x = xs[i] ?? 620 + ((3320 - 620) * i) / (N - 1);
     beam({
@@ -897,6 +1050,32 @@ if (process.env["NOCHASSIS"] !== "1") {
       depth: 62, at: x,
     });
   }
+  // BODY MOUNTS. The places the two halves are supposed to touch. A body does
+  // not float above a frame, it SITS on it — at discrete pads, at the stiffest
+  // points the frame has, which are the rail and crossmember intersections.
+  // Nothing else in the model had a locus for "the body attaches here", so
+  // nothing could be wrong about it.
+  //
+  // A PAD IS A SHIM, and its height is READ off the body it has to meet rather
+  // than typed. The first version made all four the same twelve millimetres
+  // and the lens reported the two end pairs 167 and 115 mm from bodywork they
+  // were supposed to be carrying — because at the nose and the tail the body
+  // does not sit on the frame at all, it WRAPS it. A crossmember inside a
+  // front valance is a crash structure, and calling it a body mount is a claim
+  // the geometry never supported.
+  for (const x of xs.slice(0, N)) {
+    const padTop = undersideAt(x, RAIL_Y);
+    if (!Number.isFinite(padTop) || padTop < RAIL_TOP + 1) { wrapped.push(x); continue; }
+    beam({
+      view: side,
+      a: [x - MOUNT_PAD / 2, RAIL_TOP],
+      b: [x + MOUNT_PAD / 2, padTop],
+      depth: MOUNT_PAD, at: RAIL_Y - MOUNT_PAD / 2,
+    });
+    mounts.push({ name: `mount@${x}`, at: [x, RAIL_Y, padTop], padHalf: MOUNT_PAD / 2 });
+    mounts.push({ name: `mount@${x}-R`, at: [x, -RAIL_Y, padTop], padHalf: MOUNT_PAD / 2 });
+  }
+
   // The tunnel: propshaft, PPF and exhaust, between the seats.
   beam({
     view: side,
@@ -1091,7 +1270,7 @@ for (const cell of flatEnds) {
 // trim — and the render reads the class from the same place rather than
 // sniffing the name. A body and its chassis in two different silvers is the
 // whole reason the class exists.
-const skinCells = new Set<Id>();
+const bodyCells = new Set<Id>();
 const MATERIALS = {
   paint: CATALOGUE["Classic Red"]!,
   frame: CATALOGUE["screen frame"]!,
@@ -1130,7 +1309,13 @@ const MATERIALS = {
     // The profile check compares a BODY against a body, so it needs to know
     // which cells are one. Structure and glazing are separate assemblies and
     // sectioning them in reports the A-pillar as an error in the cowl.
-    if (finishOf(m.name, m.color).surfaceClass === "skin") skinCells.add(cellId);
+    // The BODY is skin and trim together: the undertray is the bottom of the
+    // same closed solid and the cockpit well is its inside. Splitting them out
+    // leaves a shell with a hole in it, and a hole breaks every parity test
+    // downstream — which is exactly how the first run of the chassis lens
+    // reported half the frame as sticking out of the car.
+    const klass = finishOf(m.name, m.color).surfaceClass;
+    if (klass === "skin" || klass === "trim") bodyCells.add(cellId);
   };
   for (const id of wheelTread) give(id, MATERIALS.tyre);
   for (const id of wheelDisc) give(id, MATERIALS.rim);
@@ -1332,14 +1517,20 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
 // hundred. `scripts/body-profile.ts` prints the whole table.
 {
   const keep = new Uint8Array(printed.indices.length / 3);
+  const struct = new Uint8Array(printed.indices.length / 3);
+  // Containment applies to BURIED structure. A screen frame is structure that
+  // stands proud of the body on purpose, so testing it for containment would
+  // report a windscreen as an 885 mm protrusion — which the first run did.
+  const structSet = new Set<Id>(chassisCells);
   for (const r of mesh.ranges) {
     const id = (r.id.endsWith("~m") ? r.id.slice(0, -2) : r.id) as Id;
-    if (!skinCells.has(id)) continue;
-    for (let t = r.start; t < r.start + r.count; t += 3) keep[t / 3] = 1;
+    if (bodyCells.has(id)) for (let t = r.start; t < r.start + r.count; t += 3) keep[t / 3] = 1;
+    else if (structSet.has(id)) for (let t = r.start; t < r.start + r.count; t += 3) struct[t / 3] = 1;
   }
-  const idx: number[] = [];
+  const idx: number[] = [], structIdx: number[] = [];
   for (let t = 0; t < printed.indices.length; t += 3) {
-    if (keep[t / 3]) idx.push(printed.indices[t]!, printed.indices[t + 1]!, printed.indices[t + 2]!);
+    const tri = [printed.indices[t]!, printed.indices[t + 1]!, printed.indices[t + 2]!];
+    if (keep[t / 3]) idx.push(...tri); else if (struct[t / 3]) structIdx.push(...tri);
   }
   const skin = { positions: printed.positions, indices: Uint32Array.from(idx) };
   let worstW = 0, worstZ = 0, over = 0, atW = 0;
@@ -1351,6 +1542,49 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
     if (Math.abs(dz) > Math.abs(worstZ)) worstZ = dz;
     if (Math.abs(dw) > MX5_PROFILE_TOLERANCE_MM || Math.abs(dz) > MX5_PROFILE_TOLERANCE_MM) over++;
   }
+  // ── the two halves, against each other ─────────────────────────────────
+  // The yin and yang, as three numbers. Containment says whether the structure
+  // is hidden; clearance says whether a panel would read it through; the
+  // mounts say whether the body sits on the frame or merely near it.
+  const structure = { positions: printed.positions, indices: Uint32Array.from(structIdx) };
+  if (process.env["DBG"] === "1") {
+    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    const seen = new Set<number>();
+    for (const i of structIdx) seen.add(i);
+    for (const i of seen) for (let k = 0; k < 3; k++) {
+      lo[k] = Math.min(lo[k]!, printed.positions[i * 3 + k]!);
+      hi[k] = Math.max(hi[k]!, printed.positions[i * 3 + k]!);
+    }
+    console.log(`  DBG chassisCells ${chassisCells.length} pillarCells ${pillarCells.length} structSet ${structSet.size}`);
+    console.log(`  DBG structure extent ${lo.map((v) => v.toFixed(0)).join(",")} .. ${hi.map((v) => v.toFixed(0)).join(",")}`);
+    const bodyIds = [...bodyCells].length;
+    console.log(`  DBG bodyCells ${bodyIds} · body tris ${idx.length / 3} · struct tris ${structIdx.length / 3} · total ${printed.indices.length / 3}`);
+    console.log(`  DBG PAD_TOP ${PAD_TOP} · RAIL_Z ${RAIL_Z} · RAIL_H ${RAIL_H} · RAIL_Y ${RAIL_Y}`);
+    for (const m of mounts) {
+      const sec = sliceSection(skin, m.at[0]);
+      console.log(`  DBG ${m.name} y ${m.at[1].toFixed(0)} z ${m.at[2].toFixed(0)} · column [${scanUp(sec, m.at[1]).map((v) => v.toFixed(0)).join(", ")}]`);
+    }
+  }
+  const fit = chassisFit(skin, structure, mounts);
+  line("chassis hidden by the skin",
+    `${fit.points - fit.outsideVisible} of ${fit.points} points · ${fit.exposedBelow} slung under the floor` +
+    (fit.outsideVisible === 0
+      ? " · nothing showing"
+      : ` · worst protrusion ${fit.worstProtrusion.toFixed(0)} mm at [${fit.worstProtrusionAt.map((v) => v.toFixed(0)).join(", ")}]`));
+  line("  skin clearance", `${fit.minClearance.toFixed(0)} mm closest at [${fit.minClearanceAt.map((v) => v.toFixed(0)).join(", ")}] · ` +
+    `${fit.medianClearance.toFixed(0)} median · ${fit.tight} of ${fit.covered} covered points inside ${MIN_SKIN_CLEARANCE.value}`);
+  line("  frame under the body", `${(fit.spanCoverage * 100).toFixed(0)}% of the length`);
+  {
+    const on = fit.mounts.filter((m) => m.standoff !== null && Math.abs(m.standoff) <= 15);
+    line("  body mounts", `${on.length} of ${fit.mounts.length} carrying the body · standoff ` +
+      fit.mounts.map((m) => m.standoff === null ? "—" : m.standoff.toFixed(0)).join(" / ") + " mm");
+    if (wrapped.length > 0) {
+      line("  wrapped, not mounted", `x ${wrapped.join(", ")} — the body's underside is below the rail there, ` +
+        "so the frame is inside the bodywork and there is nothing for a pad to reach");
+    }
+  }
+  for (const f of fit.faults) line("  chassis FAULT", f);
+
   line("profile vs the real car",
     `worst ${worstW.toFixed(0)} mm wide at x ${atW.toFixed(0)} · ${worstZ.toFixed(0)} mm tall · ` +
     `${over} of ${MX5_PROFILE.length} stations outside ${MX5_PROFILE_TOLERANCE_MM} mm (reference ASSUMED)`);

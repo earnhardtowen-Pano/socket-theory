@@ -14,7 +14,9 @@
  *
  * And the cabin lens: the body sectioned against the PERSON the packing solve
  * placed, so headroom is a distance between a body and a head rather than a
- * number somebody typed into a station table.
+ * number somebody typed into a station table. And the chassis fit, which asks
+ * the same kind of question of the other half of the car: is the structure
+ * inside the skin, how close does it come, and does the body sit on it.
  */
 
 export {
@@ -28,6 +30,15 @@ export {
   type AxleLoads,
   type ClearanceReadback,
 } from "./mass.js";
+
+export {
+  chassisFit,
+  MIN_SKIN_CLEARANCE,
+  type BodyMount,
+  type MountFit,
+  type ChassisFitReport,
+  type ChassisFitOptions,
+} from "./chassis.js";
 
 export {
   cabinLens,

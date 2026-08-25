@@ -578,6 +578,83 @@ cannot be left- and right-hand different.
 
 ---
 
+## The chassis lens — the half of the car nothing was measuring
+
+The MX-5 had a frame from the day it was built, and until this lens existed
+the frame and the body were two sets of boxes that happened to occupy the same
+space. Move the rails 200 mm and nothing complained; no number changed. Two
+things that cannot disagree are not related, they are merely adjacent.
+
+`chassisFit` asks three questions the geometry can answer — containment,
+clearance, registration — and every one of them found something on the first
+run:
+
+| | first reading | after |
+|---|---|---|
+| structure outside the skin where it shows | 5 points, worst 27 mm | **0** |
+| body mounts carrying the body | 0 of 8 | **4 of 4** |
+| mount standoff | 448 / 448 / 520 / 520 / 124 / 124 / 498 / 498 mm | **3 / 3 / 3 / 3** |
+| structure tight against a covering panel | 229 of 3,112 | 21 of 3,616 |
+
+Four of the readings were defects in the lens, not the car, and each one is
+worth more than the number it produced:
+
+**It walked `positions`, not the vertices its own indices reference.** The
+structure and the body share one buffer, so the "frame" it measured was the
+whole car and it reported the windscreen header as an 885 mm frame protrusion.
+`usedVertices` and `xRange` exist because of this.
+
+**It had one number for two opposite things.** A frame is *meant* to be
+visible from underneath — that is what body-on-frame means — and calling that
+a protrusion called a chassis doing its job a defect. Now `exposedBelow` is
+reported and `outsideVisible` is the fault.
+
+**It read the mount column bottom-up.** A pad in the sky above the deck came
+back as buried 850 mm inside a car it was nowhere near. The surface a pad
+would touch is the first one ABOVE it when the pad is in the air and the first
+one BELOW it when the pad is in bodywork, and those are different questions.
+
+**It faulted its own welds.** A car whose structure is welded to its floor
+touches its own skin on purpose — at the mount pads, along the rail flanges,
+over the tunnel — and every one of those reads zero millimetres. Faulting the
+closest single point called three welds a defect and said nothing about the
+defect the reading exists for, which is a REGION of panel drawn tight over
+structure. Two changes fixed it: `coverClearance`, which only counts skin
+BETWEEN the eye and the structure and is told where the floor pan is so it can
+skip it; and a fault raised on how MANY points are tight rather than on the
+worst one.
+
+### And what it found in the car
+
+**The floor did not know where the rails were.** `floor: PAD_TOP` in the
+station table sets the CROWN of an arch whose ends are the rockers, so over
+the rail the floor came out 12 to 27 mm below the number that was typed —
+enough for the outer skin to pass straight through the cowl crossmember. The
+fix is a measurement, not a bigger constant: `undersideAt(x, y)` reads the
+body's underside off the section curves the surfacing pass just placed, and
+`clearTheRails` lifts the crown by exactly what the arch eats, blended over
+700 mm either side. Lifting the mount's own station and leaving its neighbours
+put a 40 mm step into the underbody and took the network from 16° out of plane
+to 55°. A floor is a surface, so a correction to it has to be one too.
+
+**A pad is a shim, and its height is read rather than typed.** All four were
+the same 12 mm and the two end pairs came back 167 and 115 mm from bodywork
+they were supposed to be carrying — because at the nose and the tail the body
+does not sit on the frame at all, it WRAPS it. A crossmember inside a front
+valance is a crash structure; calling it a body mount was a claim the geometry
+never supported. Those two stations are now reported as wrapped and are not
+mounts.
+
+**The tunnel was pressing into the cabin floor down its whole length.** The
+cockpit floor was typed at 410 with a tunnel topping out at 402. It is now
+`max(typed, tunnelTop + MIN_SKIN_CLEARANCE)` — and that threshold is imported
+from the lens, so the body clears the structure by exactly the figure the lens
+will hold it to.
+
+The residual 3 mm on all four mounts is the surfacing field: the curve says
+`PAD_TOP` and the built mesh reads 3 mm under it. Inside the 15 mm the mount
+tolerance allows, and reported rather than rounded away.
+
 ## What is still open
 
 - **The 36 network corners.** Some are genuine features that should be

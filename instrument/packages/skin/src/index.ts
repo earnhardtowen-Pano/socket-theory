@@ -17,7 +17,8 @@
  */
 
 export {
-  sliceSection, scanAt, sectionAt, evenStations,
+  sliceSection, scanAt, scanUp, sectionAt, evenStations,
+  coverClearance, insideSection, sampledVertices, sectionCache, wallClearance, usedVertices, xRange,
   type SectionMesh, type SectionOptions, type Seg2, type StationSection,
 } from "./section.js";
 export {

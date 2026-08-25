@@ -195,6 +195,33 @@ export function sectionAt(
 
 
 /**
+ * The vertices a mesh's INDICES actually reference, as flat vertex numbers.
+ *
+ * Not the same as "every vertex in the positions array", and the difference is
+ * a trap worth naming: a caller filtering one part out of a bigger mesh keeps
+ * the shared positions buffer and hands over a shorter index list. Anything
+ * that walks positions then measures the WHOLE car and calls it the part —
+ * which is how the chassis lens first reported a windscreen header as an
+ * 885 mm protrusion of the frame.
+ */
+export function usedVertices(mesh: SectionMesh): number[] {
+  const seen = new Set<number>();
+  for (const i of mesh.indices) seen.add(i);
+  return [...seen].sort((a, b) => a - b);
+}
+
+/** The x range of the geometry a mesh's indices reference. */
+export function xRange(mesh: SectionMesh): [number, number] {
+  let lo = Infinity, hi = -Infinity;
+  for (const v of usedVertices(mesh)) {
+    const x = mesh.positions[v * 3]!;
+    if (x < lo) lo = x;
+    if (x > hi) hi = x;
+  }
+  return Number.isFinite(lo) ? [lo, hi] : [0, 0];
+}
+
+/**
  * Evenly spaced stations across a mesh's own x range, at cell centres.
  *
  * A sampling density, which is arithmetic — how finely you look at something
@@ -202,12 +229,175 @@ export function sectionAt(
  * package where every number IS a claim.
  */
 export function evenStations(mesh: SectionMesh, count = 40): number[] {
-  let lo = Infinity, hi = -Infinity;
-  for (let i = 0; i < mesh.positions.length; i += 3) {
-    const x = mesh.positions[i]!;
-    if (x < lo) lo = x;
-    if (x > hi) hi = x;
-  }
+  const [lo, hi] = xRange(mesh);
   const n = Math.max(1, Math.floor(count));
   return Array.from({ length: n }, (_, i) => lo + ((hi - lo) * (i + 0.5)) / n);
+}
+
+/**
+ * Sections and floor profiles of one mesh, cached.
+ *
+ * Slicing is the expensive part of every question a chassis asks, and the
+ * points it asks about share very few x values — a box has eight. Both grids
+ * are quantisation, not judgement: a quarter of a millimetre is finer than any
+ * mesh this package will see, and a floor pan is a metre wide so five
+ * millimetres locates it. That is why they live here and not in the lens.
+ *
+ * `floorAtX(x)` returns the body's LOWEST surface at a given y, which is what
+ * tells a floor pan from a panel — see `coverClearance`.
+ */
+export function sectionCache(mesh: SectionMesh): {
+  sectionAtX: (x: number) => Seg2[];
+  floorAtX: (x: number) => (y: number) => number;
+} {
+  const STATION_STEP = 0.25, FLOOR_STEP = 5;
+  const sections = new Map<number, Seg2[]>();
+  const floors = new Map<number, (y: number) => number>();
+  const keyOf = (x: number): number => Math.round(x / STATION_STEP) * STATION_STEP;
+  const sectionAtX = (x: number): Seg2[] => {
+    const key = keyOf(x);
+    let s = sections.get(key);
+    if (!s) { s = sliceSection(mesh, key); sections.set(key, s); }
+    return s;
+  };
+  const floorAtX = (x: number): ((y: number) => number) => {
+    const key = keyOf(x);
+    let f = floors.get(key);
+    if (f) return f;
+    const section = sectionAtX(key);
+    const grid = new Map<number, number>();
+    f = (y: number): number => {
+      const k = Math.round(y / FLOOR_STEP);
+      let v = grid.get(k);
+      if (v === undefined) {
+        const col = scanUp(section, k * FLOOR_STEP);
+        v = col.length === 0 ? -Infinity : col[0]!;
+        grid.set(k, v);
+      }
+      return v;
+    };
+    floors.set(key, f);
+    return f;
+  };
+  return { sectionAtX, floorAtX };
+}
+
+/**
+ * An even sample of the vertices a mesh's indices reference.
+ *
+ * Sampling, never a claim — the caller says how many it can afford and this
+ * spreads them over the buffer in index order. Ten thousand is a mesh a lens
+ * can walk in a moment; a car is a million.
+ */
+export function sampledVertices(mesh: SectionMesh, limit = 4000): number[] {
+  const verts = usedVertices(mesh);
+  const step = Math.max(1, Math.floor(verts.length / Math.max(1, limit)));
+  const out: number[] = [];
+  for (let k = 0; k < verts.length; k += step) out.push(verts[k]!);
+  return out;
+}
+
+/**
+ * Is (y, z) inside the solid the section bounds?
+ *
+ * Parity on the crossings to its left. The body a mesher hands back is a
+ * CLOSED SOLID rather than a shell with thickness, so this answers exactly the
+ * question a chassis asks: am I buried in the bodywork, or am I out in the
+ * air where somebody can see me? A point in an open cockpit is outside, and
+ * correctly so — the cockpit is air.
+ *
+ * The duplicate collapse in `scanAt` is what makes the parity right: every
+ * quad face is two triangles, and a scan line crossing their shared diagonal
+ * is reported by both. Counting that twice flips the answer.
+ */
+export function insideSection(section: readonly Seg2[], y: number, z: number): boolean {
+  const ys = scanAt(section, z);
+  let left = 0;
+  for (const c of ys) if (c < y) left++;
+  return left % 2 === 1;
+}
+
+/** Distance from (y, z) to the nearest piece of the section, mm. */
+export function wallClearance(section: readonly Seg2[], y: number, z: number): number {
+  let best = Infinity;
+  for (const s of section) {
+    const [ya, za] = s.a, [yb, zb] = s.b;
+    const dy = yb - ya, dz = zb - za;
+    const len2 = dy * dy + dz * dz;
+    let t = len2 > EPS ? ((y - ya) * dy + (z - za) * dz) / len2 : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const ey = y - (ya + t * dy), ez = z - (za + t * dz);
+    const d = Math.sqrt(ey * ey + ez * ez);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+/**
+ * Distance to the skin that COVERS a point — over it or beside it, never under.
+ *
+ * WHY THIS IS NOT `wallClearance`. The defect being looked for is a panel
+ * drawn tight over structure: the flat spot and the dying highlight every
+ * cheap car has over its sill. That needs a panel BETWEEN the eye and the
+ * structure. A frame rail welded to the floor pan it sits on is zero
+ * millimetres from the skin and is not a defect at all — it is a weld, and
+ * every unibody on earth has one. Measuring in all directions cannot tell the
+ * two apart and calls the weld the fault.
+ *
+ * So a segment counts only when the point of it nearest the query is not
+ * BELOW the query. Floor under a rail: excluded. Rocker beside it, deck over
+ * it: counted. Returns Infinity when nothing covers the point, which is the
+ * honest answer for structure hanging in the open under a car.
+ *
+ * `floorAt` is the second half of the same idea and the caller has to supply
+ * it, because only the caller can section the body. A frame rail spot-welded
+ * to the floor pan ABOVE it is zero millimetres from the skin and is not a
+ * read-through either — it is the same weld seen from the other side, and
+ * nobody has ever looked at a floor pan and complained about a flat spot. A
+ * covering point sitting on the body's lowest surface in its own column is
+ * that pan, and is skipped. Omit `floorAt` and every covering surface counts.
+ */
+export function coverClearance(
+  section: readonly Seg2[],
+  y: number,
+  z: number,
+  floorAt?: (y: number) => number,
+): number {
+  let best = Infinity;
+  for (const s of section) {
+    const [ya, za] = s.a, [yb, zb] = s.b;
+    const dy = yb - ya, dz = zb - za;
+    const len2 = dy * dy + dz * dz;
+    let t = len2 > EPS ? ((y - ya) * dy + (z - za) * dz) / len2 : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const cz = za + t * dz;
+    if (cz < z - EPS) continue;
+    const cy = ya + t * dy;
+    if (floorAt && cz <= floorAt(cy) + 1) continue;
+    const ey = y - cy, ez = z - cz;
+    const d = Math.sqrt(ey * ey + ez * ez);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+/**
+ * Where a VERTICAL line at y crosses a section, bottom to top.
+ *
+ * The transpose of `scanAt`, and it needs to exist for the same reason: a body
+ * mount asks "how far up is the floor from here", which is a question about a
+ * column, not a row.
+ */
+export function scanUp(section: readonly Seg2[], y: number): number[] {
+  const zs: number[] = [];
+  for (const s of section) {
+    const [ya, za] = s.a, [yb, zb] = s.b;
+    if ((ya - y) * (yb - y) > 0) continue;
+    if (Math.abs(yb - ya) < EPS) continue;
+    zs.push(za + ((y - ya) / (yb - ya)) * (zb - za));
+  }
+  zs.sort((a, b) => a - b);
+  const out: number[] = [];
+  for (const z of zs) if (out.length === 0 || z - out[out.length - 1]! > 1) out.push(z);
+  return out;
 }
