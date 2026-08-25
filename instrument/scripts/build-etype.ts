@@ -40,11 +40,13 @@ import { assembleCar, shoulderAboveHip95M, shoulderBreadth95M } from "@car/types
 import { CATALOGUE, finishOf, scanAt, scanUp, sectionAt, sliceSection } from "@car/skin";
 import { solve } from "@car/pack";
 import {
-  cabinLens, chassisFit, skinSupport, structureFit, MIN_SKIN_CLEARANCE, SKIN_REACH,
-  type BodyMount, type CabinPerson, type CarriedPart, type SectionMesh, type StructureMember,
+  cabinLens, chassisFit, packageAt, packageMisses, skinSupport, structureFit,
+  MIN_SKIN_CLEARANCE, SKIN_REACH,
+  type BodyMount, type CabinPerson, type CarriedPart, type PackageBox, type SectionMesh,
+  type StructureMember,
 } from "@car/lens";
 import {
-  etypeConfig, ETYPE_DIAMETER, ETYPE_FRONT_OVERHANG, ETYPE_FRONT_TRACK,
+  etypeConfig, etypeV12Config, ETYPE_DIAMETER, ETYPE_FRONT_OVERHANG, ETYPE_FRONT_TRACK,
   ETYPE_PROFILE, ETYPE_PROFILE_TOLERANCE_MM, ETYPE_REAR_TRACK,
   ETYPE_HEIGHT, ETYPE_LENGTH, ETYPE_TIRE_WIDTH, ETYPE_WHEELBASE, ETYPE_WIDTH,
 } from "@car/fixtures";
@@ -62,7 +64,14 @@ import {
 import { dist3, evalChain } from "@car/num";
 
 // ── 1. the packaging solve ────────────────────────────────────────────────
-const car = assembleCar(etypeConfig, makeAllocator());
+/**
+ * Which engine is in it. `ENGINE=v12` swaps the powertrain and NOTHING else —
+ * same wheelbase, same track, same station tables — so anything that moves in
+ * the built car moved because of the engine.
+ */
+const V12 = process.env["ENGINE"] === "v12";
+const config = V12 ? etypeV12Config : etypeConfig;
+const car = assembleCar(config, makeAllocator());
 const packed = solve(car.input);
 
 /**
@@ -125,8 +134,146 @@ const ARCH_END = 0.06 * Math.PI;
 const ARCH_HALF = ARCH_R * Math.cos(ARCH_END);
 const archMouth = (axleX: number): [number, number] => [axleX - ARCH_HALF, axleX + ARCH_HALF];
 
+// ── 1b. what the car has to contain, and the frame that gets round it ─────
+// THE CAUSALITY USED TO RUN THE OTHER WAY. A body was authored from a station
+// table somebody typed, a frame was derived from the parts afterwards, and a
+// lens then complained when the two disagreed — at which point the answer was
+// always to retype the body until it stopped. That is a person doing by hand
+// what the geometry already knows.
+//
+// A real car is the other way round. This one has that bonnet BECAUSE the XK
+// six is 663 mm long and stands 620 tall and a tube frame has to get round
+// it. So the parts come first, the frame's proportions come off the parts,
+// and the BODY's own tables become a floor under the styling rather than the
+// whole of it: where the two disagree the package wins and the report names
+// the part that won it.
+
+/**
+ * Every part the packing solve placed, as a box in BODY coordinates.
+ *
+ * The solve works from the front axle and the body from the nose, so every
+ * envelope shifts by the front overhang — the same conversion `personInBody`
+ * makes for the occupant, and for the same reason.
+ */
+const placedParts = (): CarriedPart[] => {
+  const out: CarriedPart[] = [];
+  for (const part of car.input.parts) {
+    const pose = packed.placements.get(part.id);
+    const env = part.envelope;
+    if (!pose || !env) continue;
+    const o = env.offset ?? [0, 0, 0];
+    const c: Pt3 = [
+      pose.origin[0] + o[0] + ETYPE_FRONT_OVERHANG,
+      pose.origin[1] + o[1],
+      pose.origin[2] + o[2],
+    ];
+    const h = env.size.map((q) => q.value / 2) as [number, number, number];
+    out.push({
+      name: part.label,
+      lo: [c[0] - h[0], c[1] - h[1], c[2] - h[2]],
+      hi: [c[0] + h[0], c[1] + h[1], c[2] + h[2]],
+      massKg: part.mass?.value,
+    });
+  }
+  return out;
+};
+const parts = placedParts();
+if (process.env["DBG"] === "1") {
+  for (const q of parts) {
+    console.log(`  DBG part ${q.name.padEnd(30)} ${q.lo.map((v) => v.toFixed(0)).join(",")} .. ${q.hi.map((v) => v.toFixed(0)).join(",")}`);
+  }
+}
+/** One placed part's box, by a fragment of its label. Throws rather than guesses. */
+const partBox = (frag: string): CarriedPart => {
+  const hit = parts.find((q) => q.name.includes(frag));
+  if (!hit) throw new Error(`no placed part matching "${frag}"`);
+  return hit;
+};
+
+
+/**
+ * The front frame's proportions, as a pure function of what it carries.
+ *
+ * Everything here is read. The nose is the radiator's front face less a
+ * tube's clearance; the tube spacing is the engine's width plus the same; the
+ * top is the engine's own crown. Change the engine and every one of these
+ * moves, which is the point — and the body reads them, so the body moves too.
+ *
+ * `lowZ` is deliberately NOT here. It has a second bound, the body's own
+ * underside, and that is not known until the body exists; the chassis block
+ * settles it once both are.
+ */
+const TUBE_CLEAR = 74;
+const TUBE = 34;
+const frameEnvelope = () => {
+  const engine = partBox("engine-ice");
+  const rad = partBox("cooling");
+  const lowY = Math.max(engine.hi[1], rad.hi[1]) + TUBE_CLEAR;
+  return {
+    engine, rad,
+    nose: Math.min(rad.lo[0], engine.lo[0]) - TUBE_CLEAR,
+    lowY,
+    upY: lowY + 58,
+    upZ: engine.hi[2] - 30,
+    lowZfloor: engine.lo[2] + 120,
+  };
+};
+const FRAME = frameEnvelope();
+if (process.env["DBG"] === "1") {
+  const e = FRAME.engine;
+  console.log(`  DBG engine ${e.name}`);
+  console.log(`  DBG   box    ${e.lo.map((v) => v.toFixed(0)).join(",")} .. ${e.hi.map((v) => v.toFixed(0)).join(",")}` +
+    ` (${(e.hi[0] - e.lo[0]).toFixed(0)} long, ${(e.hi[1] - e.lo[1]).toFixed(0)} wide, ${(e.hi[2] - e.lo[2]).toFixed(0)} tall, ${e.massKg?.toFixed(0) ?? "—"} kg)`);
+  console.log(`  DBG   frame  nose ${FRAME.nose.toFixed(0)} · tubes y ${FRAME.lowY.toFixed(0)}/${FRAME.upY.toFixed(0)} · top ${FRAME.upZ.toFixed(0)} · floor ${FRAME.lowZfloor.toFixed(0)}`);
+}
+
+/** The frame's tubes as a box, so a body that clears the engine clears them too. */
+const FRAME_BOX: PackageBox = {
+  name: "frame-tubes",
+  lo: [FRAME.nose, -FRAME.upY - TUBE, FRAME.lowZfloor - TUBE],
+  hi: [2532, FRAME.upY + TUBE, FRAME.upZ + TUBE],
+};
+
+/**
+ * WHAT DRIVES THE BODY, and it is not everything.
+ *
+ * The hard mechanical package: the frame, and the four things it is built
+ * around. These are solids that must fit, so the body's tables are clamped to
+ * them — put a taller engine in and the bonnet rises, which is the whole
+ * point of the inversion.
+ *
+ * WHAT DOES NOT DRIVE IT, and why. The first version clamped the body to
+ * every placed part and produced a van: 1880 wide and 1518 tall against a
+ * published 1657 by 1219. Two boxes did it.
+ *
+ *   The OCCUPANT ARRAY is one box from heel to head vertex, and its top is a
+ *   95th-percentile male's head at 1350 mm. Clamping to it raises the roof
+ *   176 mm above an E-Type's — which is a true statement about the occupant
+ *   and a false one about the car. The real coupe does not fit that person
+ *   either; `cabinLens` already says so in millimetres, and that is the right
+ *   place for it.
+ *
+ *   The SUSPENSION is a SWEPT volume, 1790 mm wide — the wheels through
+ *   their travel and their lock, not a solid. A body is not required to
+ *   enclose a swept volume; it is required to have arches over it, which is
+ *   a different geometry the arch pass already authors.
+ *
+ * Both are still REPORTED against, under `package vs styling`. Reporting a
+ * demand and obeying it are different things, and only one of them turns a
+ * car into a box.
+ */
+const DRIVING: PackageBox[] = [
+  FRAME_BOX,
+  ...parts.filter((q) => /engine-ice|cooling|transmission|driveline|fuel-tank/.test(q.name)),
+];
+/** Everything, for the report. */
+const CONTAINED: PackageBox[] = [
+  FRAME_BOX,
+  ...parts.filter((q) => !q.name.includes("wheel-tire") && !q.name.startsWith("substrate")),
+];
+
 // ── 2. author the body ────────────────────────────────────────────────────
-const s = createSession("E-Type S1 FHC");
+const s = createSession(V12 ? "E-Type S3 V12 FHC" : "E-Type S1 FHC");
 const side = { kind: "side" as const };
 
 const LEN = 4453, HW = 828, FLOOR = 120, TOP = 1219;
@@ -477,7 +624,7 @@ const railPlanY = profile([
   [REAR_AXLE_X, 448], [rB, 452],
   [4180, 396], [4320, 306], [LEN, 168],
 ]);
-const railZ = profile([
+const railZdrawn = profile([
   [0, 552], [180, 622], [430, 700], [620, 738], [fA, 776],
   [FRONT_AXLE_X, 818], [fB, 852],
   // The bonnet's own crown, and then the scuttle: 160 mm of height in a tenth
@@ -487,6 +634,20 @@ const railZ = profile([
   [3560, 1158], [REAR_AXLE_X, 1098],
   [3980, 968], [4180, 878], [4320, 806], [LEN, 726],
 ]);
+
+/**
+ * The roof rail, RAISED wherever the package needs more than was drawn.
+ *
+ * This is the inversion, in one function. `railZdrawn` is what a person
+ * typed; `packageAt` is what the car contains at that station; the line the
+ * body is built on is the larger. Put a taller engine in and the bonnet rises
+ * — not because anybody redrew it, but because the number it was drawn from
+ * moved. Every station the package won is reported by name at the end.
+ */
+const railZ = (x: number): number => Math.max(railZdrawn(x), packageAt(DRIVING, x).top);
+
+/** How much of the roofline is the package's doing rather than the styling's. */
+const packageLift = (x: number): number => railZ(x) - railZdrawn(x);
 
 /**
  * The beltline's HEIGHT, and unlike the MX-5's it had to be authored.
@@ -701,6 +862,7 @@ const crownZ = (x: number): number => railZ(x) + crownRise(x);
 const STATIONS: {
   x: number; roof: number; floor: number; hip: number; hipAt: number;
   sailBulge: number; name: string;
+  drawn: { top: number; floor: number; halfWidth: number };
 }[] = ([
   { x: 120,  floor: 400, hip: 300, hipAt: 0.50, sailBulge: 5,  name: "nose-tip" },
   { x: 330,  floor: 300, hip: 492, hipAt: 0.50, sailBulge: 9,  name: "mouth" },
@@ -724,7 +886,20 @@ const STATIONS: {
   { x: archMouth(REAR_AXLE_X)[1], floor: 195, hip: 770, hipAt: 0.54, sailBulge: 12, name: "arch-rear-trail" },
   { x: 4250, floor: 288, hip: 668, hipAt: 0.48, sailBulge: 9,  name: "tail" },
   { x: 4390, floor: 390, hip: 500, hipAt: 0.48, sailBulge: 4,  name: "tail-tuck" },
-] as const).map((st) => ({ ...st, roof: crownZ(st.x) }));
+] as const).map((st) => {
+  // The package under the styling, at the station level as well as the master
+  // line's. A crown lower than the contents, a floor above the sump, or a
+  // flank narrower than the widest thing at that station are all the same
+  // mistake, and all three are corrected here and reported below.
+  const need = packageAt(DRIVING, st.x);
+  return {
+    ...st,
+    drawn: { top: crownZ(st.x), floor: st.floor, halfWidth: st.hip },
+    roof: Math.max(crownZ(st.x), need.top),
+    floor: Number.isFinite(need.bottom) ? Math.min(st.floor, need.bottom) : st.floor,
+    hip: Math.max(st.hip, need.halfWidth),
+  };
+});
 
 // Every arch mouth and crown must BE a station: the rocker can only be split
 // where no cell claims across, and a station cut is what makes that true.
@@ -1288,48 +1463,6 @@ let members: StructureMember[] = [];
 /** Crossmember stations the body WRAPS rather than sits on — reported, not faulted. */
 const wrapped: number[] = [];
 
-/**
- * Every part the packing solve placed, as a box in BODY coordinates.
- *
- * The solve works from the front axle and the body from the nose, so every
- * envelope shifts by the front overhang — the same conversion `personInBody`
- * makes for the occupant, and for the same reason.
- */
-const placedParts = (): CarriedPart[] => {
-  const out: CarriedPart[] = [];
-  for (const part of car.input.parts) {
-    const pose = packed.placements.get(part.id);
-    const env = part.envelope;
-    if (!pose || !env) continue;
-    const o = env.offset ?? [0, 0, 0];
-    const c: Pt3 = [
-      pose.origin[0] + o[0] + ETYPE_FRONT_OVERHANG,
-      pose.origin[1] + o[1],
-      pose.origin[2] + o[2],
-    ];
-    const h = env.size.map((q) => q.value / 2) as [number, number, number];
-    out.push({
-      name: part.label,
-      lo: [c[0] - h[0], c[1] - h[1], c[2] - h[2]],
-      hi: [c[0] + h[0], c[1] + h[1], c[2] + h[2]],
-      massKg: part.mass?.value,
-    });
-  }
-  return out;
-};
-const parts = placedParts();
-if (process.env["DBG"] === "1") {
-  for (const q of parts) {
-    console.log(`  DBG part ${q.name.padEnd(30)} ${q.lo.map((v) => v.toFixed(0)).join(",")} .. ${q.hi.map((v) => v.toFixed(0)).join(",")}`);
-  }
-}
-/** One placed part's box, by a fragment of its label. Throws rather than guesses. */
-const partBox = (frag: string): CarriedPart => {
-  const hit = parts.find((q) => q.name.includes(frag));
-  if (!hit) throw new Error(`no placed part matching "${frag}"`);
-  return hit;
-};
-
 if (process.env["NOCHASSIS"] !== "1") {
   const chassisBefore = new Set(s.state.cells.keys());
   const kit = memberKit({
@@ -1341,17 +1474,11 @@ if (process.env["NOCHASSIS"] !== "1") {
   const { beam, strut } = kit;
 
   // ── what the frame has to fit round ─────────────────────────────────────
-  // The four numbers below used to be typed. They are read now, and the first
-  // run of the reading found the picture frame at x = 1180 with the engine
-  // reaching to 788 and the radiator to 774 — a crossmember through a
+  // Read, not typed, and now read ABOVE the body as well — see `frameEnvelope`.
+  // The first run of this reading found the picture frame at x = 1180 with the
+  // engine reaching to 788 and the radiator to 774: a crossmember through a
   // cylinder head, on a car that had passed every probe there was.
-  const engine = partBox("engine-ice");
-  const rad = partBox("cooling");
-  /** Air between a tube and the part it runs past. */
-  const TUBE_CLEAR = 74;
-  const FRAME_NOSE = Math.min(rad.lo[0], engine.lo[0]) - TUBE_CLEAR;
-  const LOW_Y = Math.max(engine.hi[1], rad.hi[1]) + TUBE_CLEAR;
-  const UP_Y = LOW_Y + 58;
+  const { engine, nose: FRAME_NOSE, lowY: LOW_Y, upY: UP_Y, upZ: UP_Z } = FRAME;
 
   // AND CLAMPED TO THE BODY. Reading the tube's height off the engine alone
   // put the picture frame's lower rail 24 mm out through the underside at the
@@ -1380,7 +1507,6 @@ if (process.env["NOCHASSIS"] !== "1") {
       console.log(`  DBG under x829 y${y} = ${undersideAt(829, y).toFixed(0)} · x${FRAME_NOSE.toFixed(0)} = ${undersideAt(FRAME_NOSE, y).toFixed(0)}`);
     }
   }
-  const UP_Z = engine.hi[2] - 30;
 
   // ── the tub ─────────────────────────────────────────────────────────────
   const TUB_FRONT = 2500, TUB_REAR = 3820;
@@ -1450,7 +1576,6 @@ if (process.env["NOCHASSIS"] !== "1") {
   // one-inch tube; 34 mm here, because a 25 mm member disappears at print
   // density and this model is read by eye as well as by lens.
   const frameBefore = new Set(s.state.cells.keys());
-  const TUBE = 34;
   beam("frame-lower", {
     view: side,
     a: [FRAME_NOSE, LOW_Z - TUBE / 2], b: [FRAME_REAR, LOW_Z + TUBE / 2],
@@ -2005,14 +2130,14 @@ const asAuthored = size(bareMesh);
 // ── 4. emit ───────────────────────────────────────────────────────────────
 const doc = s.save();
 mkdirSync(new URL("../cars", import.meta.url), { recursive: true });
-writeFileSync(new URL("../cars/etype-s1-fhc.car.json", import.meta.url), JSON.stringify(doc));
-writeFileSync(new URL("../../etype-s1-fhc.stl", import.meta.url), writeStlBinary({ ...printed, normals: shaded.normals }, "etype-s1-fhc"));
+writeFileSync(new URL(V12 ? "../cars/etype-s3-v12.car.json" : "../cars/etype-s1-fhc.car.json", import.meta.url), JSON.stringify(doc));
+writeFileSync(new URL(V12 ? "../../etype-s3-v12.stl" : "../../etype-s1-fhc.stl", import.meta.url), writeStlBinary({ ...printed, normals: shaded.normals }, V12 ? "etype-s3-v12" : "etype-s1-fhc"));
 
 const pad = (k: string) => k + " ".repeat(Math.max(0, 26 - k.length));
 const line = (k: string, v: string) => console.log("  " + pad(k) + v);
 const deg = (v: number) => (v < 1e-3 ? v.toExponential(1) : v.toFixed(3)) + "°";
 
-console.log("\nJaguar E-Type S1 3.8 FHC — the third car\n");
+console.log(`\nJaguar E-Type ${V12 ? "S3 5.3 V12" : "S1 3.8"} FHC — the third car\n`);
 line("cells · curves · verbs", `${quilt.cells.length} · ${s.state.curves.size} · ${doc.verbs.length}`);
 line("overall, as built", dims(asBuilt));
 line("  as authored", dims(asAuthored));
@@ -2221,6 +2346,28 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
       line("  panel FAULT", `${sup.over} of ${sup.points} ${what} points have nothing within ${reach} mm holding them up — the surfacing is sitting on air there`);
     }
   }
+  // ── what the package drove ─────────────────────────────────────────────
+  // The report the inversion exists for. Every station where the contents
+  // asked for more than the styling drew, with the part that asked. A car
+  // whose shape is package-driven should be able to say WHERE, and which part.
+  {
+    const misses = packageMisses(
+      STATIONS.map((st) => ({ x: st.x, halfWidth: st.drawn.halfWidth, top: st.drawn.top, floor: st.drawn.floor })),
+      STATIONS.map((st) => packageAt(CONTAINED, st.x)),
+    );
+    const lift = STATIONS.map((st) => packageLift(st.x));
+    const worstLift = Math.max(0, ...lift);
+    if (misses.length === 0 && worstLift < 0.5) {
+      line("package vs styling", "the drawn body already contains everything — no station was raised");
+    } else {
+      line("package vs styling", `${misses.length} station bound${misses.length === 1 ? "" : "s"} raised by the contents · ` +
+        `roofline lifted ${worstLift.toFixed(0)} mm at most`);
+      for (const m of misses.slice(0, 6)) {
+        line(`  ${m.what} at x ${m.x.toFixed(0)}`, `+${m.by.toFixed(0)} mm, asked for by ${m.driver}`);
+      }
+      if (misses.length > 6) line("  and", `${misses.length - 6} more`);
+    }
+  }
   for (const f of frameRead.faults) line("  structure FAULT", f);
 
   line("profile vs the real car",
@@ -2228,4 +2375,4 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
     `${over} of ${ETYPE_PROFILE.length} stations outside ${ETYPE_PROFILE_TOLERANCE_MM} mm (reference ASSUMED)`);
 }
 line("triangles", `${(mesh.indices.length / 3).toLocaleString("en-GB")}`);
-console.log("\nwrote cars/etype-s1-fhc.car.json and etype-s1-fhc.stl\n");
+console.log(`\nwrote cars/etype-${V12 ? "s3-v12" : "s1-fhc"}.car.json and the STL beside it\n`);

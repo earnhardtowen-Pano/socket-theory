@@ -216,3 +216,47 @@ export const etypeConfig: CarConfig = {
     rackHeight: assumed(-30, "mm", `${CHOICE} — rack just below the longeron centreline`),
   },
 };
+
+/**
+ * The same car with the Series 3 V12 in it — the engine swap, as a fixture.
+ *
+ * Jaguar did this in 1971 and the car changed shape doing it: the S3 got a
+ * wider track, flared arches, a grille in the mouth and a bonnet with a bulge
+ * where the six had none. Nobody redrew the body for style. The V12 is 90 mm
+ * SHORTER than the XK six and a great deal wider, and the frame had to get
+ * round it.
+ *
+ * Only the powertrain changes here. Wheelbase, track, overhangs and every
+ * station in the body's own tables are the Series 1's, so whatever moves in
+ * the built car moves BECAUSE OF THE ENGINE and nothing else. That is the
+ * point of keeping the rest fixed.
+ *
+ * ASSUMED throughout, and one step weaker than the 3.8's: 5343 cc, 60 degree
+ * vee, 90 x 70 mm, 272 bhp DIN, 304 lb-ft — recalled, not consulted.
+ */
+export const etypeV12Config: CarConfig = {
+  ...etypeConfig,
+  name: "E-Type S3 V12",
+  engine: {
+    layout: "V",
+    cylinders: assumed(12, "count", "E-Type S3 powertrain — 60 degree V12, single cam per bank"),
+    displacement: assumed(5.3, "L", "E-Type S3 powertrain — 5343 cc"),
+    boreStrokeRatio: assumed(1.29, "ratio", "E-Type S3 powertrain — 90 x 70 mm, oversquare where the six was not"),
+    vAngleDeg: assumed(60, "deg", "E-Type S3 powertrain — 60 degree vee, and the tool insists on being told: a V with no angle has no width, which is the whole reason this engine changes the car"),
+    orientation: "longitudinal",
+    sumpDepth: assumed(130, "mm", `${CHOICE} — a shallower alloy sump than the iron six's`),
+    turbo: false,
+  },
+  driveline: {
+    ...etypeConfig.driveline,
+    torque: assumed(412, "Nm", "E-Type S3 powertrain — 304 lb-ft peak crank torque"),
+  },
+  cooling: {
+    powertrain: "ice",
+    power: assumed(203, "kW", "E-Type S3 powertrain — 272 bhp DIN"),
+  },
+  brief: {
+    ...etypeConfig.brief,
+    massTargetKg: assumed(1465, "kg", "E-Type S3 brief — the V12 car is a quarter of a tonne heavier"),
+  },
+};

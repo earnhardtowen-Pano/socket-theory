@@ -835,6 +835,79 @@ fault fired on the entire perimeter of the coupe's greenhouse. `chassisFit`
 now takes a `contact` list, and the CALLER declares it, because only the
 caller knows which of its members are bonded and which are merely near.
 
+## The causality was backwards, and now it is not
+
+A body was authored from a station table somebody typed, a frame was derived
+from the parts afterwards, and a lens complained when the two disagreed — at
+which point the answer was always to retype the body until it stopped. That is
+a person doing by hand what the geometry already knows.
+
+A real car is the other way round. An E-Type has that bonnet BECAUSE the XK
+six is 663 mm long and stands 620 tall and a tube frame has to get round it.
+So: the parts come first, `frameEnvelope` reads their boxes and puts the frame
+round them, and the BODY's own tables become a floor under the styling rather
+than the whole of it. `railZ` — the line the whole greenhouse and bonnet are
+built on — is now `max(what a person drew, what the package needs)`, and every
+station the package won is reported with the part that won it.
+
+    package vs styling   22 station bounds raised by the contents ·
+                         roofline lifted 58 mm at most
+      top at x 864       +16 mm, asked for by frame-tubes
+      top at x 1240      +18 mm, asked for by frame-tubes
+      floor at x 1616    +25 mm, asked for by engine-ice I6 3.8L longitudinal
+
+### What must NOT drive it, and why
+
+The first version clamped the body to every placed part and produced a van:
+1880 wide and 1518 tall against a published 1657 by 1219. Two boxes did it.
+
+The OCCUPANT ARRAY is one box from heel to head vertex and its top is a
+95th-percentile male's head at 1350 mm. Clamping to it raises the roof 176 mm
+above an E-Type's — a true statement about the occupant and a false one about
+the car. The real coupe does not fit that person either, and `cabinLens`
+already says so in millimetres. That is the right place for it.
+
+The SUSPENSION is a SWEPT volume, 1790 mm wide — wheels through their travel
+and their lock, not a solid. A body is not required to enclose a swept volume;
+it is required to have arches over it, which the arch pass already authors.
+
+Both are still reported against. Reporting a demand and obeying it are
+different things, and only one of them turns a car into a box.
+
+## Put a different engine in and watch it resolve
+
+`ENGINE=v12` swaps the powertrain and NOTHING else — same wheelbase, track,
+overhangs, station tables and styling — so anything that moves moved because
+of the engine. `scripts/engine-swap.ts` runs both and diffs them.
+
+|  | 3.8 six | 5.3 V12 |
+|---|---|---|
+| engine box | 663 × 369 × 620, 177 kg | 688 × 483 × **473**, 246 kg |
+| frame tubes, y | 319 / 377 | 322 / 380 |
+| frame top | 755 | **628** |
+| frame floor | 285 | 305 |
+| roofline lifted | **58 mm** | **0 mm** |
+| overall | 4453 × 1658 × 1221 | 4453 × 1658 × 1221 |
+| closed mesh · wheels carried · structure | unchanged | unchanged |
+
+The chain is four links and none of them is a person retyping a table: the
+config declares a powertrain, `makeEngineICE` turns it into an envelope, the
+solve places it, `frameEnvelope` reads its box, and the roofline is the larger
+of drawn and needed.
+
+**And the demonstration refuses to be dramatic, which matters more than a big
+number would.** A V12 is the bigger engine by every measure a brochure quotes
+and it makes this car SMALLER: 5.3 litres against 3.8, 69 kg heavier, and
+147 mm SHORTER, because twelve cylinders in two banks of six are six bores
+long and a straight six is six bores long standing up. The body stops needing
+its bonnet lifted at all. If the tool only ever agreed that bigger means
+bigger it would not be measuring anything.
+
+One tension it exposes and does not resolve: with the six in, the bonnet ends
+up 56 mm above what `ETYPE_PROFILE` says the real car is at that station. The
+reference is ASSUMED-from-recall and the frame is derived, so one of the two is
+wrong and the report says which stations disagree rather than picking.
+
 ### And the shape now comes from what it carries
 
 The frame's nose is the radiator's front face less a tube's clearance. Its
@@ -946,6 +1019,11 @@ tolerance allows, and reported rather than rounded away.
   author a hole.
 - **The field's reflection asymmetry**, above. Measured, bounded, and the six
   cheapest explanations ruled out; the cause is not yet found.
+- **Only the E-Type's body is package-driven.** The MX-5's tables are still
+  typed end to end and its ladder frame comes from the config rather than
+  from the parts it carries. The inversion is general — `packageEnvelope`
+  takes boxes and knows nothing about either car — but it has been wired into
+  one build.
 - **A closed body has no interior to measure.** Every cabin reading that needs
   a void returns null on a coupe. Authoring a hollow shell needs the ability
   to author a hole, which is Stage 3 (trimmed topology) and untouched.

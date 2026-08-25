@@ -32,6 +32,17 @@ export {
 } from "./mass.js";
 
 export {
+  packageAt,
+  packageEnvelope,
+  packageMisses,
+  SKIN_GAP,
+  type PackageBox,
+  type PackageStation,
+  type PackageOptions,
+  type PackageMiss,
+} from "./package-envelope.js";
+
+export {
   structureFit,
   skinSupport,
   SKIN_REACH,
