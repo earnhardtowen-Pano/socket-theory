@@ -193,15 +193,24 @@ export const etypeConfig: CarConfig = {
   },
   placement: {
     railHeight: assumed(ETYPE_RAIL_HEIGHT, "mm", `${CHOICE} — floor longeron centreline above the ground`),
-    engineSetback: assumed(-120, "mm", `${CHOICE} — block centre AHEAD of the front axle. This is the E-Type's packaging in one number and the reason it understeers: the tall six sits forward of the axle line inside the tubular frame`),
-    engineHeight: assumed(150, "mm", `${CHOICE} — a 106 mm stroke six stands tall; the crank is well above the floor`),
-    radiatorAhead: assumed(420, "mm", `${CHOICE} — core far ahead of the axle, upright behind the mouth`),
+    // MEASURED AGAINST THE BODY, not chosen. The envelope this feeds is
+    // 663 mm long and the solve hangs it FORWARD of the station given, so -120
+    // put the engine's front face 457 mm from the nose — ahead of the
+    // radiator, which is impossible, and with its crown 865 mm up, which is
+    // through the bonnet. The structure lens found both the moment the front
+    // frame started reading its dimensions off this part instead of being
+    // typed. 420 puts the block behind the front axle line where an E-Type's
+    // actually sits; the long bonnet ahead of it is radiator and air, which
+    // is most of why the car looks the way it does.
+    engineSetback: assumed(420, "mm", `${CHOICE} — block station aft of the front axle; the envelope hangs forward of it, so the six sits between the axle line and the scuttle`),
+    engineHeight: assumed(70, "mm", `${CHOICE} — a 106 mm stroke six stands tall and this bonnet is low; 70 is what puts the cam covers just under the crown, which is what the bonnet's power bulge is there to clear`),
+    radiatorAhead: assumed(340, "mm", `${CHOICE} — core ahead of the engine's front face and behind the mouth. At 420 it sat INSIDE the engine, which nothing checked until the frame started reading both`),
     radiatorHeight: assumed(60, "mm", CHOICE),
     tankAheadOfRearAxle: assumed(-330, "mm", `${CHOICE} — the tank is BEHIND the rear axle, under the boot floor`),
     tankHeight: assumed(180, "mm", CHOICE),
     heelStation: assumed(1160, "mm", `${CHOICE} — driver heel aft of the front axle. The footwell runs FORWARD under the scuttle, ahead of the line the bonnet shuts on, which is what lets the H-point land under the roof rather than behind it. Put the heel behind the bulkhead instead and the packer places a head 340 mm aft of the tailgate shut`),
     heelHeight: assumed(215, "mm", `${CHOICE} — heel above the ground`),
-    pedalBoxStation: assumed(930, "mm", `${CHOICE} — pedal box well forward, under the bonnet line`),
+    pedalBoxStation: assumed(1292, "mm", `${CHOICE} — pedal box hung ON the bulkhead the front frame bolts to, which is the only structure near it; at 930 the structure lens reported 30 kg of it with nothing within 161 mm`),
     pedalBoxHeight: assumed(150, "mm", CHOICE),
     rackStation: assumed(-105, "mm", `${CHOICE} — rack ahead of the axle line`),
     rackHeight: assumed(-30, "mm", `${CHOICE} — rack just below the longeron centreline`),

@@ -32,6 +32,17 @@ export {
 } from "./mass.js";
 
 export {
+  structureFit,
+  type StructureMember,
+  type CarriedPart,
+  type Corner,
+  type Anchorage,
+  type CornerFit,
+  type StructureReport,
+  type StructureOptions,
+} from "./structure.js";
+
+export {
   chassisFit,
   MIN_SKIN_CLEARANCE,
   type BodyMount,

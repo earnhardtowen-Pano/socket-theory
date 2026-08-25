@@ -705,6 +705,82 @@ rear arches as 1,227 mm of cabin. Reported as the limit it is. The instrument
 can measure the cabin of an open car and not a closed one, and that asymmetry
 is the largest single gap this car exposed.
 
+## The structure lens — is it one structure, and does it reach the wheels?
+
+`chassisFit` asks where the structure sits relative to the SKIN. It answers
+containment, clearance and registration, and it is silent about the two
+questions that decide whether a chassis is a chassis at all: whether the
+members TOUCH, and whether anything reaches what the car carries.
+
+Nothing had ever asked. Three cars in, every wheel on every one of them was a
+solid placed at the track and the axle station with **no member within a third
+of a metre of it.** They rendered correctly, sectioned correctly, and passed
+the containment, clearance and registration readings — because none of those
+asks. `structureFit` asks, and the first run said so in one line:
+
+    wheel-FL is 395 mm from the nearest member — the wheel is drawn, not carried
+
+### What it found immediately
+
+**The MX-5's sills were not attached to anything.** Authored 275 mm outboard
+of the rails with nothing between them, so what the report called a chassis
+was three separate bodies: a frame, and two sills floating beside it. Every
+unibody on earth has outriggers; this one did not, and no probe could see it.
+
+**The E-Type's engine was placed through its own bonnet.** The moment the
+front frame started reading its dimensions off the engine's placed envelope
+instead of being typed, the frame followed the engine out through the skin —
+317 structure points outside the body where it shows. The engine's crown was
+865 mm up under a bonnet 800 mm tall, its front face was 457 mm from the nose,
+and the radiator was placed at 820 — *inside the engine*. The packing solve
+had been publishing all three since the first car.
+
+**Nothing was mounted to the pedal box.** 30 kg of it, 161 mm from the nearest
+member, on a car with a bulkhead 362 mm behind it.
+
+### What it needed to be able to say that
+
+`strut` — a member between two arbitrary points. Until this week there was no
+way to author one, which is why three cars had frames made entirely of ladders
+and no car had a wishbone. A box of the right length is taped along x and then
+rigidly MOVED onto the axis; every curve is straight, so an affine map of its
+control points is exact rather than a fit. Every target is computed before any
+point moves, because the twelve curves share eight corners and mapping a
+corner twice folds the box.
+
+A member REGISTER, so a lens can read the structure without re-deriving it
+from a triangle soup. The register and the mesh are two descriptions of the
+same thing computed two different ways — and the first time they were compared
+they disagreed: a front frame mirrored in the register and authored on one
+side only, because a single detach loop after the build had taken every tube
+out of the mirror law. Mirroring is per member now.
+
+### Both cars, same rule
+
+| | MX-5 | E-Type |
+|---|---|---|
+| members | 46 | 52 |
+| bodies | **1** (was 3) | **1** |
+| parts carried | 10 of 10 | 10 of 10 |
+| wheel to nearest member | 26 mm | 30 mm |
+| structure showing | 0 | 0 |
+
+### And the shape now comes from what it carries
+
+The frame's nose is the radiator's front face less a tube's clearance. Its
+tube spacing is the engine's width plus the same. Its upper tube SLOPES,
+because running level at the engine's crown leaves the bonnet three hundred
+millimetres before the nose — so its front end comes off `crownZ` at the
+frame's own nose and its back off the engine, and neither end is typed. The
+tunnel runs from the gearbox's front face to the differential and its section
+is the larger of the two envelopes plus clearance; it had been typed to start
+800 mm behind the bellhousing it covers. The rear cage is sized off the rear
+suspension's own envelope.
+
+None of that is new information. The solve has been placing every one of those
+parts since the first car and publishing an envelope for each. Nothing had
+ever read them.
+
 ## The chassis lens — the half of the car nothing was measuring
 
 The MX-5 had a frame from the day it was built, and until this lens existed

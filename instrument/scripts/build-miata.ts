@@ -27,13 +27,17 @@ import { makeAllocator, type Id, type Pt3 } from "@car/schema";
 import { assembleCar, shoulderAboveHip95M, shoulderBreadth95M } from "@car/types";
 import { CATALOGUE, finishOf, scanUp, sectionAt, sliceSection } from "@car/skin";
 import { solve } from "@car/pack";
-import { cabinLens, chassisFit, MIN_SKIN_CLEARANCE, type BodyMount, type CabinPerson, type SectionMesh } from "@car/lens";
+import {
+  cabinLens, chassisFit, structureFit, MIN_SKIN_CLEARANCE,
+  type BodyMount, type CabinPerson, type CarriedPart, type SectionMesh, type StructureMember,
+} from "@car/lens";
 import {
   miataConfig, MX5_DIAMETER, MX5_FRONT_OVERHANG, MX5_FRONT_TRACK,
   MX5_PROFILE, MX5_PROFILE_TOLERANCE_MM, MX5_REAR_TRACK,
   MX5_TIRE_WIDTH, MX5_WHEELBASE,
 } from "@car/fixtures";
 import { createSession } from "@car/history";
+import { memberKit, suspensionCorner } from "./lib/members.js";
 import { computeQuilt } from "@car/frame";
 import {
   bySize, cellBezier, cellBoundary, continuityProbe, curvatureJoinProbe, fieldDisplacement,
@@ -998,31 +1002,26 @@ if (process.env["NOWHEELS"] !== "1") {
 // package you cannot see, and you cannot see two things that look identical.
 const chassisCells: Id[] = [];
 const mounts: BodyMount[] = [];
+let members: StructureMember[] = [];
 /** Crossmember stations the body WRAPS rather than sits on — reported, not faulted. */
 const wrapped: number[] = [];
 if (process.env["NOCHASSIS"] !== "1") {
   const chassisBefore = new Set(s.state.cells.keys());
-  const mirroredBefore = new Set(s.state.cells.keys());
-  /** A box, and every curve it made straightened — structure is straight. */
-  const beam = (rect: Parameters<typeof s.apply>[1] extends never ? never : {
-    view: { kind: "side" | "front" }; a: [number, number]; b: [number, number]; depth: number; at: number;
-  }): void => {
-    const before = new Set(s.state.curves.keys());
-    s.apply("tape", { kind: "box", rect: rect as never });
-    for (const id of [...s.state.curves.keys()] as Id[]) {
-      if (before.has(id)) continue;
-      straighten(id);
-      s.apply("crease", { curveId: id });
-    }
-  };
+  const kit = memberKit({
+    apply: (verb, args) => s.apply(verb as never, args as never),
+    cellIds: () => [...s.state.cells.keys()] as Id[],
+    curveIds: () => [...s.state.curves.keys()] as Id[],
+    straighten, ctrlsOf, fitThrough,
+  });
+  const { beam, strut } = kit;
 
   // The two rails. Authored on ONE side; the mirror law supplies the other,
   // which is the same bargain the wheels take.
-  beam({
+  beam("rail", {
     view: side,
     a: [420, RAIL_Z - RAIL_H / 2], b: [3560, RAIL_Z + RAIL_H / 2],
     depth: RAIL_W, at: RAIL_Y - RAIL_W / 2,
-  });
+  }, true);
   // The sills: `rockerHeight` x `rockerWidth`, INBOARD of the skin and short
   // of both arches. The first version ran to 2880 at y = 700 and the chassis
   // lens caught both mistakes in one line — 245 points outside the body, worst
@@ -1030,12 +1029,11 @@ if (process.env["NOCHASSIS"] !== "1") {
   // beam that touches the rocker is the same part as the rocker; a sill beam
   // that runs into the arch is a beam through a wheel.
   const SILL_Y = 655;
-  beam({
+  beam("sill", {
     view: side,
     a: [1560, 190], b: [rA - 40, 190 + sub.rockerHeight.value],
     depth: sub.rockerWidth.value, at: SILL_Y - sub.rockerWidth.value / 2,
-  });
-  const mirrored = [...s.state.cells.keys()].filter((id) => !mirroredBefore.has(id)) as Id[];
+  }, true);
 
   // Crossmembers: front, dash, seat, rear — `crossmemberCount` of them, spaced
   // over the run the rails cover.
@@ -1043,7 +1041,7 @@ if (process.env["NOCHASSIS"] !== "1") {
   const xs = MOUNT_X;
   for (let i = 0; i < N; i++) {
     const x = xs[i] ?? 620 + ((3320 - 620) * i) / (N - 1);
-    beam({
+    beam(`crossmember@${x}`, {
       view: { kind: "front" as const },
       a: [-RAIL_Y - RAIL_W / 2, RAIL_Z - RAIL_H / 2],
       b: [RAIL_Y + RAIL_W / 2, RAIL_Z - RAIL_H / 2 + 62],
@@ -1066,31 +1064,78 @@ if (process.env["NOCHASSIS"] !== "1") {
   for (const x of xs.slice(0, N)) {
     const padTop = undersideAt(x, RAIL_Y);
     if (!Number.isFinite(padTop) || padTop < RAIL_TOP + 1) { wrapped.push(x); continue; }
-    beam({
+    beam(`mount@${x}`, {
       view: side,
       a: [x - MOUNT_PAD / 2, RAIL_TOP],
       b: [x + MOUNT_PAD / 2, padTop],
       depth: MOUNT_PAD, at: RAIL_Y - MOUNT_PAD / 2,
-    });
+    }, true);
     mounts.push({ name: `mount@${x}`, at: [x, RAIL_Y, padTop], padHalf: MOUNT_PAD / 2 });
     mounts.push({ name: `mount@${x}-R`, at: [x, -RAIL_Y, padTop], padHalf: MOUNT_PAD / 2 });
   }
 
   // The tunnel: propshaft, PPF and exhaust, between the seats.
-  beam({
+  beam("tunnel", {
     view: side,
     a: [1500, RAIL_Z - RAIL_H / 2], b: [3060, RAIL_Z - RAIL_H / 2 + sub.tunnelHeight.value],
     depth: sub.tunnelWidth.value, at: -sub.tunnelWidth.value / 2,
   });
 
+  // OUTRIGGERS, and the lens is the only reason they are here. The sills were
+  // authored 275 mm outboard of the rails with nothing between them, so the
+  // "chassis" was three separate bodies: a frame, and two sills floating
+  // beside it. It rendered identically, sectioned identically, and passed the
+  // containment, clearance and registration readings — because none of those
+  // asks whether the members TOUCH. Every unibody has these; this one did not.
+  for (const x of xs.slice(0, N)) {
+    if (x < 1560 || x > rA - 40) continue;
+    beam(`outrigger@${x}`, {
+      view: { kind: "front" as const },
+      a: [RAIL_Y - RAIL_W / 2, RAIL_Z - RAIL_H / 2], b: [SILL_Y, RAIL_Z + RAIL_H / 2],
+      depth: 62, at: x,
+    }, true);
+  }
+
+  // ── the suspension, which is what makes a wheel part of the car ─────────
+  // Same argument as the E-Type's, on a car whose pickups are a ladder rail
+  // rather than a tube frame. Before this, all four wheels on all three cars
+  // in this repository were solids at the track and the axle station with
+  // nothing within a third of a metre of them: the structure lens called them
+  // drawn, not carried, and it was right.
+  //
+  // The TOWERS are what a rail car needs and a tube frame does not. A rail
+  // sits 290 mm up and an upper wishbone wants a pickup at 520, so something
+  // has to stand between them — which is the strut tower every unibody has
+  // and the reason a bonnet has two humps in it.
+  const TOWER_TOP = 560;
+  const PICKUP_Y = RAIL_Y + RAIL_W / 2 + 20;
+  for (const [tag, axleX, track] of [
+    ["FL", FRONT_AXLE_X, MX5_FRONT_TRACK], ["RL", REAR_AXLE_X, MX5_REAR_TRACK],
+  ] as const) {
+    beam(`tower-${tag}`, {
+      view: side,
+      a: [axleX - 90, RAIL_Z], b: [axleX + 90, TOWER_TOP],
+      depth: 96, at: PICKUP_Y - 48,
+    }, true);
+    suspensionCorner(kit, {
+      tag, axleX, hubY: track / 2 - 58, axleZ: AXLE_Z,
+      lowerIn: [axleX, PICKUP_Y, RAIL_Z - RAIL_H / 2 + 20],
+      upperIn: [axleX, PICKUP_Y, TOWER_TOP - 40],
+      springTop: [axleX - 20, PICKUP_Y, TOWER_TOP - 30],
+      uprightHeight: 250,
+    });
+  }
+  // The PPF — the aluminium beam that ties the gearbox to the differential and
+  // is the whole reason this car turns the way it does. It is also the member
+  // that stops the rear suspension being an island, which is what a lens that
+  // asks about connectedness finds first.
+  strut("ppf", [2100, 0, RAIL_Z - 40], [REAR_AXLE_X - 60, 0, RAIL_Z - 20], 150, 130);
+
   for (const id of [...s.state.cells.keys()] as Id[]) {
     if (chassisBefore.has(id)) continue;
     chassisCells.push(id);
-    // Everything but the rails and sills spans the centreline and cannot be
-    // mirrored; detaching them keeps the mirror law off the whole chassis
-    // except the two things that genuinely want it.
-    if (!mirrored.includes(id)) s.apply("mirror-detach", { cellId: id });
   }
+  members = kit.members;
 }
 
 // ── the screen frame ──────────────────────────────────────────────────────
@@ -1449,6 +1494,28 @@ const bodyMesh = bodySplit.body;
 const structMesh = bodySplit.structure;
 const envelopeMesh = bodySplit.envelope;
 
+/** Every part the packing solve placed, as a box in BODY coordinates. */
+const placedParts = (): CarriedPart[] => {
+  const out: CarriedPart[] = [];
+  for (const part of car.input.parts) {
+    const pose = packed.placements.get(part.id);
+    const env = part.envelope;
+    if (!pose || !env) continue;
+    const o = env.offset ?? [0, 0, 0];
+    const c: Pt3 = [
+      pose.origin[0] + o[0] + MX5_FRONT_OVERHANG, pose.origin[1] + o[1], pose.origin[2] + o[2],
+    ];
+    const h = env.size.map((q) => q.value / 2) as [number, number, number];
+    out.push({
+      name: part.label,
+      lo: [c[0] - h[0], c[1] - h[1], c[2] - h[2]],
+      hi: [c[0] + h[0], c[1] + h[1], c[2] + h[2]],
+      massKg: part.mass?.value,
+    });
+  }
+  return out;
+};
+
 const person = personInBody();
 const cabin = cabinLens(envelopeMesh, person, {
   seatsAbreast: 2,
@@ -1554,7 +1621,9 @@ line("hip room", cabin.hipRoom === null ? "none" : `${cabin.hipRoom.toFixed(0)} 
 // With the chassis inside the skin the lowest interior surface at this
 // station is the TUNNEL, not the floor pan — so this reads hip-above-tunnel
 // rather than hip-above-floor. Both are true; the label says which.
-line("H-point above structure", cabin.hipAboveWell === null ? "nothing under it" : `${cabin.hipAboveWell.toFixed(0)} mm to the lowest interior surface at that station — the tunnel, not the floor, and no seat cushion in the model`);
+line("H-point above the floor", cabin.hipAboveWell === null
+  ? "nothing under it"
+  : `${cabin.hipAboveWell.toFixed(0)} mm to the cockpit floor, and no seat cushion in the model. It read 268 while the lens was being handed the whole print and finding the TUNNEL; the envelope has no structure in it`);
 line("eye vs the header", cabin.eyeAboveHeader === null ? "no header" :
   `erect ${cabin.eyeAboveHeader >= 0 ? "+" : ""}${cabin.eyeAboveHeader.toFixed(0)} mm · relaxed ${cabin.eyeAboveHeaderRelaxed!.toFixed(0)} mm (negative = looking through the aperture)`);
 line("eye aft of the H-point", `${(person.eye[0] - person.hip[0]).toFixed(0)} mm — a STRAIGHT-TORSO construction in @car/types/occupants; SAE's eye ellipse sits nearer 100 mm aft, so this over-rakes`);
@@ -1626,6 +1695,26 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
     }
   }
   for (const f of fit.faults) line("  chassis FAULT", f);
+
+  // ── the structure against itself, and against what it carries ──────────
+  const corners = [
+    { name: "wheel-FL", at: [FRONT_AXLE_X, MX5_FRONT_TRACK / 2, AXLE_Z] as Pt3 },
+    { name: "wheel-FR", at: [FRONT_AXLE_X, -MX5_FRONT_TRACK / 2, AXLE_Z] as Pt3 },
+    { name: "wheel-RL", at: [REAR_AXLE_X, MX5_REAR_TRACK / 2, AXLE_Z] as Pt3 },
+    { name: "wheel-RR", at: [REAR_AXLE_X, -MX5_REAR_TRACK / 2, AXLE_Z] as Pt3 },
+  ];
+  const cargo = placedParts().filter((q) => !q.name.includes("wheel-tire") && !q.name.startsWith("substrate"));
+  const frameRead = structureFit(members, cargo, corners);
+  const held = frameRead.anchorage.filter((q) => q.carried).length;
+  line("structure", `${frameRead.members} members · ` +
+    (frameRead.islands.length === 1
+      ? "one body"
+      : `${frameRead.islands.length} bodies, which is ${frameRead.islands.length - 1} too many`));
+  line("  parts carried", `${held} of ${cargo.length} have structure within reach` +
+    (frameRead.orphanedKg === 0 ? "" : ` · ${frameRead.orphanedKg.toFixed(0)} kg with nothing under it`));
+  line("  wheels carried", frameRead.corners.map((c) =>
+    `${c.name.slice(-2)} ${c.gap.toFixed(0)}`).join(" / ") + " mm to the nearest member");
+  for (const f of frameRead.faults) line("  structure FAULT", f);
 
   line("profile vs the real car",
     `worst ${worstW.toFixed(0)} mm wide at x ${atW.toFixed(0)} · ${worstZ.toFixed(0)} mm tall · ` +

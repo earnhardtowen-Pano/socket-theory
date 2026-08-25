@@ -39,13 +39,17 @@ import { makeAllocator, type Id, type Pt3 } from "@car/schema";
 import { assembleCar, shoulderAboveHip95M, shoulderBreadth95M } from "@car/types";
 import { CATALOGUE, finishOf, scanUp, sectionAt, sliceSection } from "@car/skin";
 import { solve } from "@car/pack";
-import { cabinLens, chassisFit, MIN_SKIN_CLEARANCE, type BodyMount, type CabinPerson, type SectionMesh } from "@car/lens";
+import {
+  cabinLens, chassisFit, structureFit, MIN_SKIN_CLEARANCE,
+  type BodyMount, type CabinPerson, type CarriedPart, type SectionMesh, type StructureMember,
+} from "@car/lens";
 import {
   etypeConfig, ETYPE_DIAMETER, ETYPE_FRONT_OVERHANG, ETYPE_FRONT_TRACK,
   ETYPE_PROFILE, ETYPE_PROFILE_TOLERANCE_MM, ETYPE_REAR_TRACK,
   ETYPE_HEIGHT, ETYPE_LENGTH, ETYPE_TIRE_WIDTH, ETYPE_WHEELBASE, ETYPE_WIDTH,
 } from "@car/fixtures";
 import { createSession } from "@car/history";
+import { memberKit, suspensionCorner } from "./lib/members.js";
 import { computeQuilt } from "@car/frame";
 import {
   bySize, cellBezier, cellBoundary, continuityProbe, curvatureJoinProbe, fieldDisplacement,
@@ -1247,90 +1251,157 @@ if (process.env["NOWHEELS"] !== "1") {
 // frame ahead of it. That is not trivia, it is the layout: the tub is the
 // passenger cell and carries the rear suspension through a cage; the frame
 // carries the engine, the front suspension and the whole bonnet, and the two
-// meet at a bulkhead you can unbolt. Nobody who has looked under one thinks
-// of it as a single structure and the model should not either.
+// meet at a bulkhead you can unbolt.
 //
-// WHAT THAT CHANGES IN THE READING, and it is the point of building this car
-// third. The MX-5's frame hangs BELOW its floor pan and carries the body on
-// pads — 4 of 4 registered at 3 mm. A tub has no body mounts at all, because
-// the body IS the structure: the longerons sit on top of the floor, inside
-// the skin, welded. The same lens run against the same rule should therefore
-// report the opposite of the MX-5 on registration and the same on
-// containment, and if it does not, one of the two cars is wrong.
+// TWO THINGS ARE NEW HERE AND THEY ARE THE SAME THING. Until now this block
+// authored boxes at coordinates a person typed, and nothing connected them to
+// each other, to the parts the car carries, or to the wheels. The wheels in
+// particular were solids placed at the track and the axle station with half a
+// metre of air between them and the nearest tube: drawn, not carried. So:
+//
+//   Every member REGISTERS itself, and `structureFit` reads the register. It
+//   answers whether the members touch, whether every placed part has
+//   structure in reach, and whether anything reaches the wheels.
+//
+//   The frame is SHAPED BY WHAT IT CARRIES. Its nose comes off the radiator's
+//   front face, its tube spacing off the engine's width, its height off the
+//   engine's own envelope — all read from the packing solve, which has been
+//   placing those parts since the first car and has never once been asked
+//   where it put them.
 const chassisCells: Id[] = [];
 const frameCells: Id[] = [];
 const mounts: BodyMount[] = [];
+let members: StructureMember[] = [];
 /** Crossmember stations the body WRAPS rather than sits on — reported, not faulted. */
 const wrapped: number[] = [];
+
+/**
+ * Every part the packing solve placed, as a box in BODY coordinates.
+ *
+ * The solve works from the front axle and the body from the nose, so every
+ * envelope shifts by the front overhang — the same conversion `personInBody`
+ * makes for the occupant, and for the same reason.
+ */
+const placedParts = (): CarriedPart[] => {
+  const out: CarriedPart[] = [];
+  for (const part of car.input.parts) {
+    const pose = packed.placements.get(part.id);
+    const env = part.envelope;
+    if (!pose || !env) continue;
+    const o = env.offset ?? [0, 0, 0];
+    const c: Pt3 = [
+      pose.origin[0] + o[0] + ETYPE_FRONT_OVERHANG,
+      pose.origin[1] + o[1],
+      pose.origin[2] + o[2],
+    ];
+    const h = env.size.map((q) => q.value / 2) as [number, number, number];
+    out.push({
+      name: part.label,
+      lo: [c[0] - h[0], c[1] - h[1], c[2] - h[2]],
+      hi: [c[0] + h[0], c[1] + h[1], c[2] + h[2]],
+      massKg: part.mass?.value,
+    });
+  }
+  return out;
+};
+const parts = placedParts();
+if (process.env["DBG"] === "1") {
+  for (const q of parts) {
+    console.log(`  DBG part ${q.name.padEnd(30)} ${q.lo.map((v) => v.toFixed(0)).join(",")} .. ${q.hi.map((v) => v.toFixed(0)).join(",")}`);
+  }
+}
+/** One placed part's box, by a fragment of its label. Throws rather than guesses. */
+const partBox = (frag: string): CarriedPart => {
+  const hit = parts.find((q) => q.name.includes(frag));
+  if (!hit) throw new Error(`no placed part matching "${frag}"`);
+  return hit;
+};
+
 if (process.env["NOCHASSIS"] !== "1") {
   const chassisBefore = new Set(s.state.cells.keys());
-  /** A box, and every curve it made straightened — structure is straight. */
-  const beam = (rect: {
-    view: { kind: "side" | "front" }; a: [number, number]; b: [number, number]; depth: number; at: number;
-  }): void => {
-    const before = new Set(s.state.curves.keys());
-    s.apply("tape", { kind: "box", rect: rect as never });
-    for (const id of [...s.state.curves.keys()] as Id[]) {
-      if (before.has(id)) continue;
-      straighten(id);
-      s.apply("crease", { curveId: id });
-    }
-  };
+  const kit = memberKit({
+    apply: (verb, args) => s.apply(verb as never, args as never),
+    cellIds: () => [...s.state.cells.keys()] as Id[],
+    curveIds: () => [...s.state.curves.keys()] as Id[],
+    straighten, ctrlsOf, fitThrough,
+  });
+  const { beam, strut } = kit;
+
+  // ── what the frame has to fit round ─────────────────────────────────────
+  // The four numbers below used to be typed. They are read now, and the first
+  // run of the reading found the picture frame at x = 1180 with the engine
+  // reaching to 788 and the radiator to 774 — a crossmember through a
+  // cylinder head, on a car that had passed every probe there was.
+  const engine = partBox("engine-ice");
+  const rad = partBox("cooling");
+  /** Air between a tube and the part it runs past. */
+  const TUBE_CLEAR = 74;
+  const FRAME_NOSE = Math.min(rad.lo[0], engine.lo[0]) - TUBE_CLEAR;
+  const LOW_Y = Math.max(engine.hi[1], rad.hi[1]) + TUBE_CLEAR;
+  const UP_Y = LOW_Y + 58;
+  const LOW_Z = Math.max(RAIL_Z - RAIL_H / 2, engine.lo[2] + 120);
+  const UP_Z = engine.hi[2] - 30;
 
   // ── the tub ─────────────────────────────────────────────────────────────
   const TUB_FRONT = 2500, TUB_REAR = 3820;
+  const FRAME_REAR = 2532;
   // Floor longerons, either side of the tunnel. On a tub these sit ON the
   // floor pan rather than under it, which is the whole structural difference
   // and the reason the registration reading below comes out the way it does.
-  beam({
+  beam("longeron", {
     view: side,
     a: [TUB_FRONT, RAIL_Z - RAIL_H / 2], b: [TUB_REAR, RAIL_Z + RAIL_H / 2],
     depth: RAIL_W, at: RAIL_Y - RAIL_W / 2,
-  });
+  }, true);
   // The sills, and on this car they ARE the structure: a tub with a floor
   // this shallow carries its bending in the rockers, which is why an E-Type's
   // sills are as deep as they are and why cutting one scraps the car.
   const SILL_Y = 630;
-  beam({
+  beam("sill", {
     view: side,
     a: [TUB_FRONT, 178], b: [3560, 178 + sub.rockerHeight.value],
     depth: sub.rockerWidth.value, at: SILL_Y - sub.rockerWidth.value / 2,
-  });
-  const mirrored = [...s.state.cells.keys()].filter((id) => !chassisBefore.has(id)) as Id[];
+  }, true);
 
-  // The tunnel: propshaft, the Moss box's bellhousing and twin pipes. Wide,
-  // because you sit either side of it rather than over it.
-  beam({
+  // The tunnel: SIZED BY WHAT RUNS THROUGH IT. It was typed at 2450 to 3760
+  // while the solve had the gearbox at 1660 and the propshaft ending at 3551
+  // — a tunnel that started eight hundred millimetres behind the bellhousing
+  // it is supposed to cover, over a car nobody had asked. It now runs from
+  // the gearbox's front face to the differential, and its section is the
+  // larger of the two envelopes plus clearance.
+  const gearbox = partBox("transmission"), shaft = partBox("driveline");
+  const TUNNEL_CLEAR = 40;
+  const tunnelHalfY = Math.max(gearbox.hi[1], shaft.hi[1]) + TUNNEL_CLEAR;
+  const tunnelTop = Math.max(gearbox.hi[2], shaft.hi[2]) + TUNNEL_CLEAR;
+  beam("tunnel", {
     view: side,
-    a: [2450, RAIL_Z - RAIL_H / 2], b: [3760, RAIL_Z - RAIL_H / 2 + sub.tunnelHeight.value],
-    depth: sub.tunnelWidth.value, at: -sub.tunnelWidth.value / 2,
+    a: [gearbox.lo[0], RAIL_Z - RAIL_H / 2], b: [shaft.hi[0], tunnelTop],
+    depth: 2 * tunnelHalfY, at: -tunnelHalfY,
   });
   // The two bulkheads, and the seat crossmember between them. The front one
   // is the interface: everything ahead of it is a separate structure.
-  beam({
-    view: { kind: "front" as const },
-    a: [-640, 180], b: [640, 815], depth: 58, at: 2532,
-  });
-  beam({
-    view: { kind: "front" as const },
-    a: [-600, 180], b: [600, 740], depth: 58, at: 3730,
-  });
-  beam({
+  beam("bulkhead-front", { view: { kind: "front" as const }, a: [-640, 180], b: [640, 815], depth: 58, at: FRAME_REAR });
+  beam("bulkhead-rear", { view: { kind: "front" as const }, a: [-600, 180], b: [600, 740], depth: 58, at: 3730 });
+  beam("seat-crossmember", {
     view: { kind: "front" as const },
     a: [-RAIL_Y - RAIL_W / 2, RAIL_Z - RAIL_H / 2], b: [RAIL_Y + RAIL_W / 2, RAIL_Z + RAIL_H / 2],
     depth: 70, at: 3180,
   });
   // The rear suspension cage: the E-Type's IRS is a subframe bolted into the
   // tub, carrying the diff, the inboard discs and both coilover pairs.
-  beam({
+  // The cage the rear suspension bolts into, sized off the rear suspension's
+  // own envelope rather than typed around it.
+  const rearSusp = partBox("multilink rear");
+  const CAGE_INSET = 300;
+  beam("irs-cage", {
     view: { kind: "front" as const },
-    a: [-430, 180], b: [430, 430], depth: 380, at: 3500,
+    a: [-(rearSusp.hi[1] - CAGE_INSET), rearSusp.lo[2]], b: [rearSusp.hi[1] - CAGE_INSET, rearSusp.lo[2] + 258],
+    depth: 380, at: rearSusp.lo[0] + 160,
   });
 
   for (const id of [...s.state.cells.keys()] as Id[]) {
     if (chassisBefore.has(id)) continue;
     chassisCells.push(id);
-    if (!mirrored.includes(id)) s.apply("mirror-detach", { cellId: id });
   }
 
   // ── the front frame ─────────────────────────────────────────────────────
@@ -1340,49 +1411,91 @@ if (process.env["NOCHASSIS"] !== "1") {
   // density and this model is read by eye as well as by lens.
   const frameBefore = new Set(s.state.cells.keys());
   const TUBE = 34;
-  const FRAME_NOSE = 1180, FRAME_REAR = 2532;
-  const LOW_Y = 272, LOW_Z = 246, UP_Y = 336, UP_Z = 622;
-  for (const [y, z] of [[LOW_Y, LOW_Z], [UP_Y, UP_Z]] as const) {
-    beam({
-      view: side,
-      a: [FRAME_NOSE, z - TUBE / 2], b: [FRAME_REAR, z + TUBE / 2],
-      depth: TUBE, at: y - TUBE / 2,
-    });
-  }
-  // Two verticals a side, which is where the triangulation would land if this
-  // tool could author a diagonal in a side view without shearing four curves
-  // by hand. Named as the simplification it is rather than drawn as a truss
-  // and called one.
-  for (const x of [1560, 2080]) {
-    for (const y of [LOW_Y, UP_Y]) {
-      beam({
-        view: side,
-        a: [x - TUBE / 2, LOW_Z], b: [x + TUBE / 2, UP_Z],
-        depth: TUBE, at: y - TUBE / 2,
-      });
-    }
-  }
+  beam("frame-lower", {
+    view: side,
+    a: [FRAME_NOSE, LOW_Z - TUBE / 2], b: [FRAME_REAR, LOW_Z + TUBE / 2],
+    depth: TUBE, at: LOW_Y - TUBE / 2,
+  }, true);
+  // THE UPPER TUBE SLOPES, and it has to. Run level at the engine's own crown
+  // and it leaves the bonnet three hundred millimetres before the nose,
+  // because the bonnet is falling and the engine is not there any more. So
+  // its front end comes off the BODY — `crownZ` at the frame's own nose, less
+  // the clearance a panel wants over a tube — and its back off the ENGINE.
+  // Both ends are read; neither is typed. `strut` is what makes it possible
+  // to author at all, and this is the first member in the project that is not
+  // parallel to an axis.
+  const RING_TOP = Math.min(UP_Z, crownZ(FRAME_NOSE) - 92);
+  strut("frame-upper", [FRAME_NOSE, UP_Y, RING_TOP], [FRAME_REAR, UP_Y, UP_Z], TUBE, TUBE, true);
+  // DIAGONALS, now that a member can run at an angle. Two per side, opposed,
+  // which is what makes a tube frame a truss rather than a ladder standing on
+  // its edge. The first version put verticals here and said in a comment that
+  // it could not author a diagonal; `strut` is that comment being retired.
+  const midX = (FRAME_NOSE + FRAME_REAR) / 2;
+  const midZ = (RING_TOP + UP_Z) / 2;
+  strut("frame-diag-fwd", [FRAME_NOSE + 40, LOW_Y, LOW_Z], [midX, UP_Y, midZ], TUBE, TUBE, true);
+  strut("frame-diag-aft", [midX, LOW_Y, LOW_Z], [FRAME_REAR - 40, UP_Y, UP_Z], TUBE, TUBE, true);
   // The picture frame: the ring at the nose the radiator hangs in and the
   // bonnet hinges from.
-  for (const [z, h] of [[LOW_Z, TUBE], [UP_Z, TUBE]] as const) {
-    beam({
-      view: { kind: "front" as const },
-      a: [-UP_Y, z - h / 2], b: [UP_Y, z + h / 2], depth: TUBE, at: FRAME_NOSE,
-    });
+  for (const [nm, z] of [["frame-ring-lower", LOW_Z], ["frame-ring-upper", RING_TOP]] as const) {
+    beam(nm, { view: { kind: "front" as const }, a: [-UP_Y, z - TUBE / 2], b: [UP_Y, z + TUBE / 2], depth: TUBE, at: FRAME_NOSE });
   }
-  for (const y of [UP_Y, -UP_Y]) {
-    beam({
-      view: side,
-      a: [FRAME_NOSE, LOW_Z], b: [FRAME_NOSE + TUBE, UP_Z],
-      depth: TUBE, at: y - TUBE / 2,
-    });
-  }
+  beam("frame-ring-post", {
+    view: side, a: [FRAME_NOSE, LOW_Z], b: [FRAME_NOSE + TUBE, RING_TOP], depth: TUBE, at: UP_Y - TUBE / 2,
+  }, true);
+
+  // ── the suspension, which is what makes a wheel part of the car ─────────
+  // The packing solve has placed a "suspension double-wishbone front" part
+  // since the first car — 646 x 1790 x 505 at the front axle — and no build
+  // has ever drawn it. So three cars have carried four wheels that were
+  // solids at the track and the axle station with nothing within half a metre
+  // of them. The structure lens now says so in one line; this is the answer
+  // to it.
+  //
+  // Everything below is geometry off the track, the wheel radius and the
+  // frame the links pick up on. Nothing is typed that the car does not
+  // already know.
+  const HUB_Y = ETYPE_FRONT_TRACK / 2 - 62;
+  // FRONT: wishbones onto the two frame tubes, and the E-Type's own signature
+  // — a longitudinal TORSION BAR from the lower wishbone back to the
+  // bulkhead, which is the car's front spring and the reason its frame has to
+  // reach that far back.
+  const upperAtAxle = RING_TOP + (UP_Z - RING_TOP) * ((FRONT_AXLE_X - FRAME_NOSE) / (FRAME_REAR - FRAME_NOSE));
+  suspensionCorner(kit, {
+    tag: "FL", axleX: FRONT_AXLE_X, hubY: HUB_Y, axleZ: AXLE_Z,
+    lowerIn: [FRONT_AXLE_X, LOW_Y, LOW_Z], upperIn: [FRONT_AXLE_X, UP_Y, upperAtAxle],
+    springTop: [FRONT_AXLE_X - 40, UP_Y, upperAtAxle],
+  });
+  strut("torsion-bar", [FRONT_AXLE_X + 150, LOW_Y, LOW_Z], [FRAME_REAR - 30, LOW_Y - 40, LOW_Z], 32, 32, true);
+  // The steering rack and its tie rods, which the solve also placed.
+  const rack = partBox("steering");
+  beam("rack", {
+    view: { kind: "front" as const },
+    a: [rack.lo[1], rack.lo[2]], b: [rack.hi[1], rack.hi[2]],
+    depth: rack.hi[0] - rack.lo[0], at: rack.lo[0],
+  });
+  strut("tie-rod", [rack.hi[0] - 20, rack.hi[1], (rack.lo[2] + rack.hi[2]) / 2],
+    [FRONT_AXLE_X - 90, HUB_Y - 20, AXLE_Z - 60], 24, 24, true);
+
+  // REAR: the cage carries it. The halfshaft IS the upper link on this car —
+  // that is not a simplification, it is how a Series 1 is built — so the
+  // upper arm runs from the hub to the differential and not to a frame rail.
+  const cageY = 400;
+  suspensionCorner(kit, {
+    tag: "RL", axleX: REAR_AXLE_X, hubY: ETYPE_REAR_TRACK / 2 - 62, axleZ: AXLE_Z,
+    lowerIn: [REAR_AXLE_X, cageY, 240], upperIn: [REAR_AXLE_X, 170, AXLE_Z],
+    springTop: [REAR_AXLE_X - 60, cageY, 430],
+  });
+  // Radius arms, forward from the upright to the tub: what stops the whole
+  // cage rotating about its own transverse links.
+  strut("radius-arm", [REAR_AXLE_X, ETYPE_REAR_TRACK / 2 - 62, AXLE_Z - 130],
+    [3200, SILL_Y - 40, 260], 34, 34, true);
+
   for (const id of [...s.state.cells.keys()] as Id[]) {
     if (frameBefore.has(id)) continue;
     frameCells.push(id);
     chassisCells.push(id);
-    s.apply("mirror-detach", { cellId: id });
   }
+  members = kit.members;
 
   // ── body mounts, and why this car has none ──────────────────────────────
   // Same rule as the MX-5, applied to a different structure and giving the
@@ -1390,17 +1503,15 @@ if (process.env["NOCHASSIS"] !== "1") {
   // body's underside, and it only exists where there is daylight to shim: on
   // a body-on-frame car the pan sits above the rail and every pad is real,
   // and on a tub the floor pan is BELOW the longeron — the member is inside
-  // the body, welded to it — so there is nothing for a pad to span. The lens
-  // reports every station as wrapped, and that is the correct reading of a
-  // monocoque rather than a failure to find something.
+  // the body, welded to it — so there is nothing for a pad to span.
   for (const x of MOUNT_X) {
     const padTop = undersideAt(x, RAIL_Y);
     if (!Number.isFinite(padTop) || padTop < RAIL_TOP + 1) { wrapped.push(x); continue; }
-    beam({
+    beam(`mount@${x}`, {
       view: side,
       a: [x - MOUNT_PAD / 2, RAIL_TOP], b: [x + MOUNT_PAD / 2, padTop],
       depth: MOUNT_PAD, at: RAIL_Y - MOUNT_PAD / 2,
-    });
+    }, true);
     mounts.push({ name: `mount@${x}`, at: [x, RAIL_Y, padTop], padHalf: MOUNT_PAD / 2 });
     mounts.push({ name: `mount@${x}-R`, at: [x, -RAIL_Y, padTop], padHalf: MOUNT_PAD / 2 });
   }
@@ -1834,24 +1945,6 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
   // is hidden; clearance says whether a panel would read it through; the
   // mounts say whether the body sits on the frame or merely near it.
   const structure = structMesh;
-  if (process.env["DBG"] === "1") {
-    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-    const seen = new Set<number>();
-    for (const i of structIdx) seen.add(i);
-    for (const i of seen) for (let k = 0; k < 3; k++) {
-      lo[k] = Math.min(lo[k]!, printed.positions[i * 3 + k]!);
-      hi[k] = Math.max(hi[k]!, printed.positions[i * 3 + k]!);
-    }
-    console.log(`  DBG chassisCells ${chassisCells.length} pillarCells ${pillarCells.length} structSet ${structSet.size}`);
-    console.log(`  DBG structure extent ${lo.map((v) => v.toFixed(0)).join(",")} .. ${hi.map((v) => v.toFixed(0)).join(",")}`);
-    const bodyIds = [...bodyCells].length;
-    console.log(`  DBG bodyCells ${bodyIds} · body tris ${idx.length / 3} · struct tris ${structIdx.length / 3} · total ${printed.indices.length / 3}`);
-    console.log(`  DBG PAD_TOP ${PAD_TOP} · RAIL_Z ${RAIL_Z} · RAIL_H ${RAIL_H} · RAIL_Y ${RAIL_Y}`);
-    for (const m of mounts) {
-      const sec = sliceSection(skin, m.at[0]);
-      console.log(`  DBG ${m.name} y ${m.at[1].toFixed(0)} z ${m.at[2].toFixed(0)} · column [${scanUp(sec, m.at[1]).map((v) => v.toFixed(0)).join(", ")}]`);
-    }
-  }
   const fit = chassisFit(skin, structure, mounts);
   line("chassis hidden by the skin",
     `${fit.points - fit.outsideVisible} of ${fit.points} points · ${fit.exposedBelow} slung under the floor` +
@@ -1877,6 +1970,55 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
     }
   }
   for (const f of fit.faults) line("  chassis FAULT", f);
+
+  // ── the structure against itself, and against what it carries ──────────
+  // The other half of the question `chassisFit` cannot ask. That one is about
+  // the SKIN; this one is about whether the thing under the skin is a
+  // structure at all — one body rather than several, with something in reach
+  // of every part the solve placed and of all four wheels.
+  const corners = [
+    { name: "wheel-FL", at: [FRONT_AXLE_X, ETYPE_FRONT_TRACK / 2, AXLE_Z] as Pt3 },
+    { name: "wheel-FR", at: [FRONT_AXLE_X, -ETYPE_FRONT_TRACK / 2, AXLE_Z] as Pt3 },
+    { name: "wheel-RL", at: [REAR_AXLE_X, ETYPE_REAR_TRACK / 2, AXLE_Z] as Pt3 },
+    { name: "wheel-RR", at: [REAR_AXLE_X, -ETYPE_REAR_TRACK / 2, AXLE_Z] as Pt3 },
+  ];
+  // The wheels are parts too, and the structure has to reach them like
+  // anything else — but they are reported as CORNERS rather than as cargo,
+  // because what reaches a wheel is a suspension link and what reaches a fuel
+  // tank is a strap.
+  const cargo = parts.filter((q) => !q.name.includes("wheel-tire") && !q.name.startsWith("substrate"));
+  const frameRead = structureFit(members, cargo, corners);
+  if (process.env["DBG"] === "1") {
+    // The REGISTER against the MESH. They describe the same members and are
+    // computed two different ways, so a disagreement means one of them is
+    // wrong — which is the only way to catch a strut that never got mapped.
+    let rlo = [Infinity, Infinity, Infinity], rhi = [-Infinity, -Infinity, -Infinity];
+    for (const m of members) for (let k = 0; k < 3; k++) {
+      rlo[k] = Math.min(rlo[k]!, m.lo[k]!); rhi[k] = Math.max(rhi[k]!, m.hi[k]!);
+    }
+    console.log(`  DBG register  ${rlo.map((v) => v.toFixed(0)).join(",")} .. ${rhi.map((v) => v.toFixed(0)).join(",")}`);
+    const seen = new Set<number>();
+    for (const i of structMesh.indices) seen.add(i);
+    let mlo = [Infinity, Infinity, Infinity], mhi = [-Infinity, -Infinity, -Infinity];
+    for (const i of seen) for (let k = 0; k < 3; k++) {
+      mlo[k] = Math.min(mlo[k]!, structMesh.positions[i * 3 + k]!);
+      mhi[k] = Math.max(mhi[k]!, structMesh.positions[i * 3 + k]!);
+    }
+    console.log(`  DBG mesh      ${mlo.map((v) => v.toFixed(0)).join(",")} .. ${mhi.map((v) => v.toFixed(0)).join(",")}`);
+    for (const m of members.slice(0, 60)) {
+      console.log(`  DBG member ${m.name.padEnd(22)} ${m.lo.map((v) => v.toFixed(0)).join(",")} .. ${m.hi.map((v) => v.toFixed(0)).join(",")}`);
+    }
+  }
+  const held = frameRead.anchorage.filter((q) => q.carried).length;
+  line("structure", `${frameRead.members} members · ` +
+    (frameRead.islands.length === 1
+      ? "one body"
+      : `${frameRead.islands.length} bodies, which is ${frameRead.islands.length - 1} too many`));
+  line("  parts carried", `${held} of ${cargo.length} have structure within reach` +
+    (frameRead.orphanedKg === 0 ? "" : ` · ${frameRead.orphanedKg.toFixed(0)} kg with nothing under it`));
+  line("  wheels carried", frameRead.corners.map((c) =>
+    `${c.name.slice(-2)} ${c.gap.toFixed(0)}`).join(" / ") + " mm to the nearest member");
+  for (const f of frameRead.faults) line("  structure FAULT", f);
 
   line("profile vs the real car",
     `worst ${worstW.toFixed(0)} mm wide at x ${atW.toFixed(0)} · ${worstZ.toFixed(0)} mm tall · ` +
