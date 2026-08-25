@@ -85,7 +85,16 @@ export interface BrakesParams {
   /** Booster diameter. Default SOURCED 8 in dual-diaphragm. */
   readonly boosterDiameter?: Quantity<"mm">;
   /** Which side the driver (and so the pedal box) sits. Recorded, not solved. */
-  readonly driverSide?: "left" | "right";
+  /**
+   * Which side the driver sits, and "centre" is not a joke.
+   *
+   * Four cars in, this was `"left" | "right"` because every car anyone had
+   * modelled here had a driver beside the centreline. A McLaren F1 does not,
+   * and the pedal box it fixes sits ON the centreline — which is the whole
+   * reason three people fit in a car 1820 mm wide. Additive: no stored
+   * document contains the new value, so no hash moves.
+   */
+  readonly driverSide?: "left" | "right" | "centre";
 }
 
 export interface BrakesDims {
@@ -229,7 +238,7 @@ export function makeBrakes(params: BrakesParams, alloc: IdAllocator): BrakesInst
       id: alloc.next("demand"),
       principal: "person",
       reason:
-        `the pedal box sits at the ${driverSide}-side driver's heel point and cannot move: the seated human fixes ` +
+        `the pedal box sits at the ${driverSide === "centre" ? "centre" : `${driverSide}-side`} driver's heel point and cannot move: the seated human fixes ` +
         `the heel, the pedals must meet the foot, and the booster + master cylinder are coaxial with the pedal ` +
         `pushrod through the firewall — moving this point means moving the driver`,
       kind: "point-at",

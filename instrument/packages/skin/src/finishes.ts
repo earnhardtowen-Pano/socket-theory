@@ -88,10 +88,20 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
   // a softer, deeper clearcoat than a car painted forty years later.
   "British Racing Green": f("British Racing Green", "#12352a", "skin", 0.86, 0.35, 1.0),
   "body panel": f("body panel", "#8d1b24", "skin", 0.82, 1.0, 1.0),
+  // The colour the first one was shown in. Solid rather than metallic: a
+  // works orange has no flake in it, so it reads flatter and more saturated
+  // than any of the four above and takes a highlight in a harder line.
+  "Papaya Orange": f("Papaya Orange", "#d2571b", "skin", 0.88, 0.0, 1.0),
 
   // ── structure ────────────────────────────────────────────────────────────
   "screen frame": f("screen frame", "#8e9196", "structure", 0.42, 0.9, 0.25),
   "roll hoop": f("roll hoop", "#6f747b", "structure", 0.55, 0.9, 0.0),
+  // THE THIRD SILVER, and it is not a silver. Two cars in, "chassis" was a
+  // grey metal because both their structures were steel. A carbon tub is
+  // neither grey nor metal: it is a black dielectric with a weave under a
+  // clearcoat, and painting it the steel colour would have said the F1's
+  // monocoque is a spaceframe. Same class, different material.
+  "carbon": f("carbon", "#2a2b2f", "structure", 0.34, 0.0, 0.55),
 
   // ── glazing: tertiary, and the only class that is not opaque ─────────────
   "windscreen": f("windscreen", "#2a3338", "glazing", 0.03, 0.05, 0.5, 0.24),
@@ -108,7 +118,13 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
   // A crossply on a 15 in wire wheel. Rougher and greyer than a modern
   // radial: the rubber of 1961 had more carbon showing and less silica gloss.
   "6.40-15": f("6.40-15", "#17171a", "tyre", 0.91, 0.0, 0.08),
+  // A modern low-profile radial on a big rim: more silica, less carbon
+  // showing, and a harder gloss than either of the two above.
+  "315/45ZR17": f("315/45ZR17", "#141419", "tyre", 0.85, 0.0, 0.16),
   "alloy": f("alloy", "#b9bdc2", "wheel", 0.30, 1.0, 0.0),
+  // Cast magnesium, lacquered rather than polished — darker and warmer than
+  // an aluminium alloy, which is what magnesium looks like under clear.
+  "magnesium": f("magnesium", "#9a9489", "wheel", 0.38, 1.0, 0.15),
   // Chromed spokes on a painted hub. Modelled as one disc, so this is the
   // average of a wheel that is mostly air — brighter than an alloy and
   // rougher than chrome, which is what a hundred spokes read as at distance.

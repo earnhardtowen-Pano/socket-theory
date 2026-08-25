@@ -42,6 +42,22 @@ function merge(...parts: { positions: number[]; indices: number[] }[]): {
 
 /** A body: 3000 long, 1600 wide, 900 tall, sitting on the road. */
 const body = merge(box([0, -800, 0], [3000, 800, 900]));
+/**
+ * The same body with a FOLD in one flank over a 4 mm band of length.
+ *
+ * A plate one millimetre thick, two millimetres inboard of the skin, from
+ * x = 1000 to 1004. It is what a mesher hands back where a surface doubles
+ * back on itself — the lip of a wheel arch — and it means a horizontal scan
+ * at those stations reports the flank TWICE, two millimetres apart, which is
+ * outside the millimetre `scanAt` already collapses. One extra crossing flips
+ * the parity for everything inboard of it.
+ *
+ * Nothing about the body's interior changed. Only the ray's view of it.
+ */
+const foldedFlank = merge(
+  box([0, -800, 0], [3000, 800, 900]),
+  box([1000, -798, 0], [1004, -797, 900]),
+);
 /** A rail well inside it. */
 const rail = merge(box([300, -400, 200], [2700, -330, 310]));
 /** A rail that has burst out of the side. */
@@ -232,5 +248,21 @@ describe("chassisFit: registration", () => {
     expect(r.mounts[0]!.inside).toBe(true);
     expect(r.mounts[0]!.bodyUnderside).toBeCloseTo(0, 0);
     expect(r.mounts[0]!.standoff).toBeCloseTo(310, 0);
+  });
+});
+
+describe("a fold in the skin does not make the structure protrude", () => {
+  it("reads the rail as contained, fold or no fold", () => {
+    const clean = chassisFit(body, rail);
+    const folded = chassisFit(foldedFlank, rail);
+    expect(clean.outsideVisible).toBe(0);
+    expect(folded.outsideVisible).toBe(0);
+    expect(folded.worstProtrusion).toBe(0);
+  });
+
+  it("still finds a rail that has genuinely burst out, at every station", () => {
+    const out = chassisFit(foldedFlank, burst);
+    expect(out.outsideVisible).toBeGreaterThan(0);
+    expect(out.worstProtrusion).toBeGreaterThan(0);
   });
 });

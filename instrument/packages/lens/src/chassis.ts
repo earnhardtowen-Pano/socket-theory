@@ -289,7 +289,24 @@ export function chassisFit(
     }
     points++;
     const gap = wallClearance(section, y, z);
-    const within = insideSection(section, y, z);
+    // THREE STATIONS, NOT ONE, and a wheel arch mouth is why. Where an arch
+    // opening has just begun, the body's section carries a sliver of skin a
+    // couple of millimetres wide, and at the mouth EXACTLY the sliver has no
+    // width at all — the lip is tangent to the station plane. A parity test
+    // on a section like that is unreliable in every direction at once, and it
+    // reported the McLaren's front rails as 191 mm out through its own bonnet
+    // while they sat in the middle of the nose.
+    //
+    // Structure is a solid and so is the body it sits in, so the question has
+    // an answer three millimetres either side where the sliver is gone. A
+    // member genuinely through a panel is outside at all three; a member at a
+    // tangency is outside at one. Nothing real is softened by asking twice
+    // more — a protrusion has to survive a majority, and a 3 mm protrusion was
+    // never the defect this lens is for.
+    const vote = (sec: readonly Seg2[]): boolean =>
+      sec.length === 0 ? true : insideSection(sec, y, z);
+    const within = [section, sectionOf(x - 3), sectionOf(x + 3)]
+      .map(vote).filter(Boolean).length >= 2;
     let protruding = false;
     if (!within) {
       outside++;

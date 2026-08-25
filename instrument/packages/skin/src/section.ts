@@ -298,6 +298,23 @@ export function sampledVertices(mesh: SectionMesh, limit = 4000): number[] {
 }
 
 /**
+ * Closest pair of crossings in a scan, mm. Infinity for fewer than two.
+ *
+ * A ray that passes within a hair of a fold enters and leaves again inside
+ * that hair, and the two crossings it reports are really one grazing touch —
+ * which is the classic way a parity test gets the wrong answer on geometry
+ * that is perfectly well formed.
+ */
+const tightestPair = (cs: readonly number[]): number => {
+  let best = Infinity;
+  for (let i = 1; i < cs.length; i++) best = Math.min(best, Math.abs(cs[i]! - cs[i - 1]!));
+  return best;
+};
+
+/** How close two crossings have to be before a ray is treated as grazing. */
+const GRAZE_MM = 3;
+
+/**
  * Is (y, z) inside the solid the section bounds?
  *
  * Parity on the crossings to its left. The body a mesher hands back is a
@@ -309,12 +326,36 @@ export function sampledVertices(mesh: SectionMesh, limit = 4000): number[] {
  * The duplicate collapse in `scanAt` is what makes the parity right: every
  * quad face is two triangles, and a scan line crossing their shared diagonal
  * is reported by both. Counting that twice flips the answer.
+ *
+ * TWO RAYS, NOT ONE, AND THE McLAREN IS WHY. A single horizontal ray is exact
+ * for a closed polygon and it meets exactly one condition it cannot check for
+ * itself: that it crosses the boundary transversally. Just inboard of a wheel
+ * arch's lip — where the opening has only begun and the cut is a two
+ * millimetre sliver — a horizontal ray enters the flank and leaves through the
+ * wheelhouse wall two millimetres later, which flips the parity for the entire
+ * rest of the section. Seven structure points read as 193 mm out through the
+ * bonnet of a car whose front rails are in the middle of its nose.
+ *
+ * So both rays are cast, and where they disagree the one with no grazing pair
+ * wins. That is not a tolerance and not a vote: a ray that enters and leaves
+ * inside three millimetres has met the boundary tangentially and its parity is
+ * the unreliable one, which is a fact about the ray rather than about the
+ * body. Where both are clean and they still disagree the horizontal answer
+ * stands, so nothing about the old behaviour changes on a section without a
+ * sliver in it.
  */
 export function insideSection(section: readonly Seg2[], y: number, z: number): boolean {
-  const ys = scanAt(section, z);
-  let left = 0;
-  for (const c of ys) if (c < y) left++;
-  return left % 2 === 1;
+  const across = scanAt(section, z);
+  const parity = (cs: readonly number[], at: number): boolean => {
+    let before = 0;
+    for (const c of cs) if (c < at) before++;
+    return before % 2 === 1;
+  };
+  const flat = parity(across, y);
+  if (tightestPair(across) >= GRAZE_MM) return flat;
+  const up = scanUp(section, y);
+  if (tightestPair(up) >= GRAZE_MM) return parity(up, z);
+  return flat;
 }
 
 /** Distance from (y, z) to the nearest piece of the section, mm. */

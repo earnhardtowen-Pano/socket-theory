@@ -45,5 +45,13 @@ export {
 export { ETYPE_PROFILE, ETYPE_PROFILE_TOLERANCE_MM } from "./etype-reference.js";
 
 export {
+  mclarenF1Config, F1_WHEELBASE, F1_FRONT_OVERHANG, F1_REAR_OVERHANG, F1_FRONT_TRACK,
+  F1_REAR_TRACK, F1_RAIL_HEIGHT, F1_LENGTH, F1_WIDTH, F1_HEIGHT,
+  F1_FRONT_DIAMETER, F1_REAR_DIAMETER, F1_FRONT_TIRE_WIDTH, F1_REAR_TIRE_WIDTH,
+} from "./mclaren-f1.js";
+
+export { F1_PROFILE, F1_PROFILE_TOLERANCE_MM } from "./mclaren-f1-reference.js";
+
+export {
   MX5_PROFILE, MX5_PROFILE_TOLERANCE_MM, type ProfileStation,
 } from "./miata-reference.js";
