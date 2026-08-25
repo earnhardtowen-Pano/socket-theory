@@ -578,6 +578,133 @@ cannot be left- and right-hand different.
 
 ---
 
+## The third car — a Jaguar E-Type coupe, and what a ROOF cost
+
+The P1 is the demonstrator the surfacing grew up against and the MX-5 is the
+control that proved it general. Both are open. So in two cars nothing had ever
+put bodywork over an occupant's head, and `cabinLens` had carried a headroom
+branch, a fault string for a head through a roof, and a `headAboveBody` sign
+convention that no body could make it exercise. Every number it had ever
+published about a head was **"+464 mm, in the open air, which a roadster
+means."**
+
+A Series 1 fixed-head coupe was chosen to make it say something else. It also
+disagrees with both predecessors on proportion in the way that matters: the
+wheel is 674 mm against the MX-5's 592, the track is 1270 under a body 1657
+wide — so the flank stands 96 mm outboard of the tyre where the MX-5 has 35 —
+and 1240 mm of the car sits ahead of the front axle.
+
+| | P1 | MX-5 | E-Type |
+|---|---|---|---|
+| G1 worst | 2.07° | 16.42° | **3.11°** |
+| G1 joins | 62/64 | 71/79 | 97/101 |
+| G2 median rel. | 0.154 % | 0.0035 % | **0.0002 %** |
+| network worst | 72° | 16.41° | **3.11°** |
+| profile vs the real car | — | 0/15 outside 40 mm | 0/16 outside 40 mm |
+
+### Six master lines, not four
+
+A body described as a rocker, a beltline and one surface over the top between
+them is enough for a roadster, whose roof is a separate assembly. It is not
+enough for a coupe: with one band from beltline to beltline the windscreen
+cannot be told from the roof above the driver's shoulder, because they are the
+same cell. Every closed car has a third longitudinal seam.
+
+Two plan cuts across the deck — before a control point has moved, because
+cutting after shaping is what opens a print mesh — give the body a centre band
+and two side bands. On this car in particular they land on real panel edges:
+ahead of the scuttle they are the wing crowns and what they enclose is the
+bonnet's centre panel; behind it they are the roof rails and what they enclose
+is screen, roof and backlight in one band, while the side glass and the
+quarters stay with the flank. So the glazing is not built at all, it is
+ASSIGNED, to cells the body already has.
+
+It also means the E-Type's bonnet — one forward-hinged clamshell carrying the
+nose, both wings and a quarter of the car — is described by a single ring of
+gap marks at the scuttle. The MX-5 needed six cuts and a split to describe a
+bonnet. The difference is the car, not the tool.
+
+### Four things the car found, three of them in the instrument
+
+**The interpolator was flat at every knot.** Every plan and height profile was
+a per-span smoothstep, which is flat at BOTH ends of every span by
+construction. Put a knot at a wheel-arch mouth and the sill leaves it
+horizontally — while the arch arrives at 79 degrees, because a quarter circle
+at its mouth is nearly vertical. Eight corners at 87° out of plane, one at
+every mouth of every arch, and a 57 mm bulge where the field tried to blend
+across them. Nothing in the station table was wrong. Replacing it with a
+monotone cubic (Fritsch–Carlson: through every knot, no overshoot, and a
+secant slope THROUGH a knot) plus knots 90 mm either side of each mouth, and
+marking the mouths as the folds they are, took the worst network corner from
+**87° to 3.11°**.
+
+**The flank bow overshot its own target.** `d` is a control-point offset and a
+cubic does not reach its control points, so asking for a bulge and dividing by
+0.75 left the car 19 mm wide at every station from the front axle back:
+authored 1657, built 1695, and the report said both numbers without either
+being wrong. The caller now names the PEAK and the code bisects for the offset
+that delivers it. Built width 1658.
+
+**The cabin lens was reading the wrong mesh, and had been for two cars.** It
+was handed the whole print — chassis, wheels and glazing — so it read a
+beltline off a wheel. Worse, once that was fixed by handing it skin-and-trim,
+it found a HOLE where the rear window is: on a fastback the panel over the
+driver's head IS the backlight. The lens needs the envelope — skin, trim and
+glass — and the profile check needs the body without glass, and those are two
+different meshes.
+
+**`beltZ` climbs into the side glass on a car with real tumblehome.** It is
+read off the outer QUARTER of the half-width, which is the beltline on an open
+car and is a long way up the glass on a coupe. An E-Type's beltline came back
+at 1044 mm against a true 958, so the gap to the roof read as 87 mm rather
+than 173 — and a head 192 mm THROUGH the roof was reported as a head in the
+open air. The fix was to stop using a body feature as the datum: **there is a
+roof over an occupant when there is bodywork in the occupant's own column
+above the occupant's own shoulder.** No threshold on a body dimension, and the
+right answer on a roadster whose shoulders are in the wind by construction.
+The tumblehome reading is left as the lens computes it and relabelled
+*greenhouse rake* on this car, because on a coupe that is what it measures.
+
+### And then it said something true about the car
+
+    head under the roof   NONE — the head is 192 mm THROUGH the roof
+
+Which the real coupe is famous for. Part of it is the occupant model, which
+sits at SAE J4004's 25 degree back angle where an E-Type's seat reclines a
+long way past that — but not 192 mm of it.
+
+### A monocoque has no body mounts, and that IS the reading
+
+The E-Type is a monocoque tub from the scuttle back and a bolted tubular frame
+ahead of it. Both are authored. The chassis lens runs the SAME rule it runs on
+the MX-5 — a pad is a shim from the member's top face up to the body's
+underside, and it exists only where there is daylight to shim — and gets the
+opposite answer:
+
+| | MX-5 (body-on-frame) | E-Type (monocoque) |
+|---|---|---|
+| structure showing | 0 | 0 |
+| slung under the floor | 2,415 points | 461 |
+| body mounts | 4 of 4 at 3 mm | **none, at any station** |
+| wrapped, not mounted | x 620, 3320 | x 2700, 3180, 3660 |
+
+On a body-on-frame car the pan sits above the rail and every pad is real. On a
+tub the floor pan is BELOW the longeron — the member is inside the body,
+welded to it — so there is nothing for a pad to span, at any station. If the
+same rule had given the same answer on both cars, one of the two would be
+wrong.
+
+### What it could not do
+
+A cabin is a VOID and the mesher hands back a closed solid. An open car's
+cockpit exists — it is a well cut into the top of the solid and the lens reads
+its walls — and a coupe's does not. So `shoulderRoom`, `hipRoom` and
+`hipAboveWell` all come back null on this body, and worse, before the guard
+went in, `hipRoom` found the WHEELHOUSE and reported the gap between the two
+rear arches as 1,227 mm of cabin. Reported as the limit it is. The instrument
+can measure the cabin of an open car and not a closed one, and that asymmetry
+is the largest single gap this car exposed.
+
 ## The chassis lens — the half of the car nothing was measuring
 
 The MX-5 had a frame from the day it was built, and until this lens existed
@@ -673,6 +800,14 @@ tolerance allows, and reported rather than rounded away.
   author a hole.
 - **The field's reflection asymmetry**, above. Measured, bounded, and the six
   cheapest explanations ruled out; the cause is not yet found.
+- **A closed body has no interior to measure.** Every cabin reading that needs
+  a void returns null on a coupe. Authoring a hollow shell needs the ability
+  to author a hole, which is Stage 3 (trimmed topology) and untouched.
+- **`makeSubstrate` knows one construction style.** `body-on-frame` is what
+  the E-Type's config has to declare for a car that is a monocoque with a
+  bolted front frame; the real structure is authored in the build script and
+  the gap is recorded rather than papered over. A monocoque style is the
+  amendment this car asks for.
 - **The control net disagrees with the evaluator on the MX-5** — 6.9 × 10¹ mm
   worst against a gate of 10⁻⁹, where the P1 reads 3 × 10⁻¹². The MX-5 is the
   first car whose cell sides span several chain segments, which is the obvious

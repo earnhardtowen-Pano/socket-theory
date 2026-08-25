@@ -37,5 +37,13 @@ export {
 } from "./miata.js";
 
 export {
+  etypeConfig, ETYPE_WHEELBASE, ETYPE_FRONT_OVERHANG, ETYPE_REAR_OVERHANG, ETYPE_FRONT_TRACK,
+  ETYPE_REAR_TRACK, ETYPE_RAIL_HEIGHT, ETYPE_LENGTH, ETYPE_WIDTH, ETYPE_HEIGHT, ETYPE_DIAMETER,
+  ETYPE_TIRE_WIDTH,
+} from "./etype.js";
+
+export { ETYPE_PROFILE, ETYPE_PROFILE_TOLERANCE_MM } from "./etype-reference.js";
+
+export {
   MX5_PROFILE, MX5_PROFILE_TOLERANCE_MM, type ProfileStation,
 } from "./miata-reference.js";

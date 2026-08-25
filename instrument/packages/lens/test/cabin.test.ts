@@ -104,12 +104,36 @@ describe("cabinLens", () => {
     expect(r.faults.join(" ")).not.toMatch(/INSIDE the body/);
   });
 
-  it("catches a head inside a body that closed over it", () => {
+  it("reads a closed body as ROOFED, with the interior unreadable and not a fault", () => {
+    // A solid box over the occupant. There IS bodywork above their shoulder in
+    // their own column, so this is a closed car and the margin to the top is
+    // headroom — 300 mm of it.
+    //
+    // And the interior comes back null, WITHOUT a fault, which is the limit
+    // this suite exists to record: a cabin is a void, the mesher hands back a
+    // solid, and no closed body in this tool has an interior to scan. Faulting
+    // it said "the person is inside the bodywork" about every coupe ever
+    // modelled here, which is true, useless, and drowns the readings that are
+    // not. The caller reports it as a caveat instead.
     const closed = merge(box([0, -400, 0], [3000, 400, 1400]));
     const r = cabinLens(closed, person());
+    expect(r.roofed).toBe(true);
+    expect(r.headAboveBody).toBeCloseTo(-300, 0);
+    expect(r.headroom).toBeCloseTo(300, 0);
+    expect(r.shoulderRoom).toBeNull();
+    expect(r.faults).toEqual([]);
+  });
+
+  it("keeps the open-car fault: a body that closes over an OPEN cockpit", () => {
+    // The same solid, but with the person's shoulders above it — so nothing is
+    // over them, the body is not roofed, and a head inside it is the old
+    // finding and still a fault.
+    // Shoulders at 600, body top at 550: nothing is over them.
+    const closed = merge(box([0, -400, 0], [3000, 400, 550]));
+    const r = cabinLens(closed, person({ hip: [1500, 0, 300], head: [1750, 0, 500] }));
+    expect(r.roofed).toBe(false);
     expect(r.headAboveBody).toBeLessThan(0);
     expect(r.faults.join(" ")).toMatch(/INSIDE the body/);
-    expect(r.faults.join(" ")).toMatch(/no cockpit at the H-point/);
   });
 
   it("says when the driver would look over the glass rather than through it", () => {
@@ -119,6 +143,39 @@ describe("cabinLens", () => {
     const tall = cabinLens(trough, person(), { headerTopZ: 1200 });
     expect(tall.eyeAboveHeader).toBeCloseTo(-200, 0);
     expect(tall.faults.join(" ")).not.toMatch(/over the glass/);
+  });
+
+  it("calls a head through a ROOF a fault, where the same number in the open is not", () => {
+    // A closed section: walls to 800, tucked in to a roof at 1100. The
+    // beltline is 900 and the top 1100, so 200 mm of body stands above the
+    // belt and this is a coupe rather than a tonneau.
+    const coupe = merge(extrude([
+      [-400, 0], [400, 0], [400, 800], [300, 900],
+      [250, 1100], [-250, 1100], [-300, 900], [-400, 800],
+    ], 0, 3000));
+    const tall = cabinLens(coupe, person({ head: [1750, 0, 1180] }));
+    expect(tall.roofed).toBe(true);
+    expect(tall.headAboveBody).toBeCloseTo(80, 0);
+    expect(tall.headroom).toBeCloseTo(-80, 0);
+    expect(tall.faults.join(" ")).toMatch(/THROUGH the roof/);
+
+    // The identical +80 on the open car is the whole point of the car.
+    const open = cabinLens(trough, person({ head: [1750, 0, 880] }));
+    expect(open.roofed).toBe(false);
+    expect(open.headAboveBody).toBeCloseTo(80, 0);
+    expect(open.headroom).toBeNull();
+    expect(open.faults.join(" ")).not.toMatch(/roof/);
+  });
+
+  it("reports headroom under a roof, and raises nothing when there is some", () => {
+    const coupe = merge(extrude([
+      [-400, 0], [400, 0], [400, 800], [300, 900],
+      [250, 1100], [-250, 1100], [-300, 900], [-400, 800],
+    ], 0, 3000));
+    const r = cabinLens(coupe, person({ head: [1750, 0, 1010] }));
+    expect(r.roofed).toBe(true);
+    expect(r.headroom).toBeCloseTo(90, 0);
+    expect(r.faults.filter((f) => f.includes("roof"))).toEqual([]);
   });
 
   it("finds the cockpit opening's ends", () => {

@@ -84,6 +84,9 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
   "Classic Red": f("Classic Red", "#a8202b", "skin", 0.82, 1.0, 1.0),
   "Brilliant Black": f("Brilliant Black", "#101114", "skin", 0.80, 1.0, 1.0),
   "Crystal White": f("Crystal White", "#e8e9ea", "skin", 0.84, 0.55, 1.0),
+  // Cellulose over hand-finished steel, not a modern basecoat: less flake and
+  // a softer, deeper clearcoat than a car painted forty years later.
+  "British Racing Green": f("British Racing Green", "#12352a", "skin", 0.86, 0.35, 1.0),
   "body panel": f("body panel", "#8d1b24", "skin", 0.82, 1.0, 1.0),
 
   // ── structure ────────────────────────────────────────────────────────────
@@ -102,7 +105,14 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
 
   // ── the corners ──────────────────────────────────────────────────────────
   "185/60R14": f("185/60R14", "#131315", "tyre", 0.88, 0.0, 0.12),
+  // A crossply on a 15 in wire wheel. Rougher and greyer than a modern
+  // radial: the rubber of 1961 had more carbon showing and less silica gloss.
+  "6.40-15": f("6.40-15", "#17171a", "tyre", 0.91, 0.0, 0.08),
   "alloy": f("alloy", "#b9bdc2", "wheel", 0.30, 1.0, 0.0),
+  // Chromed spokes on a painted hub. Modelled as one disc, so this is the
+  // average of a wheel that is mostly air — brighter than an alloy and
+  // rougher than chrome, which is what a hundred spokes read as at distance.
+  "wire wheel": f("wire wheel", "#c6c9cd", "wheel", 0.22, 1.0, 0.0),
 };
 
 /** The fallback: an unpainted skin panel. */

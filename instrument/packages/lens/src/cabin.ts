@@ -28,7 +28,9 @@
 
 import type { Pt3 } from "@car/schema";
 import { assumed } from "@car/demand";
-import { evenStations, sectionAt, type SectionMesh, type StationSection } from "@car/skin";
+import {
+  evenStations, scanUp, sectionAt, sliceSection, type SectionMesh, type StationSection,
+} from "@car/skin";
 
 export type { SectionMesh, StationSection };
 
@@ -49,11 +51,31 @@ export interface CabinPerson {
 export interface CabinReport {
   readonly person: CabinPerson;
   /**
-   * How far the head vertex stands above the body beside it. POSITIVE is the
-   * head in the open air, which is what a roadster with the top down means and
-   * is not a fault. Negative would be a head through a roof.
+   * How far the head vertex stands above the body beside it.
+   *
+   * The sign means OPPOSITE things on the two kinds of car, which is why
+   * `roofed` exists and why this number must never be read without it. On an
+   * open car positive is a head in the wind, which is the point of the car;
+   * on a closed one positive is a head through the roof.
    */
   readonly headAboveBody: number;
+  /**
+   * Does the body close over the occupant at the head's station?
+   *
+   * True when there is meaningfully more body above the beltline than the
+   * beltline itself. Two cars in, every reading this lens published about a
+   * head was "+464 mm, in the open air, which a roadster means", because both
+   * of them were open and nothing had ever needed to tell the difference. A
+   * coupe was the first body that could be wrong about it — and the first
+   * version of this lens called a head 358 mm through an E-Type's roof a
+   * head in the open air, and raised nothing.
+   */
+  readonly roofed: boolean;
+  /**
+   * Air between the head vertex and the roof over it, mm. Null on an open car,
+   * where the answer is the sky.
+   */
+  readonly headroom: number | null;
   /** Eye above the beltline at the eye's own station. */
   readonly eyeAboveBelt: number;
   /** Eye above the screen header, if there is one. Negative = looking through. */
@@ -145,6 +167,29 @@ const BELT_MARGIN = assumed(
   "how far below the beltline an open car's cockpit width is read, so the scan runs inside the walls rather than along their lip — 20 mm ASSUMED",
 );
 
+/**
+ * How far above the occupant's own SHOULDER bodywork must reach to be a roof.
+ *
+ * ASSUMED, and the second attempt. The first compared the section's top to
+ * its beltline, which works on an open car and fails on a closed one for a
+ * reason worth writing down: `beltZ` is read off the outer QUARTER of the
+ * half-width, and a coupe with real tumblehome has climbed a long way into
+ * its side glass by the time it is a quarter of the way in. An E-Type's
+ * beltline came back at 1044 mm against a true beltline near 958, the gap to
+ * the roof read as 87 mm rather than 173, and a head 206 mm through the roof
+ * was reported as a head in the open air.
+ *
+ * A person is a better datum than a body feature. There is a roof over an
+ * occupant when there is bodywork in the occupant's OWN COLUMN above the
+ * occupant's own shoulder — which is exactly what a roof is, needs no
+ * threshold on a body dimension, and gives the right answer on a roadster
+ * whose shoulders are in the wind by construction.
+ */
+const ROOF_MARGIN = assumed(
+  0, "mm",
+  "how far above a seated occupant's shoulder bodywork must reach in their own column before it is a roof — the shoulder itself is the datum, so no margin; 0 mm ASSUMED",
+);
+
 /** The whole reading: the body against the person the packer placed. */
 export function cabinLens(
   mesh: SectionMesh,
@@ -175,6 +220,11 @@ export function cabinLens(
   const hipOwn = sectionAt(mesh, person.hip[0], person.hip[2], drop);
 
   const headAboveBody = person.head[2] - atHead.top;
+  // Is anything above the occupant's shoulder, in the occupant's own column,
+  // at the head's own station? That is the whole test.
+  const overhead = scanUp(sliceSection(mesh, atHead.x), person.hip[1]);
+  const roofed = overhead.some((z) => z > shoulderZ + ROOF_MARGIN.value);
+  const headroom = roofed ? -headAboveBody : null;
   const eyeAboveBelt = person.eye[2] - atEye.beltZ;
   const eyeAboveHeader = opts.headerTopZ === undefined ? null : person.eye[2] - opts.headerTopZ;
   const eyeAboveHeaderRelaxed = opts.headerTopZ === undefined
@@ -193,12 +243,22 @@ export function cabinLens(
     : { fore: open[0]!.x, aft: open[open.length - 1]!.x };
 
   const faults: string[] = [];
-  if (headAboveBody < 0) {
+  // The same number, read two ways, and which way depends on the body. On a
+  // closed car the head must be UNDER the roof and the margin is headroom; on
+  // an open one it must be ABOVE the body and anything else is bodywork
+  // closing over a cockpit.
+  if (roofed && headAboveBody > 0) {
+    faults.push(`the head is ${headAboveBody.toFixed(0)} mm THROUGH the roof — the body closes over the occupant at this station and its top is ${atHead.top.toFixed(0)}`);
+  } else if (!roofed && headAboveBody < 0) {
     faults.push(`head is ${(-headAboveBody).toFixed(0)} mm INSIDE the body — there is no roof here, so this is the body closing over an open cockpit`);
   }
-  if (shoulderRoom === null) {
+  // On a ROOFED body a solid section is the normal case and not a finding: a
+  // cabin is a void, the mesher hands back a solid, and no closed car in this
+  // tool has an interior to scan. Saying "the person is inside the bodywork"
+  // there is true of every coupe ever modelled here and tells nobody anything.
+  if (shoulderRoom === null && !roofed) {
     faults.push(`no cockpit at the H-point station x = ${person.hip[0].toFixed(0)}, read at z = ${shoulderRoomAtZ.toFixed(0)} — the section is solid there, so the person is inside the bodywork`);
-  } else if (shoulderRoom < shoulderRoomNeeded) {
+  } else if (shoulderRoom !== null && shoulderRoom < shoulderRoomNeeded) {
     faults.push(`shoulder room ${shoulderRoom.toFixed(0)} mm against ${shoulderRoomNeeded.toFixed(0)} needed for ${seats} seated shoulder${seats === 1 ? "" : "s"} plus ${elbowGap} mm of elbow`);
   }
   if (hipAboveWell !== null && hipAboveWell < 0) {
@@ -207,12 +267,17 @@ export function cabinLens(
   if (eyeAboveHeaderRelaxed !== null && eyeAboveHeaderRelaxed > 0) {
     faults.push(`the eye is ${eyeAboveHeaderRelaxed.toFixed(0)} mm above the screen header even relaxed — the driver looks over the glass, not through it`);
   }
-  if (aperture !== null && person.hip[0] > aperture.aft) {
+  // Only when there IS an aperture to sit aft of. A closed body reports a
+  // degenerate one — a single station wide, wherever the section machinery
+  // last saw four crossings — and faulting an occupant for being behind it
+  // said nothing except that the car has a roof.
+  const apertureLength = aperture === null ? 0 : aperture.aft - aperture.fore;
+  if (aperture !== null && apertureLength > 1 && person.hip[0] > aperture.aft) {
     faults.push(`the H-point at x = ${person.hip[0].toFixed(0)} sits aft of the cockpit opening, which ends at ${aperture.aft.toFixed(0)}`);
   }
 
   return {
-    person, headAboveBody, eyeAboveBelt, eyeAboveHeader, eyeAboveHeaderRelaxed,
+    person, headAboveBody, roofed, headroom, eyeAboveBelt, eyeAboveHeader, eyeAboveHeaderRelaxed,
     hipAboveWell, shoulderRoom, shoulderRoomAtZ, shoulderRoomNeeded, hipRoom,
     beltAboveHip, aperture, sections, faults,
   };
