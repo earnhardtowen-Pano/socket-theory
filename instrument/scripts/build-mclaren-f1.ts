@@ -383,6 +383,113 @@ const fitChain = (id: Id, at: (seg: number, local: number) => Pt3): void => {
   }
 };
 
+/**
+ * Fit a multi-segment chain and have it come out SMOOTH.
+ *
+ * `fitChain` above fits each span independently through four samples of its
+ * own stretch. Every span lands on its neighbour's endpoint — the chain is
+ * watertight — and arrives there at whatever angle its own four samples
+ * implied. The chain is C0 and nothing more: a tangent kink at every span
+ * boundary, twelve of them down a beltline. That is the lumpiness you can see
+ * from across the room and no probe in the file was measuring.
+ *
+ * This interpolates the same station points with a C2 CUBIC SPLINE instead —
+ * one tridiagonal solve per run, natural at both ends — so position, tangent
+ * AND curvature are continuous across every span boundary. A line then makes
+ * as many moves as its table asks for and no more.
+ *
+ * CORNERS ARE DECLARED, not discovered, and each run between them is solved on
+ * its own. An arch mouth is a real corner: the sill arrives at 33 degrees and
+ * the quarter circle leaves at 79, and a spline that smoothed across it would
+ * destroy both. Declaring it is the same principle as `crease`, one level
+ * down — on the curve rather than on the surface.
+ *
+ * IT INTERPOLATES THE STATIONS AND NOTHING ELSE, except where told otherwise.
+ * `fitChain` sampled each span at four points and so tracked the profile
+ * BETWEEN stations; the spline reads only the station values. That is the
+ * right trade now that `profile` is itself C2 — what happens between two
+ * stations is the spline's business.
+ *
+ * EXCEPT ON A SPAN THAT IS A CIRCLE. The rocker's four arch spans are quarter
+ * circles, and a quarter circle is a cubic through four of its own points to a
+ * tenth of a millimetre; a spline through only its two ENDS is a chord with a
+ * bulge and is not an arch. Those spans keep the four-point fit, and the runs
+ * either side of them are solved separately — so the arc is exact, the sill is
+ * C2, and the mouth between them is the corner it has always been.
+ */
+const fitChainSmooth = (
+  id: Id,
+  at: (seg: number, local: number) => Pt3,
+  corners: readonly number[] = [],
+  exact: readonly number[] = [],
+): void => {
+  const n = s.state.curves.get(s.state.resolveCurve(id))!.chain.segs.length;
+  const P: Pt3[] = [];
+  for (let j = 0; j <= n; j++) P.push(j < n ? at(j, 0) : at(n - 1, 1));
+
+  // Runs between declared corners AND either side of every exact span. Each is
+  // solved on its own with natural ends, so a corner keeps exactly the angle
+  // the profile puts there and the stretches either side are each C2.
+  const fixed = new Set(exact);
+  const cut = new Set<number>([...corners]);
+  for (const e of fixed) { cut.add(e); cut.add(e + 1); }
+  const breaks = [0, ...[...cut].filter((b) => b > 0 && b < n).sort((a, b) => a - b), n];
+  const M: Pt3[] = P.map(() => [0, 0, 0] as Pt3);
+  for (let r = 0; r + 1 < breaks.length; r++) {
+    const lo = breaks[r]!, hi = breaks[r + 1]!;
+    const k = hi - lo;                       // spans in this run
+    if (k === 1 && fixed.has(lo)) continue;  // an arc: fitted below, not splined
+    if (k === 1) {
+      // One span: the chord is the only slope there is.
+      const d: Pt3 = [P[hi]![0] - P[lo]![0], P[hi]![1] - P[lo]![1], P[hi]![2] - P[lo]![2]];
+      M[lo] = d; M[hi] = d;
+      continue;
+    }
+    // The C2 tridiagonal on a uniform parameter, one component at a time.
+    for (let c = 0; c < 3; c++) {
+      const b: number[] = new Array(k + 1).fill(4);
+      const rhs: number[] = new Array(k + 1).fill(0);
+      b[0] = 2; b[k] = 2;
+      rhs[0] = 3 * (P[lo + 1]![c]! - P[lo]![c]!);
+      rhs[k] = 3 * (P[hi]![c]! - P[hi - 1]![c]!);
+      for (let q = 1; q < k; q++) rhs[q] = 3 * (P[lo + q + 1]![c]! - P[lo + q - 1]![c]!);
+      const cUp: number[] = new Array(k + 1).fill(1);
+      for (let q = 1; q <= k; q++) {
+        const w = 1 / b[q - 1]!;
+        b[q] = b[q]! - w * cUp[q - 1]!;
+        rhs[q] = rhs[q]! - w * rhs[q - 1]!;
+      }
+      const out: number[] = new Array(k + 1).fill(0);
+      out[k] = rhs[k]! / b[k]!;
+      for (let q = k - 1; q >= 0; q--) out[q] = (rhs[q]! - cUp[q]! * out[q + 1]!) / b[q]!;
+      for (let q = 0; q <= k; q++) M[lo + q]![c] = out[q]!;
+    }
+  }
+
+  // Boundaries first, then interiors — setting a span's p0 also sets its
+  // neighbour's p3, so the shared points settle before anything is computed
+  // against them. Same order and same reason as `fitChain`.
+  for (let j = 0; j < n; j++) setSegCtrl(id, j, 0, P[j]!);
+  setSegCtrl(id, n - 1, 3, P[n]!);
+  for (let j = 0; j < n; j++) {
+    if (fixed.has(j)) {
+      // The four-point fit, exactly as `fitChain` does it — three parts in ten
+      // thousand on a quarter circle, which is 0.1 mm on an arch this size.
+      const A = at(j, 0), B = at(j, 1 / 3), C = at(j, 2 / 3), D = at(j, 1);
+      const p1 = [0, 1, 2].map((c) =>
+        3 * B[c]! - 1.5 * C[c]! - (5 / 6) * A[c]! + (1 / 3) * D[c]!) as unknown as Pt3;
+      const p2 = [0, 1, 2].map((c) =>
+        3 * C[c]! - 1.5 * B[c]! - (5 / 6) * D[c]! + (1 / 3) * A[c]!) as unknown as Pt3;
+      setSegCtrl(id, j, 1, p1);
+      setSegCtrl(id, j, 2, p2);
+      continue;
+    }
+    const A = P[j]!, B = P[j + 1]!, MA = M[j]!, MB = M[j + 1]!;
+    setSegCtrl(id, j, 1, [A[0] + MA[0] / 3, A[1] + MA[1] / 3, A[2] + MA[2] / 3]);
+    setSegCtrl(id, j, 2, [B[0] - MB[0] / 3, B[1] - MB[1] / 3, B[2] - MB[2] / 3]);
+  }
+};
+
 const curveMean = (id: Id): Pt3 => {
   const c = s.state.curves.get(s.state.resolveCurve(id));
   if (!c) throw new Error(`no curve ${id}`);
@@ -473,14 +580,59 @@ const profile = (T: readonly (readonly [number, number])[]) => {
     h.push(xs[i + 1]! - xs[i]!);
     d.push((ys[i + 1]! - ys[i]!) / (xs[i + 1]! - xs[i]!));
   }
+  // ── the slopes, and this is where a line stops looking hand-drawn ────────
+  //
+  // FRITSCH–CARLSON IS C1 AND THAT IS THE WHOLE PROBLEM. Its slope rule — the
+  // harmonic mean of the two secants — passes through every knot, never
+  // overshoots, and leaves the SECOND derivative free to jump at each one. A
+  // beltline with twenty-two knots therefore carries twenty-two curvature
+  // steps, and the curvature comb read variation 6.3 with twenty-six turns on
+  // a line that makes three moves. Nothing was wrong with any number in the
+  // table; the interpolator was lumpy between them.
+  //
+  // So: solve the C2 cubic spline first — one tridiagonal system, natural at
+  // both ends, curvature continuous everywhere by construction — and then
+  // FILTER the slopes back to the monotonicity bound wherever the data is
+  // monotone. Where the filter does not bite the line is C2; where it does it
+  // falls back to exactly what it was. That keeps the property the arches need
+  // (a plan table must not invent width the author did not ask for) and buys
+  // curvature continuity everywhere else, which is most of a car.
   const m: number[] = new Array(n).fill(0);
-  m[0] = d[0]!;
-  m[n - 1] = d[n - 2]!;
-  for (let i = 1; i < n - 1; i++) {
-    const a = d[i - 1]!, b = d[i]!;
-    if (a * b <= 0) { m[i] = 0; continue; }
-    const w1 = 2 * h[i]! + h[i - 1]!, w2 = h[i]! + 2 * h[i - 1]!;
-    m[i] = (w1 + w2) / (w1 / a + w2 / b);
+  {
+    const a: number[] = new Array(n).fill(0);
+    const b: number[] = new Array(n).fill(0);
+    const c: number[] = new Array(n).fill(0);
+    const r: number[] = new Array(n).fill(0);
+    b[0] = 2; c[0] = 1; r[0] = 3 * d[0]!;
+    for (let i = 1; i < n - 1; i++) {
+      a[i] = h[i]!;
+      b[i] = 2 * (h[i - 1]! + h[i]!);
+      c[i] = h[i - 1]!;
+      r[i] = 3 * (h[i]! * d[i - 1]! + h[i - 1]! * d[i]!);
+    }
+    a[n - 1] = 1; b[n - 1] = 2; r[n - 1] = 3 * d[n - 2]!;
+    // Thomas: forward sweep, back substitution. The system is diagonally
+    // dominant for any strictly increasing knots, so no pivoting.
+    for (let i = 1; i < n; i++) {
+      const w = a[i]! / b[i - 1]!;
+      b[i] = b[i]! - w * c[i - 1]!;
+      r[i] = r[i]! - w * r[i - 1]!;
+    }
+    m[n - 1] = r[n - 1]! / b[n - 1]!;
+    for (let i = n - 2; i >= 0; i--) m[i] = (r[i]! - c[i]! * m[i + 1]!) / b[i]!;
+  }
+  // The Hyman filter: zero at a turn, and never steeper than three times the
+  // shallower neighbouring secant. This is the Fritsch–Carlson condition
+  // stated as a bound rather than as a formula, so a C2 slope that already
+  // satisfies it is left exactly alone.
+  const limit = (v: number, lo: number, hi: number): number =>
+    v < lo ? lo : v > hi ? hi : v;
+  for (let i = 0; i < n; i++) {
+    const dl = i > 0 ? d[i - 1]! : d[0]!;
+    const dr = i < n - 1 ? d[i]! : d[n - 2]!;
+    if (dl * dr <= 0) { m[i] = 0; continue; }
+    const cap = 3 * Math.min(Math.abs(dl), Math.abs(dr));
+    m[i] = dl > 0 ? limit(m[i]!, 0, cap) : limit(m[i]!, -cap, 0);
   }
   return (x: number): number => {
     if (x <= xs[0]!) return ys[0]!;
@@ -608,6 +760,28 @@ const [rA, rB] = archMouth(REAR_AXLE_X, REAR_ARCH_HALF);
 const ARCH_X = [0, fA, FRONT_AXLE_X, fB, rA, REAR_AXLE_X, rB, LEN];
 
 /**
+ * The spans the ROCKER is fitted on, and there are eleven where there were
+ * seven.
+ *
+ * The arch stations are load-bearing — segments 2, 3, 7 and 8 below ARE the
+ * four quarter circles, and a quarter circle is a cubic to a tenth of a
+ * millimetre — so they cannot move. What the seven-span version had no room
+ * for was the SILL: 2004 mm from the front arch mouth to the rear one, carried
+ * by one cubic, over a table that drops 234 mm and comes back. It undershot
+ * its own floor by 33 mm and put a smile under the car.
+ *
+ * Four extra knots, none of them near an arch, and the arcs keep their spans.
+ */
+const ROCKER_X = [
+  0, 300, fA, FRONT_AXLE_X, fB, 1700, 2500, rA, REAR_AXLE_X, rB, 4200, LEN,
+];
+/** Which of those spans are the quarter circles, derived rather than typed. */
+const ARC_SPANS = [
+  ROCKER_X.indexOf(fA), ROCKER_X.indexOf(FRONT_AXLE_X),
+  ROCKER_X.indexOf(rA), ROCKER_X.indexOf(REAR_AXLE_X),
+];
+
+/**
  * Half-width of the rocker at station x — the plan a real sill has.
  *
  * THE TYRE IS THE FLOOR UNDER THIS TABLE and it is the tightest fit in the
@@ -619,11 +793,18 @@ const ARCH_X = [0, fA, FRONT_AXLE_X, fB, rA, REAR_AXLE_X, rB, LEN];
  * of it at both ends, which is what a front wing actually does.
  */
 const rockerPlanY = profile([
-  [0, 310], [150, 545], [300, 730], [fA, 866],
+  // ITS KNOTS ARE THE CHAIN'S SPANS, which is the last thing that had to line
+  // up. A table knotted at one set of stations and fitted on another is two
+  // shapes arguing: the spline interpolates its span ends and the table's
+  // intermediate knots pull it somewhere else, and what comes out is neither.
+  // The only knots here that are NOT span ends are inside the arch spans —
+  // 500, 1060, 3200, 3800 — and those are read by the arcs' own four-point
+  // fit, which is what keeps the tyre inside the lip.
+  [0, 310], [300, 730], [fA, 866],
   [500, 901], [FRONT_AXLE_X, FRONT_LIP], [1060, 902], [fB, 880],
-  [1450, 856], [1900, 840], [2350, 846], [2700, 868],
+  [1700, 852], [2500, 856],
   [rA, 882], [3200, 893], [REAR_AXLE_X, REAR_LIP], [3800, 894], [rB, 874],
-  [4073, 806], [4200, 712], [LEN, 606],
+  [4200, 712], [LEN, 606],
 ]);
 /** Height of the rocker where it is a sill rather than an arch. */
 const FRONT_MOUTH_Z = FRONT_AXLE_Z + FRONT_ARCH_R * Math.sin(ARCH_END);
@@ -642,11 +823,16 @@ const rockerSillZ = profile([
   // Between the arches it is 145 mm, and that is a deep sill on a 120 mm
   // ground clearance — 25 mm of daylight under a rocker 230 mm tall. It is
   // also the whole reason this car's doors open upwards.
-  [0, 290], [fA - 240, 205], [fA - 90, 300], [fA, FRONT_MOUTH_Z],
-  [fB, FRONT_MOUTH_Z], [fB + 90, 300], [fB + 240, 188],
-  [1800, 145], [2400, 145],
-  [rA - 240, 190], [rA - 90, 322], [rA, REAR_MOUTH_Z],
-  [rB, REAR_MOUTH_Z], [rB + 90, 344], [rB + 240, 296], [4200, 352], [LEN, 430],
+  // MONOTONE INTO EACH ARCH AND OUT OF THE TAIL, which the first version was
+  // not. It dipped to 205 at the nose and climbed back to 386 at the arch
+  // mouth, and dipped to 296 behind the rear arch and climbed back to 430 at
+  // the tail: two lines that go down and return to the height they left,
+  // which is the one thing a body line must not do. Neither dip was a shape
+  // anybody asked for — both were lead-in knots doing a job the arch's own
+  // lead-out knots already do.
+  [0, 232], [300, 322], [fA, FRONT_MOUTH_Z],
+  [fB, FRONT_MOUTH_Z], [1700, 178], [2500, 190], [rA, REAR_MOUTH_Z],
+  [rB, REAR_MOUTH_Z], [4200, 392], [LEN, 442],
 ]);
 
 /**
@@ -659,12 +845,9 @@ const rockerSillZ = profile([
  * the door is the tuck.
  */
 const shoulderPlanY = profile([
-  [0, 296], [150, 520], [300, 700], [fA, 800],
-  [500, 862], [FRONT_AXLE_X, 890], [1060, 886], [fB, 874],
-  [1290, 866], [1620, 856], [1900, 850], [2144, 852],
-  [2486, 868], [2800, 880],
-  [rA, 886], [3200, 890], [REAR_AXLE_X, 892], [3800, 886], [rB, 870],
-  [4073, 800], [4200, 706], [LEN, 600],
+  [0, 296], [250, 650], [fA, 800], [FRONT_AXLE_X, 890], [fB, 874],
+  [1290, 866], [1620, 858], [1900, 850], [2144, 852], [2486, 868],
+  [rA, 886], [REAR_AXLE_X, 892], [rB, 870], [4100, 780], [LEN, 600],
 ]);
 
 /**
@@ -681,26 +864,20 @@ const shoulderPlanY = profile([
  * one function so they cannot drift apart.
  */
 const railPlanY = profile([
-  [0, 196], [150, 330], [300, 442], [fA, 490],
-  [500, 528], [FRONT_AXLE_X, 578], [1060, 606], [fB, 610],
-  [1290, 600], [1450, 540], [1620, 470], [1780, 424],
-  [1900, 412], [2144, 404], [2350, 410], [2486, 424], [2800, 468],
-  [rA, 496], [3200, 508], [REAR_AXLE_X, 520], [3800, 502], [rB, 494],
-  [4073, 442], [4200, 372], [LEN, 290],
+  [0, 196], [250, 410], [fA, 490], [FRONT_AXLE_X, 578], [fB, 610],
+  [1290, 600], [1620, 486], [1900, 412], [2144, 404], [2486, 424],
+  [rA, 496], [REAR_AXLE_X, 520], [rB, 494], [4100, 434], [LEN, 290],
 ]);
 const railZdrawn = profile([
-  [0, 476], [150, 530], [300, 592], [fA, 632],
-  [500, 676], [FRONT_AXLE_X, 716], [1060, 756], [fB, 780],
-  // The cowl, and then the screen: 296 mm of height in 490 mm of length, at
+  [0, 476], [250, 578], [fA, 632], [FRONT_AXLE_X, 716], [fB, 780],
+  // The cowl, and then the screen: 280 mm of height in 610 mm of length, at
   // 0.30 of the car. On the E-Type the same event happens at 0.62.
-  [1290, 850], [1450, 968], [1620, 1062], [1780, 1122],
-  [1900, 1130], [2050, 1122], [2144, 1112],
+  [1290, 850], [1620, 1062], [1900, 1130],
   // Behind the canopy the deck falls onto the engine cover and then stops
   // falling. From 2486 to the rear axle the roofline loses 44 mm in a metre,
   // which is what an engine underneath a deck looks like from the side.
-  [2350, 1074], [2486, 1037], [2800, 1016],
-  [rA, 1004], [3200, 999], [REAR_AXLE_X, 993], [3800, 977], [rB, 970],
-  [4073, 954], [4200, 934], [LEN, 912],
+  [2144, 1112], [2486, 1037],
+  [rA, 1004], [REAR_AXLE_X, 993], [rB, 970], [4100, 950], [LEN, 912],
 ]);
 
 /**
@@ -731,12 +908,9 @@ const shoulderZprofile = profile([
   // the arch crowns at 667; 900 at the rear where it crowns at 739. That
   // ordering is not decoration — a beltline below a rocker is a flank band
   // turned inside out, and it is what the first render of this car showed.
-  [0, 452], [150, 494], [300, 560], [fA, 596],
-  [500, 646], [FRONT_AXLE_X, 700], [1060, 708], [fB, 712],
-  [1290, 736], [1450, 756], [1620, 776], [1780, 792],
-  [1900, 802], [2144, 820], [2350, 838], [2486, 856], [2800, 878],
-  [rA, 890], [3200, 896], [REAR_AXLE_X, 900], [3800, 890], [rB, 884],
-  [4073, 866], [4200, 852], [LEN, 836],
+  [0, 452], [250, 542], [fA, 596], [FRONT_AXLE_X, 700], [fB, 712],
+  [1290, 736], [1620, 770], [1900, 802], [2144, 820], [2486, 856],
+  [rA, 890], [REAR_AXLE_X, 900], [rB, 884], [4100, 866], [LEN, 836],
 ]);
 
 const rockerIds = longEdges.filter((id) => curveMean(id)[2] < (FLOOR + TOP) / 2);
@@ -768,8 +942,22 @@ if (railIds.length !== 2) throw new Error(`expected 2 roof rails, got ${railIds.
  * them. The rocker keeps its seven because its middle spans are quarter
  * circles and a quarter circle IS a cubic to a tenth of a millimetre.
  */
+/**
+ * The BELTLINE's own spans, and it does not want the roof rail's.
+ *
+ * They shared a list because they are fitted by the same pass, and the rail
+ * needs stations through the screen — 1620 and 2144 — that the beltline runs
+ * straight past. Two spare spans on a line that makes three moves is two spare
+ * curvature events, and the comb counted them.
+ */
+const SHOULDER_X = [
+  0, 250, fA, FRONT_AXLE_X, fB,
+  1290, 1900, 2486,
+  rA, REAR_AXLE_X, rB, 4100, LEN,
+];
+
 const SPAN_X = [
-  0, fA, FRONT_AXLE_X, fB,
+  0, 250, fA, FRONT_AXLE_X, fB,
   1290, 1620, 1900, 2144, 2486,
   rA, REAR_AXLE_X, rB, 4100, LEN,
 ];
@@ -807,13 +995,15 @@ for (const shoulder of shoulderIds) {
   const sign = Math.sign(curveMean(shoulder)[1]) || 1;
   const chain0 = s.state.curves.get(s.state.resolveCurve(shoulder))!.chain;
   const forward = evalChain(chain0, 0)[0]! < evalChain(chain0, 1)[0]!;
-  segmentAt(shoulder, forward, SPAN_X);
+  segmentAt(shoulder, forward, SHOULDER_X);
   const n = s.state.curves.get(s.state.resolveCurve(shoulder))!.chain.segs.length;
-  if (n !== SPAN_X.length - 1) throw new Error(`shoulder has ${n} segments, expected ${SPAN_X.length - 1}`);
-  fitChain(shoulder, (seg, local) => {
+  if (n !== SHOULDER_X.length - 1) {
+    throw new Error(`shoulder has ${n} segments, expected ${SHOULDER_X.length - 1}`);
+  }
+  fitChainSmooth(shoulder, (seg, local) => {
     const j = forward ? seg : n - 1 - seg;
     const k = forward ? local : 1 - local;
-    const x = SPAN_X[j]! + (SPAN_X[j + 1]! - SPAN_X[j]!) * k;
+    const x = SHOULDER_X[j]! + (SHOULDER_X[j + 1]! - SHOULDER_X[j]!) * k;
     return [x, sign * shoulderPlanY(x), shoulderZprofile(x)];
   });
 }
@@ -829,7 +1019,7 @@ for (const rail of railIds) {
   segmentAt(rail, forward, SPAN_X);
   const n = s.state.curves.get(s.state.resolveCurve(rail))!.chain.segs.length;
   if (n !== SPAN_X.length - 1) throw new Error(`roof rail has ${n} segments, expected ${SPAN_X.length - 1}`);
-  fitChain(rail, (seg, local) => {
+  fitChainSmooth(rail, (seg, local) => {
     const j = forward ? seg : n - 1 - seg;
     const k = forward ? local : 1 - local;
     const x = SPAN_X[j]! + (SPAN_X[j + 1]! - SPAN_X[j]!) * k;
@@ -842,9 +1032,11 @@ for (const rocker of rockerIds) {
   const chain0 = s.state.curves.get(s.state.resolveCurve(rocker))!.chain;
   const forward = evalChain(chain0, 0)[0]! < evalChain(chain0, 1)[0]!;
 
-  segmentAt(rocker, forward);
+  segmentAt(rocker, forward, ROCKER_X);
   const n = s.state.curves.get(s.state.resolveCurve(rocker))!.chain.segs.length;
-  if (n !== 7) throw new Error(`rocker has ${n} segments, expected 7`);
+  if (n !== ROCKER_X.length - 1) {
+    throw new Error(`rocker has ${n} segments, expected ${ROCKER_X.length - 1}`);
+  }
 
   // Per axle, because the two arches are different sizes. `r` and `z` travel
   // with the entry rather than being read off one module-level constant, and
@@ -852,13 +1044,18 @@ for (const rocker of rockerIds) {
   const F = { axleX: FRONT_AXLE_X, r: FRONT_ARCH_R, z: FRONT_AXLE_Z };
   const R = { axleX: REAR_AXLE_X, r: REAR_ARCH_R, z: REAR_AXLE_Z };
   const arcOf = new Map<number, { axleX: number; r: number; z: number; from: number; to: number }>([
-    [1, { ...F, from: Math.PI - ARCH_END, to: Math.PI / 2 }],
-    [2, { ...F, from: Math.PI / 2, to: ARCH_END }],
-    [4, { ...R, from: Math.PI - ARCH_END, to: Math.PI / 2 }],
-    [5, { ...R, from: Math.PI / 2, to: ARCH_END }],
+    [ARC_SPANS[0]!, { ...F, from: Math.PI - ARCH_END, to: Math.PI / 2 }],
+    [ARC_SPANS[1]!, { ...F, from: Math.PI / 2, to: ARCH_END }],
+    [ARC_SPANS[2]!, { ...R, from: Math.PI - ARCH_END, to: Math.PI / 2 }],
+    [ARC_SPANS[3]!, { ...R, from: Math.PI / 2, to: ARCH_END }],
   ]);
-  fitChain(rocker, (seg, local) => {
-    const j = forward ? seg : 6 - seg;
+  // The four arch mouths are corners and are declared as such; the axle
+  // boundaries inside each arch are not — a quarter circle runs through them.
+  const mouths = [fA, fB, rA, rB]
+    .map((x) => ROCKER_X.indexOf(x))
+    .map((j) => (forward ? j : n - j));
+  fitChainSmooth(rocker, (seg, local) => {
+    const j = forward ? seg : n - 1 - seg;
     const k = forward ? local : 1 - local;
     const arc = arcOf.get(j);
     if (arc) {
@@ -868,9 +1065,9 @@ for (const rocker of rockerIds) {
       const x = arc.axleX + arc.r * Math.cos(a);
       return [x, sign * rockerPlanY(x), arc.z + arc.r * Math.sin(a)];
     }
-    const x = ARCH_X[j]! + (ARCH_X[j + 1]! - ARCH_X[j]!) * k;
+    const x = ROCKER_X[j]! + (ROCKER_X[j + 1]! - ROCKER_X[j]!) * k;
     return [x, sign * rockerPlanY(x), rockerSillZ(x)];
-  });
+  }, mouths, ARC_SPANS);
 }
 
 // ── the frame, as numbers, hoisted ────────────────────────────────────────
@@ -968,17 +1165,15 @@ const crownRise = profile([
   // states: a wing crowns above the panel between the wings, so the centre
   // band sits BELOW its own rails there. The F1 has that valley too and it is
   // deeper, because its wings are further apart.
-  [0, 6], [150, 3], [300, -2], [fA, -4],
-  [500, -7], [FRONT_AXLE_X, -9], [1060, -8], [fB, -6],
+  [0, 6], [250, -1], [fA, -4], [FRONT_AXLE_X, -9], [fB, -6],
   // Through the canopy the centreline is the HIGHEST part of the car and the
   // rise turns positive: a dome, not a valley. One cubic rail to rail carries
   // one extremum, so it cannot be both at once, which is why these are two
   // separate stretches of one table rather than one number.
-  [1290, 0], [1620, 10], [1900, 14], [2144, 16],
+  [1290, 0], [1620, 8], [1900, 14], [2144, 16],
   // And behind it the snorkel — the intake standing on the engine cover's
   // centreline, which is a crown of a different kind and the same sign.
-  [2486, 18], [2800, 17], [rA, 16], [REAR_AXLE_X, 12], [rB, 9],
-  [4200, 5], [LEN, 3],
+  [2486, 18], [rA, 16], [REAR_AXLE_X, 12], [rB, 9], [4100, 6], [LEN, 3],
 ]);
 const crownZ = (x: number): number => railZ(x) + crownRise(x);
 
@@ -1055,6 +1250,22 @@ const STATIONS: {
     hip: Math.max(st.hip, need.halfWidth),
   };
 });
+
+// EVERY SPAN BOUNDARY OF THE BELTLINE AND THE ROOF RAIL MUST BE A STATION,
+// and this is the assertion that says so rather than the print discovering it.
+//
+// A boundary at a non-station is a knot the chain has and the CELLS do not, so
+// the mesher's union of the two axes gets a column a hair off a lattice point
+// and the near-duplicate rule reuses the wrong vertex. It opens the mesh: 12
+// edges, from one knot at x = 300 that had no business being anywhere but a
+// station. The rocker is exempt because it is SPLIT at its arch stations, so
+// its extra sill knots are interior to pieces no cell claims across.
+for (const x of [...SPAN_X, ...SHOULDER_X]) {
+  if (x === 0 || x === LEN) continue;
+  if (!STATIONS.some((st) => Math.abs(st.x - x) < 1e-6)) {
+    throw new Error(`SPAN_X has ${x.toFixed(1)}, which is not a station — the print will open there`);
+  }
+}
 
 // Every arch mouth and crown must BE a station: the rocker can only be split
 // where no cell claims across, and a station cut is what makes that true.
@@ -1355,11 +1566,20 @@ const rockerSpans = new Map<Id, Id[]>();
 for (const rocker of rockerIds) {
   const chain0 = s.state.curves.get(s.state.resolveCurve(rocker))!.chain;
   const forward = evalChain(chain0, 0)[0]! < evalChain(chain0, 1)[0]!;
-  // The rocker is SEVEN segments now, one per span, so its own parameter runs
-  // uniformly over them and every mouth and crown sits at k/7 — whichever way
-  // round the curve happens to run. Deriving these from x/LEN was right while
-  // the rocker was a single cubic and is not any more.
-  const stations = [1, 2, 3, 4, 5, 6].map((k) => k / 7);
+  // SPLIT AT THE ARCH STATIONS ONLY, not at every span boundary. A split is a
+  // topology change and is legal exactly where no cell claims across the cut —
+  // which is at a STATION. The rocker's extra sill knots are not stations and
+  // do not need to be: `place-point` gives the chain a segment boundary there
+  // without making a new curve, which is all a table needs. Splitting there
+  // asks the verb to cut a cell in half and it refuses, correctly, by name.
+  //
+  // Its own parameter runs uniformly over its spans, so the boundary before
+  // span j sits at j/N whichever way round the curve happens to run.
+  const N = ROCKER_X.length - 1;
+  const cuts = [fA, FRONT_AXLE_X, fB, rA, REAR_AXLE_X, rB]
+    .map((x) => ROCKER_X.indexOf(x) / N)
+    .sort((a, b) => a - b);
+  const stations = cuts;
 
   let head = rocker;
   const pieces: Id[] = [];
@@ -1376,6 +1596,8 @@ for (const rocker of rockerIds) {
   if (pieces.length !== 7) throw new Error(`rocker split into ${pieces.length}, expected 7`);
   const inX = forward ? pieces : [...pieces].reverse();
   rockerSpans.set(rocker, inX);
+  // Seven pieces again, and the two quarters of each arch are 1,2 and 4,5 —
+  // the extra sill knots live INSIDE pieces 0, 3 and 6 and change no index.
   for (const j of [1, 2, 4, 5]) {
     s.apply("crease", { curveId: inX[j]! });
     archSpans.push(inX[j]!);

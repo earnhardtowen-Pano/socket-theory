@@ -166,3 +166,8 @@ export {
   blendProbe,
   type BlendReading, type BlendReport, type BlendProbeOptions,
 } from "./blend-probe.js";
+
+export {
+  profileQuality, WOBBLE_MM,
+  type ProfileQuality, type ProfileTurn, type ProfileOptions,
+} from "./profile-quality.js";
