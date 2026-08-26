@@ -155,7 +155,8 @@ export {
 } from "./bezier-patch.js";
 
 export {
-  blendPlan, radiusAt, rollingBallOffset, tightRadius, wideRadius,
+  bandRadius, blendPlan, partnerBand, radiusAt, rollingBallOffset, tightRadius, wideRadius,
+  WIDE_RATIO, visibleAt,
   tightBasis, tightBasisHi, tightPrime, tightPrimeHi, tightPrime2, tightPrime2Hi,
   q5, Q5_CURVATURE_PEAK, MIN_BAND,
   type SoftenSpec, type BlendPlan, type BlendStation, type BlendOptions, type EdgeBlend,
