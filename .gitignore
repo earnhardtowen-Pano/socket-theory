@@ -23,3 +23,10 @@ instrument/apps/bench/bench.html
 instrument/apps/render/*.html
 !instrument/apps/render/template.html
 instrument/apps/render/*.png
+
+# The app is the same trade one size down: 8.5 MB with all four cars inlined,
+# and it regenerates from `npx tsx scripts/build-app.ts`. The template and the
+# report beside it are the source.
+instrument/apps/app/*.html
+!instrument/apps/app/template.html
+!instrument/apps/app/report.html
