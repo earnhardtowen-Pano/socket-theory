@@ -30,3 +30,8 @@ instrument/apps/render/*.png
 instrument/apps/app/*.html
 !instrument/apps/app/template.html
 !instrument/apps/app/report.html
+
+# The maker is a vite build folded into one file; both regenerate from
+# `npx vite build --config apps/maker/vite.config.ts && npx tsx scripts/build-maker.ts`.
+instrument/apps/maker/dist/
+instrument/apps/maker/maker.html

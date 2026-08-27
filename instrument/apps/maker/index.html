@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Panoramic Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* A tool commits to one room. This one is a dark cockpit: clay reads against
+   graphite, and a light page would put the brightest thing on screen behind
+   the model instead of on it. Every colour below is stated, so the page never
+   borrows a ground from whatever is hosting it. */
+:root{
+  --ground:#0c0e11; --panel:#14181c; --sunk:#0a0c0e; --rule:#242a31;
+  --ink:#e8ebee; --muted:#98a1aa; --faint:#6a737c;
+  --accent:#f07a2c; --good:#5cc4a1; --bad:#e2705a; --cool:#5aa8e6;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --cond:"IBM Plex Sans Condensed",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--mono);font-size:13px}
+#shell{display:flex;flex-direction:column;height:100dvh;min-height:520px}
+
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--rule)}
+.brand{font-family:var(--cond);font-weight:700;letter-spacing:.11em;font-size:13px;
+  text-transform:uppercase;white-space:nowrap}
+.brand i{font-style:normal;color:var(--accent)}
+#cartabs{display:flex;gap:0;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+#cartabs button{appearance:none;border:0;background:var(--sunk);color:var(--muted);
+  font-family:var(--mono);font-size:11px;letter-spacing:.07em;padding:5px 12px;cursor:pointer}
+#cartabs button+button{border-left:1px solid var(--rule)}
+#cartabs button[aria-pressed="true"]{background:var(--accent);color:#10120f}
+#badge{margin-left:auto;font-size:10.5px;letter-spacing:.10em;padding:4px 9px;
+  border:1px solid var(--rule);border-radius:2px;color:var(--muted);white-space:nowrap}
+#badge[data-lvl="0"]{color:var(--faint)}
+#badge[data-lvl="1"]{color:var(--cool);border-color:#254257}
+#badge[data-lvl="2"]{color:var(--good);border-color:#1f4a3e}
+
+#stage{position:relative;flex:1 1 auto;min-height:220px;background:var(--sunk)}
+#gl{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+#hud{position:absolute;left:12px;bottom:10px;right:12px;pointer-events:none;
+  font-size:11px;color:var(--muted);text-shadow:0 1px 3px #000}
+#hud #sel{color:var(--accent)}
+#hud #legend{color:var(--faint);margin-top:2px}
+#keys{position:absolute;right:12px;top:10px;pointer-events:none;text-align:right;
+  font-size:10px;letter-spacing:.06em;color:var(--faint);line-height:1.7;text-shadow:0 1px 3px #000}
+#keys b{font-weight:400}
+#keys s{text-decoration:none;display:inline-block;width:9px;height:9px;border-radius:2px;
+  margin-right:5px;vertical-align:middle}
+
+#strip{display:flex;gap:6px;flex-wrap:wrap;align-items:center;
+  padding:8px 12px;background:var(--panel);border-top:1px solid var(--rule)}
+#strip button{appearance:none;border:1px solid var(--rule);background:var(--sunk);
+  color:var(--ink);font-family:var(--mono);font-size:11px;letter-spacing:.07em;
+  padding:6px 11px;border-radius:2px;cursor:pointer;white-space:nowrap}
+#strip button:hover{border-color:#3a444e}
+#strip button:active{background:#1d2228}
+#strip button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#strip button[aria-pressed="true"]{background:var(--accent);color:#10120f;border-color:var(--accent)}
+#strip .major{border-color:#3b4650}
+#strip .sep{width:1px;align-self:stretch;background:var(--rule);margin:0 4px}
+#strip label{color:var(--faint);font-size:10.5px;letter-spacing:.07em}
+#strip input{width:52px;background:var(--sunk);border:1px solid var(--rule);border-radius:2px;
+  color:var(--ink);font-family:var(--mono);font-size:11px;padding:5px 6px}
+
+#rail{display:flex;gap:0;flex-wrap:wrap;background:var(--panel);border-top:1px solid var(--rule)}
+#rail div{flex:1 1 116px;padding:7px 12px;border-right:1px solid var(--rule)}
+#rail div:last-child{border-right:0}
+#rail .k{font-size:9.5px;letter-spacing:.11em;color:var(--faint);text-transform:uppercase}
+#rail .v{font-size:14px;font-variant-numeric:tabular-nums;margin-top:1px}
+#rail .v[data-bad="true"]{color:var(--bad)}
+
+#ledger{padding:7px 13px;background:var(--sunk);border-top:1px solid var(--rule);
+  color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ledger[data-bad="true"]{color:var(--bad)}
+
+body[data-busy="1"] #stage::after{content:"";position:absolute;inset:0;
+  background:rgba(10,12,14,.45)}
+body[data-busy="1"] #shell{cursor:progress}
+body[data-busy="1"] #strip button,body[data-busy="1"] #cartabs button{opacity:.45;pointer-events:none}
+
+@media (max-width:640px){
+  #rail div{flex:1 1 33%}
+  #keys{display:none}
+  #strip{gap:5px;padding:7px 9px}
+  #strip button{padding:6px 9px;font-size:10.5px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="shell">
+  <header>
+    <span class="brand">Panoramic<i> &#9679;</i> Maker</span>
+    <span id="cartabs"></span>
+    <span id="badge" data-lvl="1">FIELD &middot; G1</span>
+  </header>
+
+  <div id="stage">
+    <canvas id="gl"></canvas>
+    <div id="keys">
+      <b><s style="background:#5ea8e6"></s>shutline</b><br>
+      <b><s style="background:#5ad19e"></s>softened</b><br>
+      <b><s style="background:#eaecef"></s>crease</b><br>
+      <b><s style="background:#5c6169"></s>seam</b><br>
+      <b><s style="background:#f0851f"></s>selected</b>
+    </div>
+    <div id="hud">
+      <div id="sel">nothing selected &mdash; tap a line</div>
+      <div id="legend"></div>
+    </div>
+  </div>
+
+  <div id="strip">
+    <button id="bCrease">CREASE</button>
+    <button id="bGap">GAP</button>
+    <button id="bSoften">SOFTEN</button>
+    <label for="rad">R</label><input id="rad" value="8" inputmode="decimal" />
+    <label for="radEnd">&rarr;</label><input id="radEnd" placeholder="fade" inputmode="decimal" />
+    <button id="bSplit">SPLIT</button>
+    <span class="sep"></span>
+    <button id="bFuller">FULLER</button>
+    <button id="bFlatter">FLATTER</button>
+    <button id="bFair">FAIR</button>
+    <span class="sep"></span>
+    <button id="bUndo" class="major">UNDO</button>
+    <button id="bSolve" class="major">SOLVE G2</button>
+    <button id="bMeasure" class="major">MEASURE</button>
+    <span class="sep"></span>
+    <button id="bLines">LINES &middot; NET</button>
+    <button id="bPaint" aria-pressed="false">PAINT</button>
+    <button id="bFrame">FRAME</button>
+  </div>
+
+  <div id="rail">
+    <div><div class="k">cells</div><div class="v" id="rCells">&mdash;</div></div>
+    <div><div class="k">curves</div><div class="v" id="rCurves">&mdash;</div></div>
+    <div><div class="k">verbs</div><div class="v" id="rVerbs">&mdash;</div></div>
+    <div><div class="k">overall mm</div><div class="v" id="rDims">&mdash;</div></div>
+    <div><div class="k">G1 joins</div><div class="v" id="rG1">&mdash;</div></div>
+    <div><div class="k">mesh</div><div class="v" id="rClosed">&mdash;</div></div>
+  </div>
+  <div id="rail" style="border-top:0">
+    <div style="flex:1 1 100%"><div class="k">marks</div><div class="v" id="rMarks" style="font-size:12px">&mdash;</div></div>
+  </div>
+
+  <div id="ledger">drag empty space to orbit &middot; tap a line to select it &middot; drag an orange handle to shape it</div>
+</div>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>
