@@ -40,6 +40,7 @@ import { finishOf, type Finish } from "@car/skin";
 const RES = Number(process.argv[2] ?? 16);
 
 const CARS = [
+  { file: "e90-m3.car.json", label: "BMW E90 M3", note: "LCI sedan · 4580 mm · front V8", paint: undefined },
   { file: "mclaren-f1.car.json", label: "McLaren F1", note: "1992 · 4287 mm · mid V12", paint: undefined },
   { file: "etype-s1-fhc.car.json", label: "Jaguar E-Type", note: "S1 FHC · 4453 mm · straight six", paint: undefined },
   { file: "mx5-na.car.json", label: "Mazda MX-5", note: "NA · 3970 mm · front four", paint: undefined },

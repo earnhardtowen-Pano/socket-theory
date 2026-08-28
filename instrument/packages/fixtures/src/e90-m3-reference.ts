@@ -42,7 +42,7 @@ export const E90_PROFILE: readonly ProfileStation[] = [
   { at: 0.10, halfWidth: 880, top: 735 },
   // The front tyre runs x = 623..1277 (0.136..0.279); the lip over it is
   // track/2 + section/2 + a 6 mm flare = 897.5.
-  { at: 0.14, halfWidth: 890, top: 762 },
+  { at: 0.14, halfWidth: 892, top: 762 },
   // 0.207 is the front axle. The arch blister is at full flare.
   { at: 0.21, halfWidth: 897, top: 792 },
   { at: 0.28, halfWidth: 888, top: 835 },

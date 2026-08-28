@@ -286,7 +286,11 @@ export function blendProbe(quilt: QuiltSpec, opts: BlendProbeOptions = {}): Blen
       const asked = radiusAt(spec, t);
       const phi = (residualDeg * Math.PI) / 180;
       const offset = rollingBallOffset(Number.isFinite(r) ? r : 0, Math.max(phi, 1e-6));
-      if (offset > worstOffset) { worstOffset = offset; worstOffsetAt = P0; }
+      // A dead stretch has no ball to roll: a fitted radius orders past the
+      // ask multiplied by any residual angle is an astronomical offset that
+      // describes the arithmetic, not the corner. Same 50x line as below.
+      const dead = asked > 0 && Number.isFinite(r) && r > 50 * asked;
+      if (!dead && offset > worstOffset) { worstOffset = offset; worstOffsetAt = P0; }
       readings.push({
         curveId: e.curveId, cellA: e.a.cellId, cellB: e.b.cellId,
         t, asked, achieved: r, residualDeg, naturalDeg, offset, fitRms: rms,
@@ -304,6 +308,17 @@ export function blendProbe(quilt: QuiltSpec, opts: BlendProbeOptions = {}): Blen
       worstResidualAt = rd.curveId;
     }
     if (rd.naturalDeg < minBreakDeg) { washedOut++; continue; }
+    // The radius-domain twin of the angle test above. A stretch can hold half
+    // a degree of break while its section has already gone flat — the fitted
+    // radius comes back three or four ORDERS past the ask, which is not a
+    // blend missing its number, it is no blend at all. Feeding it to
+    // `worstRelative` printed "10426796545656% worst" in a report whose whole
+    // point is that its numbers mean things. Fifty times the ask is the line:
+    // past it the feature has died, and it is counted with the dead.
+    if (rd.asked > 0 && Number.isFinite(rd.achieved) && rd.achieved > 50 * rd.asked) {
+      washedOut++;
+      continue;
+    }
     live++;
     if (rd.asked > 0 && Number.isFinite(rd.achieved)) {
       rel.push(Math.abs(rd.achieved - rd.asked) / rd.asked);

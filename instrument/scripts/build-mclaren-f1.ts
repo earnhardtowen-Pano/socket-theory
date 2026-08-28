@@ -42,6 +42,7 @@ import { memberKit, suspensionCorner } from "./lib/members.js";
 import { computeQuilt } from "@car/frame";
 import {
   blendProbe, bySize, cellBezier, cellBoundary, continuityProbe, curvatureJoinProbe,
+  curvatureRateProbe,
   fieldDisplacement, boundaryCoonsPoint, netAt, networkObstruction, panelsOf, quiltAdjacency,
   tangentField, DEFAULT_CREASE_ANGLE,
 } from "@car/surface";
@@ -2453,6 +2454,7 @@ const g1 = continuityProbe(quilt, { adjacency: adj, cross });
 // the body 0.0 mm, which is what that mistake looks like from the outside.
 const g1bare = continuityProbe(quilt, { adjacency: adj });
 const g2 = curvatureJoinProbe(quilt, { adjacency: adj, cross });
+const g3 = curvatureRateProbe(quilt, { cross });
 const net = networkObstruction(quilt, { adjacency: adj });
 const panels = panelsOf(quilt, adj);
 const phi = fieldDisplacement(quilt, { cross });
@@ -2630,6 +2632,7 @@ line("  published 1992", `${F1_LENGTH} × ${F1_WIDTH} × ${F1_HEIGHT} mm (ASSUME
 line("G1 continuity", `${g1.g1Joins}/${g1.joins} joins · median ${deg(g1.medianDeg)} · worst ${deg(g1.worstDeg)}`);
 line("  was, unfielded", `${g1bare.g1Joins}/${g1bare.joins} · worst ${g1bare.worstDeg.toFixed(1)}°`);
 line("G2 curvature", `${g2.g2Joins}/${g2.joins} within 1% · median rel ${(g2.medianRelative * 100).toFixed(4)}% · p90 ${(g2.p90Relative * 100).toFixed(3)}%`);
+line("G3 curvature rate", `${g3.g3Joins}/${g3.joins} within 5% · median rel ${(g3.medianRelative * 100).toFixed(1)}% · median gap ${g3.medianGap.toExponential(1)} /mm² — measured, not corrected`);
 line("curve network", `${net.cleanCorners}/${net.corners} corners coplanar · worst ${net.worstDeg.toFixed(2)}°`);
 if (process.env["DBG"] === "1") {
   const ext = (cid: string) => {

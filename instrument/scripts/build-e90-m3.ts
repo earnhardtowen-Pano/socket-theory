@@ -522,7 +522,7 @@ const shoulderY = scaled(SHOULDER_Y);
 // as its doors, which is most of why it reads modern.
 const shoulderZ = track(655, 790, 862, 900);
 const rockerY = scaled(ROCKER_Y);
-const rockerZ = track(200, 150, 150, 345);
+const rockerZ = track(168, 154, 154, 344);
 
 /**
  * A table lookup that is C1 at its knots AND ARRIVES AT THEM WITH A SLOPE.
@@ -747,7 +747,7 @@ const ARCH_X = [0, fA, FRONT_AXLE_X, fB, rA, REAR_AXLE_X, rB, LEN];
  * Four extra knots, none of them near an arch, and the arcs keep their spans.
  */
 const ROCKER_X = [
-  0, 300, fA, FRONT_AXLE_X, fB, 1700, 2610, rA, REAR_AXLE_X, rB, 4270, LEN,
+  0, 300, fA, FRONT_AXLE_X, fB, 1430, 1700, 2610, 3260, rA, REAR_AXLE_X, rB, 4270, LEN,
 ];
 /** Which of those spans are the quarter circles, derived rather than typed. */
 const ARC_SPANS = [
@@ -773,23 +773,25 @@ const rockerPlanY = profile([
   // keeps each tyre inside its own lip.
   [0, 760], [300, 840], [fA, 872],
   [700, 894], [FRONT_AXLE_X, FRONT_LIP], [1150, 895], [fB, 878],
-  [1700, 860], [2610, 864],
+  [1430, 868], [1700, 862], [2610, 864], [3260, 878],
   [rA, 886], [3500, 905], [REAR_AXLE_X, REAR_LIP], [3900, 905], [rB, 884],
-  [4270, 810], [LEN, 726],
+  [4270, 806], [LEN, 700],
 ]);
 /** Height of the rocker where it is a sill rather than an arch. */
 const FRONT_MOUTH_Z = FRONT_AXLE_Z + FRONT_ARCH_R * Math.sin(ARCH_END);
 const REAR_MOUTH_Z = REAR_AXLE_Z + REAR_ARCH_R * Math.sin(ARCH_END);
 const rockerSillZ = profile([
-  // MONOTONE INTO EACH ARCH AND OUT OF THE TAIL — the F1's hard-won rule,
-  // obeyed from the first draft this time. The apron's lower lip sits at 168
-  // and rises into the front mouth; the sill runs level at 150 between the
-  // arches (a road sedan's pinch weld, not a supercar's 25 mm of daylight);
-  // and behind the rear mouth the valance's lower edge falls once to its own
-  // height and holds it to the tail. No line dips and returns.
-  [0, 168], [300, 182], [fA, FRONT_MOUTH_Z],
-  [fB, FRONT_MOUTH_Z], [1700, 150], [2610, 148], [rA, REAR_MOUTH_Z],
-  [rB, REAR_MOUTH_Z], [4270, 345], [LEN, 342],
+  // MONOTONE INTO EACH ARCH AND OUT OF THE TAIL — the F1's hard-won rule —
+  // and STEEP where it meets each mouth. The first cut ran the mouth-to-sill
+  // fall over the whole 400 mm span behind the front arch and the car wore a
+  // smile under its doors; the second raised the sill to the mouths and hung
+  // the structure below the skin. The real answer is the real car's: an arch
+  // FLANGE — the opening's edge drops 230 mm in 130 — and a low sill running
+  // level between the flanges. The two knots at 1430 and 3260 are that
+  // flange, and they are chain span ends because the rule says they must be.
+  [0, 168], [300, 200], [fA, FRONT_MOUTH_Z],
+  [fB, FRONT_MOUTH_Z], [1430, 162], [1700, 154], [2610, 152], [3260, 160], [rA, REAR_MOUTH_Z],
+  [rB, REAR_MOUTH_Z], [4270, 345], [LEN, 344],
 ]);
 
 /**
@@ -803,7 +805,7 @@ const rockerSillZ = profile([
 const shoulderPlanY = profile([
   [0, 720], [280, 830], [fA, 862], [FRONT_AXLE_X, 880], [fB, 872],
   [1620, 862], [1975, 856], [2610, 862],
-  [rA, 888], [REAR_AXLE_X, 902], [rB, 892], [4270, 862], [LEN, 780],
+  [rA, 888], [REAR_AXLE_X, 902], [rB, 892], [4270, 858], [LEN, 752],
 ]);
 
 /**
@@ -1013,6 +1015,15 @@ for (const rocker of rockerIds) {
   const mouths = [fA, fB, rA, rB]
     .map((x) => ROCKER_X.indexOf(x))
     .map((j) => (forward ? j : n - j));
+  // THE FLANGE SPANS ARE EXACT TOO, and the reason is a trap the F1 never
+  // hit: `fitChainSmooth` splines x as well as z, and a C2 x-spline through
+  // spans whose lengths differ by 7:1 — 650 mm of sill against the 95 mm
+  // flange beside it — overshoots 42 mm in x and comes back. The station cut
+  // then crosses the curve at the overshoot instead of the station, the
+  // claim lands 42 mm off, and the rocker split refuses by name. A span
+  // fitted through four samples of its own linear-x stretch cannot overshoot
+  // in x, which the four arch arcs already relied on without saying so.
+  const flanges = [ROCKER_X.indexOf(fB), ROCKER_X.indexOf(3260)];
   fitChainSmooth(rocker, (seg, local) => {
     const j = forward ? seg : n - 1 - seg;
     const k = forward ? local : 1 - local;
@@ -1026,7 +1037,7 @@ for (const rocker of rockerIds) {
     }
     const x = ROCKER_X[j]! + (ROCKER_X[j + 1]! - ROCKER_X[j]!) * k;
     return [x, sign * rockerPlanY(x), rockerSillZ(x)];
-  }, mouths, ARC_SPANS);
+  }, mouths, [...ARC_SPANS, ...flanges]);
 }
 
 // ── the frame, as numbers, hoisted ────────────────────────────────────────
@@ -1139,7 +1150,7 @@ const grounded: { x: number; by: number; driver: string }[] = [];
 
 const STATIONS: {
   x: number; roof: number; floor: number; hip: number; hipAt: number;
-  sailBulge: number; name: string;
+  sailBulge: number; name: string; underY?: number;
   drawn: { top: number; floor: number; halfWidth: number };
 }[] = ([
   // The nose: a sedan's bumper is most of its width already at the tip, so
@@ -1150,22 +1161,22 @@ const STATIONS: {
   // hipAt 0.25 — over a wheel the widest thing at the station is the arch
   // lip at the flank's own foot, the F1's reading repeated.
   { x: FRONT_AXLE_X, floor: 122, hip: 897, hipAt: 0.25, sailBulge: 8, name: "front-axle" },
-  { x: archMouth(FRONT_AXLE_X, FRONT_ARCH_HALF)[1], floor: 122, hip: 884, hipAt: 0.38, sailBulge: 9, name: "arch-front-trail" },
+  { x: archMouth(FRONT_AXLE_X, FRONT_ARCH_HALF)[1], floor: 122, hip: 884, hipAt: 0.38, sailBulge: 9, underY: 700, name: "arch-front-trail" },
   // ── the greenhouse: two rows of people under one hold ──────────────────
-  { x: 1620, floor: 122, hip: 872, hipAt: 0.45, sailBulge: 8, name: "cowl" },
-  { x: 1720, floor: 122, hip: 870, hipAt: 0.46, sailBulge: 6, name: "screen-base" },
-  { x: 1975, floor: 122, hip: 866, hipAt: 0.48, sailBulge: 5, name: "screen-mid" },
-  { x: 2330, floor: 122, hip: 868, hipAt: 0.50, sailBulge: 4, name: "header" },
-  { x: 2610, floor: 122, hip: 872, hipAt: 0.50, sailBulge: 4, name: "b-pillar" },
-  { x: 3000, floor: 124, hip: 882, hipAt: 0.52, sailBulge: 5, name: "roof-mid" },
-  { x: 3230, floor: 126, hip: 890, hipAt: 0.54, sailBulge: 6, name: "roof-rear" },
-  { x: archMouth(REAR_AXLE_X, REAR_ARCH_HALF)[0], floor: 128, hip: 898, hipAt: 0.45, sailBulge: 7, name: "arch-rear-lead" },
+  { x: 1620, floor: 122, hip: 872, hipAt: 0.45, sailBulge: 8, underY: 730, name: "cowl" },
+  { x: 1720, floor: 122, hip: 870, hipAt: 0.46, sailBulge: 6, underY: 730, name: "screen-base" },
+  { x: 1975, floor: 122, hip: 866, hipAt: 0.48, sailBulge: 5, underY: 730, name: "screen-mid" },
+  { x: 2330, floor: 122, hip: 868, hipAt: 0.50, sailBulge: 4, underY: 730, name: "header" },
+  { x: 2610, floor: 122, hip: 872, hipAt: 0.50, sailBulge: 4, underY: 730, name: "b-pillar" },
+  { x: 3000, floor: 124, hip: 882, hipAt: 0.52, sailBulge: 5, underY: 730, name: "roof-mid" },
+  { x: 3230, floor: 126, hip: 890, hipAt: 0.54, sailBulge: 6, underY: 730, name: "roof-rear" },
+  { x: archMouth(REAR_AXLE_X, REAR_ARCH_HALF)[0], floor: 128, hip: 898, hipAt: 0.45, sailBulge: 7, underY: 700, name: "arch-rear-lead" },
   // ── the deck ───────────────────────────────────────────────────────────
   { x: 3640, floor: 132, hip: 906, hipAt: 0.40, sailBulge: 8, name: "decklid-lead" },
   { x: REAR_AXLE_X, floor: 135, hip: 908, hipAt: 0.28, sailBulge: 8, name: "rear-axle" },
   { x: archMouth(REAR_AXLE_X, REAR_ARCH_HALF)[1], floor: 160, hip: 900, hipAt: 0.40, sailBulge: 8, name: "arch-rear-trail" },
   { x: 4270, floor: 240, hip: 880, hipAt: 0.45, sailBulge: 8, name: "tail" },
-  { x: 4460, floor: 300, hip: 820, hipAt: 0.48, sailBulge: 5, name: "tail-tuck" },
+  { x: 4460, floor: 300, hip: 790, hipAt: 0.48, sailBulge: 5, name: "tail-tuck" },
 ] as const).map((st) => {
   // The package under the styling, at the station level as well as the master
   // line's. A crown lower than the contents, a floor above the sump, or a
@@ -1396,7 +1407,7 @@ for (let i = 0; i < STATIONS.length; i++) {
   const st = STATIONS[i]!;
   const sec = sections[i]!;
   setAcross(sec.deck, st.x, st.roof, 0);
-  setAcross(sec.under, st.x, st.floor, 0);
+  setAcross(sec.under, st.x, st.floor, st.underY ?? 0);
   for (const id of sec.flanks) bowSide(id, st.hipAt, () => st.hip);
   for (const id of sec.sails) bowSide(id, 0.5, (chord) => chord + st.sailBulge);
 }
@@ -1485,7 +1496,7 @@ const clearTheRails = (): void => {
       }
       if (lift <= 0.05) continue;
       st.floor += lift;
-      setAcross(sections[i]!.under, st.x, st.floor, 0);
+      setAcross(sections[i]!.under, st.x, st.floor, st.underY ?? 0);
     }
   }
 };
@@ -1533,6 +1544,11 @@ for (const rocker of rockerIds) {
   let upper = 1;
   for (const t of [...stations].reverse()) {
     const before = new Set(s.state.curves.keys());
+    if (process.env["DBGSPLIT"] === "1") {
+      const ch = s.state.curves.get(s.state.resolveCurve(head))!.chain;
+      console.log(`  DBGSPLIT ${head} t=${(t / upper).toFixed(4)} x(t)=${evalChain(ch, t / upper)[0].toFixed(1)} segs=${ch.segs.length} bounds=` +
+        ch.segs.map((_, j) => evalChain(ch, j / ch.segs.length)[0].toFixed(0)).join(","));
+    }
     s.apply("split-curve", { curveId: head, t: t / upper });
     const tail = [...s.state.curves.keys()].find((id) => !before.has(id)) as Id;
     if (!tail) throw new Error("split-curve made no new curve");
@@ -1716,6 +1732,15 @@ for (const name of ["arch-front-lead", "arch-front-trail", "arch-rear-lead", "ar
   const sec = stationOf(name);
   for (const id of [...sec.flanks, sec.under]) s.apply("crease", { curveId: id });
 }
+// The UNDER curves at the two stations bracketing each rocker FLANGE, for
+// the same reason one level down: the flange puts a 65-degree kink in the
+// under cells' own boundary, the one smooth side left on those cells is the
+// station curve, and the field's correction there dug the belly 148 mm below
+// its own floor trying to fair a fold the author meant. A fold across a
+// floor pan is invisible and real — the arch mouths said it first.
+for (const name of ["cowl", "roof-rear"]) {
+  s.apply("crease", { curveId: stationOf(name).under });
+}
 
 // AND THE LIP ITSELF GETS A RADIUS. An arch flange is not a knife edge — it is
 // a tight roll, four or five millimetres on a pressed panel and rather more on
@@ -1881,7 +1906,7 @@ if (process.env["NOCHASSIS"] !== "1") {
   // 780, and ending 90 short of the rear arch: the first draft ran the sill
   // to the bulkhead at 845, which put its outer face through the flank near
   // the cowl and its tail end 157 mm out into the rear wheel opening.
-  const SILL_Y = 780;
+  const SILL_Y = 690;
   const SILL_Z = 150;
   beam("sill", {
     view: side,
@@ -2007,18 +2032,18 @@ if (process.env["NOCHASSIS"] !== "1") {
   // doors — the first in this repository, and the member that lets four
   // doors close on one shell — and a C-pillar off the parcel shelf.
   const PILLAR_W = 62, PILLAR_D = 74;
-  const railAt = (x: number): Pt3 => [x, railPlanY(x) - 6, railZ(x) - 50];
-  const COWL_TOP: Pt3 = [SCREEN_FROM, railPlanY(SCREEN_FROM) - 22, railZ(SCREEN_FROM) - 58];
+  const railAt = (x: number): Pt3 => [x, railPlanY(x) - 10, railZ(x) - 56];
+  const COWL_TOP: Pt3 = [SCREEN_FROM, railPlanY(SCREEN_FROM) - 36, railZ(SCREEN_FROM) - 88];
   const aTop = railAt(SCREEN_TO);
   const cTopX = stationX("roof-rear");
   const cTop = railAt(cTopX);
   strut("a-pillar", COWL_TOP, aTop, PILLAR_W, PILLAR_D, true);
-  strut("a-pillar-foot", [SCREEN_FROM, SILL_Y, SILL_Z + 180], COWL_TOP, PILLAR_W, PILLAR_D, true);
+  strut("a-pillar-foot", [SCREEN_FROM, SILL_Y, SILL_Z + 140], COWL_TOP, PILLAR_W, PILLAR_D, true);
   // THE B-PILLAR: sill to cantrail, straight up at the door shut. It is the
   // reason the door-beam pass below can anchor two beams per side.
   strut("b-pillar", [stationX(DOOR_SHUT), SILL_Y, SILL_Z + 120], railAt(stationX(DOOR_SHUT)), PILLAR_W, PILLAR_D, true);
   // THE C-PILLAR: from the parcel-shelf corner up the backlight's edge.
-  strut("c-pillar", [stationX(TAIL_SHUT), SILL_Y - 80, shoulderZprofile(stationX(TAIL_SHUT)) + 30], cTop, PILLAR_W, PILLAR_D, true);
+  strut("c-pillar", [stationX(TAIL_SHUT), 540, shoulderZprofile(stationX(TAIL_SHUT)) + 20], cTop, PILLAR_W, PILLAR_D, true);
   beam("header-rail", {
     view: { kind: "front" as const },
     a: [-aTop[1], aTop[2] - 30], b: [aTop[1], aTop[2] + 30], depth: 64, at: SCREEN_TO - 32,

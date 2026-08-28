@@ -24,7 +24,8 @@ import {
 import { createSession, load } from "@car/history";
 import { computeQuilt } from "@car/frame";
 import {
-  bySize, continuityProbe, curvatureJoinProbe, fieldDisplacement, networkObstruction,
+  bySize, continuityProbe, curvatureJoinProbe,
+  curvatureRateProbe, fieldDisplacement, networkObstruction,
   panelsOf, tangentField,
 } from "@car/surface";
 import {
@@ -750,10 +751,12 @@ console.log(line("  joins excluded", `${cont.creased} creased (authored) + ${con
 // G2. Under G1 the only free coefficient of the second fundamental form on a
 // join is the curvature ACROSS it; this is that one number, matched.
 const g2 = curvatureJoinProbe(quilt, { cross });
+const g3 = curvatureRateProbe(quilt, { cross });
 const g2before = curvatureJoinProbe(quilt);
 console.log(line("G2 curvature", `${g2.g2Joins}/${g2.joins} joins within 1% along their length · ` +
   `median rel ${(g2.medianRelative * 100).toFixed(4)}% · p90 ${(g2.p90Relative * 100).toFixed(3)}% · ` +
   `median gap ${g2.medianGap.toExponential(1)} /mm`));
+console.log(line("G3 curvature rate", `${g3.g3Joins}/${g3.joins} within 5% · median rel ${(g3.medianRelative * 100).toFixed(1)}% · median gap ${g3.medianGap.toExponential(1)} /mm² — measured, not corrected`));
 console.log(line("  was, unfielded", `${g2before.g2Joins}/${g2before.joins} · ` +
   `median rel ${(g2before.medianRelative * 100).toFixed(2)}% · median gap ${g2before.medianGap.toExponential(1)} /mm`));
 // Every corner on every body is G1 and not G2, and that is structural rather
