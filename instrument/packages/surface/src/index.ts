@@ -134,6 +134,12 @@ export {
   type CurvatureStation,
 } from "./curvature-join.js";
 export {
+  curvatureRateProbe,
+  type CurvatureRateOptions,
+  type CurvatureRateReport,
+  type RateStation,
+} from "./curvature-rate.js";
+export {
   continuityProbe,
   joinStations,
   networkObstruction,

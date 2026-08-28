@@ -461,10 +461,16 @@ export function cellBezier(
   const x: number[] = [0, 1], omx: number[] = [1, 0];
   const gB = multiplyBezier(x, multiplyBezier(omx, omx));                  // x(1−x)²
   const hB = multiplyBezier(multiplyBezier(x, x), omx);                    // x²(1−x)
-  const qB = scaleBezier(multiplyBezier(multiplyBezier(x, x),
-    multiplyBezier(omx, multiplyBezier(omx, omx))), 0.5);                  // ½x²(1−x)³
-  const rB = scaleBezier(multiplyBezier(multiplyBezier(x, multiplyBezier(x, x)),
-    multiplyBezier(omx, omx)), 0.5);                                       // ½x³(1−x)²
+  // The septic Ψ bases — the same polynomials as `qBasis`/`rBasis` in
+  // coons.ts, and they MUST stay the same polynomials or the net describes a
+  // different surface. r is q reversed, which in Bernstein form is the
+  // coefficient list reversed.
+  const qB = [
+    [2, 0.5], [4, -5], [5, 10], [6, -7.5], [7, 2],
+  ].reduce<number[]>(
+    (acc, [n, w]) => addBezier(acc, scaleBezier(elevateBezierTo(powerBezier(n!), 7), w!)),
+    [0, 0, 0, 0, 0, 0, 0, 0]);                                             // ½x²−5x⁴+10x⁵−7.5x⁶+2x⁷
+  const rB = [...qB].reverse();                                            // q(1−x)
 
   // ── the tiles ─────────────────────────────────────────────────────────
   const tiles: BezierTile[][] = [];

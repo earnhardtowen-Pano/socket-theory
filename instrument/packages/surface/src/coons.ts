@@ -55,10 +55,11 @@
  * second-derivative bases:
  *
  *   Ψ(u,v) = q(v)Δ²₀(u) + r(u)Δ²₁(v) + r(v)Δ²₂(1-u) + q(u)Δ²₃(1-v)
- *   q(x) = ½x²(1-x)³   r(x) = ½x³(1-x)²
+ *   q(x) = ½x² − 5x⁴ + 10x⁵ − 7.5x⁶ + 2x⁷   r(x) = q(1-x)
  *
- * q is zero in value AND first derivative at both ends, has second derivative
- * 1 at 0 and 0 at 1; r is its mirror. So Ψ adds exactly Δ²_k to side k's
+ * q is zero in value, first AND third derivative at both ends, has second
+ * derivative 1 at 0 and 0 at 1; r is its mirror. (The third-derivative zeros
+ * are why it is septic rather than quintic — see the note at `qBasis`.) So Ψ adds exactly Δ²_k to side k's
  * inward SECOND derivative and disturbs neither the position nor the tangent
  * plane anywhere — G0 and G1 are untouched, and the terms stack rather than
  * fight.
@@ -139,14 +140,35 @@ const hPrime = (x: number): number => 2 * x - 3 * x * x;
 const gPrime2 = (x: number): number => -4 + 6 * x;
 const hPrime2 = (x: number): number => 2 - 6 * x;
 
-/** Quintic Hermite second-derivative bases: q''(0)=1, r''(1)=1, all else 0. */
-export const qBasis = (x: number): number => 0.5 * x * x * (1 - x) * (1 - x) * (1 - x);
-export const rBasis = (x: number): number => 0.5 * x * x * x * (1 - x) * (1 - x);
-// q = ½(x² - 3x³ + 3x⁴ - x⁵), r = ½(x³ - 2x⁴ + x⁵)
-const qPrime = (x: number): number => 0.5 * (2 * x - 9 * x * x + 12 * x ** 3 - 5 * x ** 4);
-const rPrime = (x: number): number => 0.5 * (3 * x * x - 8 * x ** 3 + 5 * x ** 4);
-const qPrime2 = (x: number): number => 0.5 * (2 - 18 * x + 36 * x * x - 20 * x ** 3);
-const rPrime2 = (x: number): number => 0.5 * (6 * x - 24 * x * x + 20 * x ** 3);
+/**
+ * Septic Hermite second-derivative bases: q''(0)=1, r''(1)=1, all else 0 —
+ * INCLUDING the third derivative at both ends, which the quintic version of
+ * this pair did not control.
+ *
+ * The original q(x) = ½x²(1−x)³ satisfied the G2 contract exactly and had
+ * q‴(0) = −9, q‴(1) = −3: every unit of curvature correction arrived with
+ * nine units of curvature-RATE kick at its own edge and leaked three onto the
+ * opposite one. The G3 probe read that kick as the dominant rate mismatch at
+ * every smooth join on every car — the correction was buying G2 by spending
+ * G3. Two more polynomial degrees buy the four extra zero conditions:
+ *
+ *   q(x) = ½x² − 5x⁴ + 10x⁵ − 7.5x⁶ + 2x⁷      r(x) = q(1−x)
+ *
+ * q(0)=q'(0)=0, q''(0)=1, q‴(0)=0; q(1)=q'(1)=q''(1)=q‴(1)=0. The unique
+ * degree-7 solution. Ψ still delivers exactly Δ²_k to side k's inward second
+ * derivative and still vanishes to first order everywhere it must, so G0, G1
+ * and G2 are bit-for-bit the same claims as before; only the third order —
+ * previously uncontrolled — changes.
+ */
+export const qBasis = (x: number): number =>
+  x * x * (0.5 + x * x * (-5 + x * (10 + x * (-7.5 + 2 * x))));
+export const rBasis = (x: number): number => qBasis(1 - x);
+const qPrime = (x: number): number =>
+  x * (1 + x * x * (-20 + x * (50 + x * (-45 + 14 * x))));
+const rPrime = (x: number): number => -qPrime(1 - x);
+const qPrime2 = (x: number): number =>
+  1 + x * x * (-60 + x * (200 + x * (-225 + 84 * x)));
+const rPrime2 = (x: number): number => qPrime2(1 - x);
 
 /**
  * The four side corrections and their along-edge derivatives, already
