@@ -146,12 +146,12 @@ const archMouth = (axleX: number, half: number): [number, number] => [axleX - ha
 // always to retype the body until it stopped. That is a person doing by hand
 // what the geometry already knows.
 //
-// A real car is the other way round. This one has that bonnet BECAUSE the XK
-// six is 663 mm long and stands 620 tall and a tube frame has to get round
-// it. So the parts come first, the frame's proportions come off the parts,
-// and the BODY's own tables become a floor under the styling rather than the
-// whole of it: where the two disagree the package wins and the report names
-// the part that won it.
+// A real car is the other way round. This one has that bonnet BECAUSE the
+// S65 stands where it stands: the block behind the front axle under a long
+// dash-to-axle, the plenum needing the dome above it. The parts come first,
+// the bay's proportions come off the parts, and the BODY's own tables become
+// a floor under the styling rather than the whole of it: where the two
+// disagree the package wins and the report names the part that won it.
 
 /**
  * Every part the packing solve placed, as a box in BODY coordinates.
@@ -197,20 +197,17 @@ const partBox = (frag: string): CarriedPart => {
 
 
 /**
- * The REAR subframe's proportions, as a pure function of what it carries.
+ * The ENGINE BAY's proportions, as a pure function of what it carries.
  *
- * Same four readings the E-Type's front frame makes and every one of them
- * points the other way, which is the test. There the frame's nose came off
- * the radiator and its back off the bulkhead; here its FRONT face comes off
- * the engine's front face — which is the rear bulkhead, because on this car
- * the engine bolts straight to it and is a structural member — and its tail
- * off the gearbox. The tube spacing is still the engine's width plus a
- * clearance and the top is still the engine's own crown. Nothing in
- * `frameEnvelope` knew which end of the car it was at.
+ * Same readings as the E-Type's front frame and the F1's rear subframe, and
+ * this car points them the classic way again: the bay's rails run beside the
+ * block the solve placed, their tail is the gearbox's, their spacing is the
+ * wider of the two plus a clearance, and the strut towers stand at the axle
+ * the wheels defined. Nothing in `frameEnvelope` knows which layout it is
+ * serving — which is the point of it.
  *
  * `lowZ` is deliberately NOT here. It has a second bound, the body's own
- * underside, and that is not known until the body exists; the chassis block
- * settles it once both are.
+ * underside, and that is not known until the body exists.
  */
 const TUBE_CLEAR = 74;
 const TUBE = 34;
@@ -252,23 +249,19 @@ const FRAME_BOX: PackageBox = {
  * them — put a taller engine in and the bonnet rises, which is the whole
  * point of the inversion.
  *
- * WHAT DOES NOT DRIVE IT, and why. The first version clamped the body to
- * every placed part and produced a van: 1880 wide and 1518 tall against a
- * published 1657 by 1219. Two boxes did it.
+ * WHAT DOES NOT DRIVE IT, and why. Clamping the body to every placed part
+ * produced a van on the E-Type and would here too. Two boxes stay out:
  *
- *   The OCCUPANT ARRAY is one box from heel to head vertex, 990 to 2403 and
- *   1760 wide, and on this car it is over-stated twice over: its top is a
- *   95th-percentile male's head at 1315 mm on a car that is 1140 mm tall,
- *   and its WIDTH is three people abreast at one station when the F1's two
- *   passengers sit 300 mm behind the driver — which is the entire reason
- *   three of them fit in a car 1820 wide. Clamping to it would produce a
- *   different car twice. `cabinLens` says the height part in millimetres,
- *   which is where it belongs.
+ *   The OCCUPANT ARRAY is now TWO rows and five people, spanning from the
+ *   driver's heel to the rear bench's head — 2.3 metres of box whose top is
+ *   a 95th-percentile male sitting bolt upright. A sedan roof already holds
+ *   for exactly this reason, and the cabin lens reports the millimetres;
+ *   clamping to the box would raise the roof to the erect-posture worst
+ *   case at every station at once.
  *
- *   The SUSPENSION is a SWEPT volume, 1790 mm wide — the wheels through
- *   their travel and their lock, not a solid. A body is not required to
- *   enclose a swept volume; it is required to have arches over it, which is
- *   a different geometry the arch pass already authors.
+ *   The SUSPENSION is a SWEPT volume — wheels through travel and lock, not
+ *   a solid. A body is not required to enclose a swept volume; it is
+ *   required to have arches over it, which the arch pass authors.
  *
  * Both are still REPORTED against, under `package vs styling`. Reporting a
  * demand and obeying it are different things, and only one of them turns a
@@ -495,7 +488,7 @@ const track = (a: number, b: number, c: number, d: number) =>
 // station at all. The table says what the car should be and the SCRIPT solves
 // for what to type: sample the fitted cubic, find its peak, and scale the
 // plan tables until the peak is the published half-width.
-const HALF_WIDTH = HW;                     // 1820 mm overall
+const HALF_WIDTH = HW;                     // 1817 mm overall, surveyed
 const bezierAt = (a: number, b: number, c: number, d: number, t: number): number => {
   const p1 = 3 * b - 1.5 * c - (5 / 6) * a + (1 / 3) * d;
   const p2 = 3 * c - 1.5 * b - (5 / 6) * d + (1 / 3) * a;
@@ -887,21 +880,13 @@ if (shoulderIds.length !== 2) throw new Error(`expected 2 shoulders, got ${shoul
 if (railIds.length !== 2) throw new Error(`expected 2 roof rails, got ${railIds.length}`);
 
 /**
- * The spans the BELTLINE and the ROOF RAIL are fitted on, and there are
- * thirteen of them where the rocker has seven.
+ * The spans the BELTLINE and the ROOF RAIL are fitted on.
  *
- * SEVEN IS NOT ENOUGH ON THIS CAR and the first build proved it. Between the
- * two arch mouths — fB at 1121 and rA at 3081 — sits one span 1960 mm long,
- * and on the E-Type that span is a bonnet: it climbs steadily and one cubic
- * carries it. On the F1 the same span contains the cowl, the whole
- * windscreen, the top of the car and the fall onto the engine cover. A cubic
- * through four samples of that overshoots between them, and it did: the roof
- * came out 92 mm above its own table at the screen base, at a station where
- * every number in the table is within four millimetres of the real car.
- *
- * Nothing was wrong with the tables. There were not enough places to put
- * them. The rocker keeps its seven because its middle spans are quarter
- * circles and a quarter circle IS a cubic to a tenth of a millimetre.
+ * The F1 proved seven is not enough the hard way — one 1960 mm span holding
+ * a cowl, a screen, the top of the car and a fall overshot 92 mm — and a
+ * sedan's rail carries even more events: bonnet rise, screen, the HOLD over
+ * two seat rows, backlight, deck. Seventeen spans, every boundary a
+ * station, asserted below.
  */
 /**
  * The BELTLINE's own spans, and it does not want the roof rail's.
@@ -1056,14 +1041,12 @@ const MOUNT_PAD = 90, MOUNT_H = 12;
 /** Stations with a crossmember, and so the candidates for a body mount. */
 const MOUNT_X = [1620, 2610, 3355];
 /**
- * Top of the transmission tunnel — propshaft, bellhousing and twin pipes.
- *
- * EXCEPT THAT THERE IS NO TRANSMISSION IN IT. The gearbox is 660 mm behind
- * the tub and there is no propshaft at all, so on this car the number is the
- * top of a rib carrying a loom and a gearchange cable — 90 mm, which the
- * config says in as many words. It is kept because the chassis lens still
- * measures against it, and because a spine on a tub is a real member even
- * when nothing runs through it.
+ * Top of the transmission tunnel — and for the first time in this
+ * repository, a transmission is actually IN it. The gearbox's tail and the
+ * propshaft run down this tunnel to the diff, the exhaust beside them,
+ * which is what the config's 240 x 190 section is sized by. The E-Type's
+ * tunnel wrapped a bellhousing; the F1's was a rib carrying a loom; this
+ * one is the thing the field was named for.
  */
 const TUNNEL_TOP = RAIL_Z - RAIL_H / 2 + sub.tunnelHeight.value;
 
@@ -2624,16 +2607,10 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
 {
   const skin = bodyMesh;
   let worstW = 0, worstZ = 0, over = 0, atW = 0;
-  // THIRTY MILLIMETRES IN FROM EACH END, and this car is why. The other two
-  // taper to 330 mm of half-width at the tail, so a section three
-  // millimetres from the end reads a tip. The F1's tail is 620 wide and flat
-  // — a diffuser, two exhausts and a crash structure across it — so a cut
-  // that close lands INSIDE the tail panel and measures the panel's own edge
-  // rather than the body: the top reads 928 mm at x 4276, 881 at 4280 and 839
-  // at 4284, which is the section walking down the panel's own fillet. Twelve
-  // millimetres clears it and is 0.3% of the length; thirty was tried first
-  // and over-corrected, reading 64 mm wide at the nose because at x = 30 the
-  // prow is genuinely wider than its tip.
+  // Twelve millimetres in from each end — the F1's calibration, kept. A
+  // section cut too near a flat end face walks down the panel's own fillet
+  // and reads the fillet as the body; too far in over-corrects at a wide
+  // prow. This car's tail face is 1.5 m wide, so the trap is live here too.
   const END_INSET = 12;
   for (const st of E90_PROFILE) {
     const x = Math.min(LEN - END_INSET, Math.max(END_INSET, st.at * LEN));
@@ -2673,9 +2650,9 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
   {
     const on = fit.mounts.filter((m) => m.standoff !== null && Math.abs(m.standoff) <= 15);
     if (fit.mounts.length === 0) {
-      line("  body mounts", "NONE, and that is the reading. A carbon tub has no body mounts because the " +
-        "floor pan IS the longeron — one moulding, not a pan on a rail — so there is not even a joint " +
-        "for a pad to span. The MX-5 runs the same rule and gets 4 of 4 at 3 mm");
+      line("  body mounts", "NONE, and that is the reading. A unibody's floor pan IS its longeron — " +
+        "pressed and welded as one shell — so where the skin wraps the member there is no joint " +
+        "for a pad to span, and the pass says wrapped rather than inventing one");
     } else {
       line("  body mounts", `${on.length} of ${fit.mounts.length} carrying the body · standoff ` +
         fit.mounts.map((m) => m.standoff === null ? "—" : m.standoff.toFixed(0)).join(" / ") + " mm");
@@ -2821,12 +2798,12 @@ for (const f of cabin.faults) line("  cabin FAULT", f);
     }
   }
   // ── the crush strokes, asked for and got ───────────────────────────────
-  // `makeSubstrate` publishes a stroke front and rear and this is the first
-  // car that has not had room for either. That is the correct answer for a
-  // 760 mm nose with a 643 mm wheel in it and an 809 mm tail with a gearbox
-  // in it, and it is a real consequence of the layout rather than a bug: a
-  // mid-engined car with short overhangs has less crushable length than a
-  // front-engined one of the same wheelbase, and always did.
+  // `makeSubstrate` publishes a stroke front and rear, and this is the first
+  // car with room to spare at BOTH ends: a metre of bay ahead of the block
+  // and a whole boot behind the tank. The F1 got 63% of its ask because a
+  // mid-engined car has no nose to crush; a three-box sedan is the opposite
+  // case, and the over-delivery is as much a consequence of the layout as
+  // the F1's shortfall was.
   if (crushFit) {
     const pct = (a: number, b: number) => `${b.toFixed(0)} of ${a.toFixed(0)} mm (${((b / a) * 100).toFixed(0)}%)`;
     line("crush stroke", `front ${pct(crushFit.frontAsked, crushFit.frontGot)} · ` +

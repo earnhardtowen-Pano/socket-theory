@@ -56,7 +56,12 @@
  * The march step adapts to what it is measuring: a fraction of the local
  * radius where the surface is tight (a softened lip at R6 varies its
  * curvature inside a band a fixed step would leap over) and a couple of
- * millimetres where it is slack.
+ * millimetres where it is slack. One resolution limit is named rather than
+ * fixed: a SLACK seam whose 2 mm stations straddle a compact blend band's
+ * edge reads a mix of the two regimes there — the tight bump is C2 and not
+ * C3 at its band edge, and a parabola across the knot averages the two
+ * one-sided slopes. A measurement probe inherits the smoothness of what it
+ * measures.
  *
  * WHAT IT DELIBERATELY DOES NOT CLAIM. This body's construction guarantees
  * G0/G1 exactly and fits G2; nothing in it corrects the third order, so these
@@ -110,6 +115,13 @@ export interface CurvatureRateReport {
   /** Joins whose worst relative mismatch along their length is under
    *  `g3Tolerance`. */
   readonly g3Joins: number;
+  /**
+   * Joins where NO station could be read — the two-station march exits a
+   * sliver cell, or the metric degenerates. Counted out loud because they
+   * sit in `joins` and can never pass the gate, and a grade that quietly
+   * includes the unmeasurable is a grade that lies low.
+   */
+  readonly unmeasured: number;
   readonly worst: RateStation | null;
   readonly note: string;
 }
@@ -127,6 +139,20 @@ export interface CurvatureRateOptions {
 
 const DEFAULT_SAMPLES = 9;
 const DEFAULT_G3_TOL = 0.05;
+/**
+ * The floor under the relative metric, 1/mm².
+ *
+ * A relative mismatch needs a scale, and on a near-flat join both rates are
+ * within noise of zero — the ratio of two invisible numbers is O(1) and says
+ * nothing. The verification pass proved it with a fixture: true rates of
+ * 6e-12 against -3e-12, a curvature change no reflection could ever show,
+ * read 50% relative and failed the gate. So the denominator is floored at
+ * the rate that would take a flat panel to R5000 over 200 mm of walk —
+ * below it, no eye reads the mismatch, whatever the ratio says. The
+ * absolute numbers (medianGap, worstGap) never had the problem and are
+ * untouched.
+ */
+const RATE_FLOOR = 1e-6;
 /** March step where the surface is slack, mm. */
 const SLACK_STEP_MM = 2;
 /** Fraction of the local radius the step shrinks to where it is tight. */
@@ -267,7 +293,7 @@ export function curvatureRateProbe(
   const gaps: number[] = [];
   const rels: number[] = [];
   let worst: RateStation | null = null;
-  let joins = 0, creased = 0, sharp = 0, g3Joins = 0;
+  let joins = 0, creased = 0, sharp = 0, g3Joins = 0, unmeasured = 0;
 
   for (const edge of adj.edges) {
     if (edge.creased) { creased++; continue; }
@@ -287,8 +313,8 @@ export function curvatureRateProbe(
       if (!A || !B) continue;
       measured = true;
       const gap = nabs(A.rate + B.rate);
-      const scale = nmax(nabs(A.rate), nabs(B.rate));
-      const rel = scale > 0 ? gap / scale : 0;
+      const scale = nmax(nmax(nabs(A.rate), nabs(B.rate)), RATE_FLOOR);
+      const rel = gap / scale;
       gaps.push(gap);
       rels.push(rel);
       if (rel > worstRel) worstRel = rel;
@@ -299,6 +325,7 @@ export function curvatureRateProbe(
         };
       }
     }
+    if (!measured) unmeasured++;
     if (measured && worstRel <= tol) g3Joins++;
   }
 
@@ -315,7 +342,7 @@ export function curvatureRateProbe(
     worstGap: worst === null ? 0 : worst.gap,
     medianRelative: pct(rels, 0.5), p90Relative: pct(rels, 0.9),
     worstRelative: pct(rels, 1),
-    g3Joins, worst,
+    g3Joins, unmeasured, worst,
     note:
       "Inward curvature slope dκ/ds on each side of the join, 1/mm². A G3 " +
       "join has the two inward slopes cancel. Measured, not corrected: the " +

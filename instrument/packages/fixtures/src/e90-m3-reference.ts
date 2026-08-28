@@ -40,8 +40,11 @@ export const E90_PROFILE: readonly ProfileStation[] = [
   { at: 0.00, halfWidth: 780, top: 640 },
   { at: 0.05, halfWidth: 850, top: 700 },
   { at: 0.10, halfWidth: 880, top: 735 },
-  // The front tyre runs x = 623..1277 (0.136..0.279); the lip over it is
-  // track/2 + section/2 + a 6 mm flare = 897.5.
+  // The front tyre runs x = 623..1277 (0.136..0.279). The lip over it is
+  // track/2 + section/2 — pure arithmetic, independent of the build — plus a
+  // 6 mm flare allowance, which is the ONE number this table shares with the
+  // build script and cannot help sharing: the tyre floor is arithmetic, and
+  // how far a lip stands proud of it is styling. Named rather than hidden.
   { at: 0.14, halfWidth: 892, top: 762 },
   // 0.207 is the front axle. The arch blister is at full flare.
   { at: 0.21, halfWidth: 897, top: 792 },

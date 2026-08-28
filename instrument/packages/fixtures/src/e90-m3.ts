@@ -30,7 +30,6 @@ import { assumed, sourced } from "@car/demand";
 
 const CHOICE = "E90 M3 authored placement";
 const SPECS = "https://www.ultimatespecs.com/car-specs/BMW/10029/BMW-E90-3-Series-LCI-M3.html";
-const AUTOEVO = "https://www.autoevolution.com/cars/bmw-m3-sedan-e90-2008.html";
 const BMWM = "https://www.bmw-m.com/en/topics/magazine-article-pool/bmw-m3-e92-e90-and-e93.html";
 const NOSTALGIA = "https://supercarnostalgia.com/blog/bmw-e90-e92-e93-m3";
 const APEX = "https://apexwheels.com/fitment-guides/bmw/m3/bmw-e90-e92-e93-m3-wheel-and-tire-fitment-guide";
@@ -63,6 +62,20 @@ export const E90_REAR_TRACK = 1539;
  *  into its floor, not bolted under it. */
 export const E90_RAIL_HEIGHT = 170;
 export const E90_LENGTH = E90_FRONT_OVERHANG + E90_WHEELBASE + E90_REAR_OVERHANG;
+/**
+ * THE SURVEYED ENVELOPE, and where its citation lives. 4580 x 1817 x 1447
+ * was checked this run against two published pages:
+ *
+ *   https://www.ultimatespecs.com/car-specs/BMW/10029/BMW-E90-3-Series-LCI-M3.html
+ *   https://www.autoevolution.com/cars/bmw-m3-sedan-e90-2008.html
+ *
+ * They are bare numbers rather than sourced() quantities because CarConfig
+ * has no field for an overall envelope — nothing downstream consumes them as
+ * demands — but every report that prints "(SOURCED — see e90-m3.ts)" is
+ * pointing HERE, and a claim of sourcing whose citation is recorded nowhere
+ * is the one thing this file must never contain. The verification pass
+ * caught exactly that, which is why this comment exists.
+ */
 export const E90_WIDTH = 1817;
 export const E90_HEIGHT = 1447;
 
@@ -160,6 +173,9 @@ export const e90M3Config: CarConfig = {
         label: "front row",
       },
       {
+        // 640 aft of the front row's heel and 55 up onto the tank's floor —
+        // chosen so the rear head lands at x 3269 under a roof at 1290, and
+        // recorded as the choice it is.
         heel: [640, 0, 55],
         H30: assumed(310, "mm", "E90 package — rear bench slightly theatre-raised over the tank"),
         hipAftOfHeel: assumed(360, "mm", "E90 package — knees-up rear legroom, which is what a 3-series rear seat is"),
