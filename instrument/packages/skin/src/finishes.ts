@@ -92,6 +92,10 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
   // works orange has no flake in it, so it reads flatter and more saturated
   // than any of the four above and takes a highlight in a harder line.
   "Papaya Orange": f("Papaya Orange", "#d2571b", "skin", 0.88, 0.0, 1.0),
+  // The E90 M3's paint: Interlagos Blue metallic, a slate-leaning blue that
+  // reads steel under sun. Hex approximated from period colour references —
+  // the colour-chip sites sat behind a blocked egress, so RECALLED medium.
+  "Interlagos Blue": f("Interlagos Blue", "#2f547e", "skin", 0.80, 1.0, 1.0),
 
   // ── structure ────────────────────────────────────────────────────────────
   "screen frame": f("screen frame", "#8e9196", "structure", 0.42, 0.9, 0.25),
@@ -121,6 +125,10 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
   // A modern low-profile radial on a big rim: more silica, less carbon
   // showing, and a harder gloss than either of the two above.
   "315/45ZR17": f("315/45ZR17", "#141419", "tyre", 0.85, 0.0, 0.16),
+  // The E90 M3's staggered pair — two names because the two axles wear
+  // different tyres, the lesson the F1's 315s taught one row up.
+  "245/40R18": f("245/40R18", "#141419", "tyre", 0.86, 0.0, 0.14),
+  "265/40R18": f("265/40R18", "#141419", "tyre", 0.86, 0.0, 0.14),
   "alloy": f("alloy", "#b9bdc2", "wheel", 0.30, 1.0, 0.0),
   // Cast magnesium, lacquered rather than polished — darker and warmer than
   // an aluminium alloy, which is what magnesium looks like under clear.
