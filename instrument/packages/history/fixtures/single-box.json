@@ -1,0 +1,42 @@
+{
+  "format": "car",
+  "version": 1,
+  "title": "fixture: single box",
+  "counters": {
+    "cell": 6,
+    "curve": 12,
+    "vertex": 8,
+    "datum": 0,
+    "group": 0,
+    "material": 0,
+    "feature": 0,
+    "demand": 0,
+    "port": 0,
+    "part": 0,
+    "constraint": 0
+  },
+  "verbs": [
+    {
+      "seq": 0,
+      "verb": "tape",
+      "args": {
+        "kind": "box",
+        "rect": {
+          "view": {
+            "kind": "side"
+          },
+          "a": [
+            0,
+            0
+          ],
+          "b": [
+            100,
+            80
+          ],
+          "depth": 60,
+          "at": 0
+        }
+      }
+    }
+  ]
+}

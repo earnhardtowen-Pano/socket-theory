@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@car/schema": ["packages/schema/src/index.ts"],
+      "@car/num": ["packages/num/src/index.ts"],
+      "@car/history": ["packages/history/src/index.ts"],
+      "@car/frame": ["packages/frame/src/index.ts"],
+      "@car/constrain": ["packages/constrain/src/index.ts"],
+      "@car/surface": ["packages/surface/src/index.ts"],
+      "@car/mesh": ["packages/mesh/src/index.ts"],
+      "@car/skin": ["packages/skin/src/index.ts"],
+      "@car/flow": ["packages/flow/src/index.ts"],
+      "@car/demand": ["packages/demand/src/index.ts"],
+      "@car/types": ["packages/types/src/index.ts"],
+      "@car/pack": ["packages/pack/src/index.ts"],
+      "@car/lens": ["packages/lens/src/index.ts"],
+      "@car/occt": ["packages/occt/src/index.ts"],
+      "@car/render": ["packages/render/src/index.ts"],
+      "@car/fixtures": ["packages/fixtures/src/index.ts"],
+      "@car/ci-tools": ["packages/ci-tools/src/index.ts"]
+    }
+  },
+  "include": ["packages/**/*.ts", "apps/**/*.ts", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

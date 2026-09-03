@@ -1,0 +1,309 @@
+/**
+ * Build PANORAMIC P1 — a front-mid inline-six, rear-drive, two-door coupe,
+ * authored with the ratified verbs against a real packaging solve.
+ *
+ * Body datum for authoring: X = 0 at the NOSE (the solve's X = 0 is the front
+ * axle, so hard points shift by the front overhang), Y across from the
+ * centerline, Z up from the ground plane.
+ */
+import { writeFileSync, mkdirSync } from "node:fs";
+import { makeAllocator, type Id, type Pt3 } from "@car/schema";
+import { assembleCar } from "@car/types";
+import { solve } from "@car/pack";
+import { p1Config, P1_FRONT_OVERHANG, P1_WHEELBASE, P1_FRONT_DIAMETER, P1_REAR_DIAMETER } from "@car/fixtures";
+import { createSession, load } from "@car/history";
+import { computeQuilt } from "@car/frame";
+import { meshQuilt, closedMeshCheck, writeStlBinary } from "@car/mesh";
+import { massLedger } from "@car/lens";
+import { evalChain } from "@car/num";
+
+// ---------------------------------------------------------------------------
+// 1. The packaging solve — the body is authored against these, not invented
+// ---------------------------------------------------------------------------
+const alloc = makeAllocator();
+const car = assembleCar(p1Config, alloc);
+const packed = solve(car.input);
+
+const NOSE = P1_FRONT_OVERHANG;                 // body X = solve X + NOSE
+const FRONT_AXLE_X = NOSE;                      // 900
+const REAR_AXLE_X = NOSE + P1_WHEELBASE;        // 3440
+const FRONT_R = P1_FRONT_DIAMETER / 2;
+const REAR_R = P1_REAR_DIAMETER / 2;
+
+const hp = new Map<string, Pt3>();
+for (const s of packed.hardPoints) {
+  if (!hp.has(s.label ?? "")) hp.set(s.label ?? "", [s.at[0] + NOSE, s.at[1], s.at[2]]);
+}
+
+// ---------------------------------------------------------------------------
+// 2. Author the body — tape blocks, then sculpt through the welds
+// ---------------------------------------------------------------------------
+const s = createSession("Panoramic P1");
+const side = { kind: "side" as const };
+
+/** tape a box in side view: (x0,z0)-(x1,z1), spanning y ±halfWidth. */
+const block = (x0: number, z0: number, x1: number, z1: number, halfWidth: number): void => {
+  s.apply("tape", { kind: "box", rect: { view: side, a: [x0, z0], b: [x1, z1], depth: halfWidth * 2, at: -halfWidth } });
+};
+const curveCount = (): number => s.state.curves.size;
+const cellsOfBlockAt = (start: number): Id[] =>
+  [...s.state.cells.keys()].filter((id) => {
+    const n = Number(id.split("#")[1]);
+    return n >= start && n < start + 6;
+  }) as Id[];
+
+/** tape a box in side view spanning an explicit Y band (one side only). */
+const blockY = (x0: number, z0: number, x1: number, z1: number, y0: number, y1: number): void => {
+  s.apply("tape", { kind: "box", rect: { view: side, a: [x0, z0], b: [x1, z1], depth: y1 - y0, at: y0 } });
+};
+
+// --- the volumes, nose to tail ---------------------------------------------
+// Widths are deliberate: the fenders are the widest point, the tub is drawn
+// in beneath them, and the greenhouse is narrower still. That hierarchy —
+// not the individual boxes — is what reads as a car.
+const cCore = curveCount();
+block(250, 165, 4150, 675, 700);       // 0  tub: rockers, floor, beltline
+const cHood = curveCount();
+block(600, 800, 1990, 880, 560);       // 1  hood: inset between the fender tops
+const cCabin = curveCount();
+block(1965, 835, 3165, 1265, 690);     // 2  greenhouse
+const cDeck = curveCount();
+block(3100, 660, 4240, 880, 725);      // 3  rear deck
+const cNose = curveCount();
+block(0, 175, 600, 690, 640);          // 4  nose
+const cTail = curveCount();
+block(4180, 275, 4400, 790, 690);      // 5  tail
+const cSplit = curveCount();
+block(430, 130, 1230, 215, 760);       // 6  splitter
+
+const yEdge = (base: number, k: 0 | 1 | 2 | 3): Id => `curve#${base + 4 + k}` as Id;
+const xEdge = (base: number, k: 0 | 1 | 2 | 3): Id => `curve#${base + k}` as Id;
+const zEdge = (base: number, k: 0 | 1 | 2 | 3): Id => `curve#${base + 8 + k}` as Id;
+const push = (id: Id, d: Pt3): void => { s.apply("push-pull", { target: { kind: "curve", id }, delta: d }); };
+/** Pinch: bow an edge by moving its interior contact points (statute cl. 20). */
+const pinch = (id: Id, d: Pt3): void => {
+  for (const idx of [1, 2] as const) s.apply("push-pull", { target: { kind: "ctrl", id, seg: 0, idx }, delta: d });
+};
+/**
+ * Draw a face in or out across the car by moving its two fore-aft edges
+ * symmetrically. X-edge index bits are (j = y side, k = z level), so k picks
+ * the level and j picks the side: moving both sides by ±dy keeps the body
+ * symmetric, which is the difference between a section and a mirror twin.
+ */
+const waist = (base: number, level: 0 | 1, dy: number): void => {
+  push(xEdge(base, level === 1 ? 1 : 0), [0, dy, 0]);
+  push(xEdge(base, level === 1 ? 3 : 2), [0, -dy, 0]);
+};
+
+// --- section: the shapes a body has when you look at it end-on -------------
+// Tumblehome: the glasshouse leans in hard. Roof 280 mm narrower than its base.
+waist(cCabin, 1, -140);
+// Roof crown, and the hood domed along its length.
+pinch(yEdge(cCabin, 3), [0, 0, 26]);
+pinch(yEdge(cHood, 3), [0, 0, 30]);
+pinch(yEdge(cHood, 1), [0, 0, 20]);
+pinch(yEdge(cDeck, 3), [0, 0, 22]);
+pinch(yEdge(cDeck, 1), [0, 0, 16]);
+pinch(yEdge(cCore, 1), [0, 0, 14]);
+// Rocker tuck: the tub draws in at the bottom, so the car sits on its wheels
+// instead of on a slab.
+waist(cCore, 0, -85);
+
+// --- profile: the lines that make it this car ------------------------------
+push(yEdge(cCabin, 1), [315, 0, 0]);      // windshield rake
+push(yEdge(cCabin, 3), [455, 0, -345]);   // fastback sweeping into the deck
+push(yEdge(cHood, 1), [0, 0, -105]);      // hood falls toward the nose
+push(yEdge(cNose, 1), [80, 0, -150]);     // nose chamfer
+push(yEdge(cNose, 0), [65, 0, 60]);       // and tucks under
+push(yEdge(cCore, 0), [0, 0, 40]);        // tub lifts at the nose
+push(yEdge(cCore, 3), [-45, 0, 20]);
+push(yEdge(cTail, 3), [-50, 0, -95]);     // clipped Kamm
+push(yEdge(cDeck, 3), [-80, 0, -85]);
+push(yEdge(cDeck, 1), [0, 0, 45]);
+push(yEdge(cSplit, 1), [-55, 0, -45]);
+// Plan taper: the nose and tail narrow, the way a body does when you look down
+// on it. The vertical corner edges carry it.
+// Z-edge index bits are (i = fore/aft, j = y side): to narrow ONE end you move
+// both of its sides toward the centerline. Moving one side is how you get an
+// asymmetric car and a mirror twin telling you so.
+const planTaper = (base: number, end: 0 | 1, dy: number): void => {
+  push(zEdge(base, end === 0 ? 0 : 2), [0, dy, 0]);   // y-low side inward (+Y)
+  push(zEdge(base, end === 0 ? 1 : 3), [0, -dy, 0]);  // y-high side inward (-Y)
+};
+planTaper(cNose, 0, 110);   // nose narrows
+planTaper(cTail, 1, 85);    // tail narrows
+planTaper(cCabin, 1, 60);   // rear glass draws in
+
+// --- haunches: the body IS the fender -------------------------------------
+// A bolted-on fender box reads as a bolted-on fender box. Split the tub's
+// flanks at the arch boundaries and push the arch segments outward: the
+// welds drag the neighbouring segments partway, so the door and the ends
+// become the transitions, which is what a haunch actually is.
+const flankSplit = (x: number): void => {
+  s.apply("tape", {
+    kind: "line",
+    line: { view: side, a: [x, 120], b: [x, 760], lineClass: "tape" },
+    targets: ["cell#2" as Id, "cell#3" as Id],
+  });
+};
+for (const x of [520, 1380, 2870, 3960]) flankSplit(x);
+
+/** The living flank cell whose span brackets this station, on the given side. */
+const flankAt = (x: number, ySign: 1 | -1): Id => {
+  for (const [id, cell] of s.state.cells) {
+    let lo = Infinity, hi = -Infinity, ySum = 0, n = 0;
+    for (const sd of cell.sides) {
+      const curve = s.state.curves.get(s.state.resolveCurve(sd.curveId));
+      if (!curve) continue;
+      for (const t of [0, 0.5, 1]) {
+        const p = evalChain(curve.chain, sd.t0 + (sd.t1 - sd.t0) * t);
+        lo = Math.min(lo, p[0]); hi = Math.max(hi, p[0]); ySum += p[1]; n++;
+      }
+    }
+    if (n === 0) continue;
+    const yMean = ySum / n;
+    // a flank cell is a tall side panel, not a floor or roof
+    if (Math.sign(yMean) === ySign && Math.abs(yMean) > 400 && lo < x && hi > x) return id;
+  }
+  throw new Error(`no flank cell at x=${x} on side ${ySign}`);
+};
+
+/** The living cell of a face whose span brackets a station, picked by height. */
+const faceAt = (x: number, pick: (yMean: number, zMean: number) => boolean): Id => {
+  for (const [id, cell] of s.state.cells) {
+    let lo = Infinity, hi = -Infinity, ySum = 0, zSum = 0, n = 0;
+    for (const sd of cell.sides) {
+      const curve = s.state.curves.get(s.state.resolveCurve(sd.curveId));
+      if (!curve) continue;
+      for (const t of [0, 0.5, 1]) {
+        const p = evalChain(curve.chain, sd.t0 + (sd.t1 - sd.t0) * t);
+        lo = Math.min(lo, p[0]); hi = Math.max(hi, p[0]); ySum += p[1]; zSum += p[2]; n++;
+      }
+    }
+    if (n === 0 || !(lo < x && hi > x)) continue;
+    if (pick(ySum / n, zSum / n)) return id;
+  }
+  throw new Error(`no face at x=${x}`);
+};
+
+const HAUNCH_F = 115, HAUNCH_R = 140;
+for (const [station, out] of [[950, HAUNCH_F], [3420, HAUNCH_R]] as const) {
+  s.apply("push-pull", { target: { kind: "cell", id: flankAt(station, 1) }, delta: [0, out, 0] });
+  s.apply("push-pull", { target: { kind: "cell", id: flankAt(station, -1) }, delta: [0, -out, 0] });
+}
+
+// Front deck: raise the tub's top over the engine bay so the fender tops and
+// the hood share a beltline. A hood that sits on a low deck is a box on a
+// table; a hood that sits BETWEEN fender tops is a car.
+s.apply("tape", {
+  kind: "line",
+  line: { view: side, a: [560, 560], b: [560, 780], lineClass: "tape" },
+  targets: ["cell#5" as Id],
+});
+s.apply("tape", {
+  kind: "line",
+  line: { view: side, a: [2050, 560], b: [2050, 780], lineClass: "tape" },
+  targets: ["cell#5" as Id],
+});
+const isTop = (yMean: number, zMean: number): boolean => Math.abs(yMean) < 350 && zMean > 600;
+s.apply("push-pull", { target: { kind: "cell", id: faceAt(1300, isTop) }, delta: [0, 0, 140] });
+
+// --- door cut + shoulder crease --------------------------------------------
+// Face order per block is -X, +X, -Y, +Y, -Z, +Z: the door line splits the two
+// SIDE faces only (a side-view line never crosses a YZ end cap).
+const cabinSideCells = ["cell#14", "cell#15"] as Id[]; // cabin block = cells 12..17
+s.apply("tape", {
+  kind: "line",
+  line: { view: side, a: [2560, 830], b: [2560, 1340], lineClass: "tape" },
+  targets: cabinSideCells,
+});
+const newCurves = [...s.state.curves.keys()].slice(-2);
+for (const id of newCurves) s.apply("crease", { curveId: id });
+
+// --- groups: the panels a real body splits into ----------------------------
+const cellsOfBlock = (start: number): Id[] =>
+  [...s.state.cells.keys()].filter((id) => {
+    const n = Number(id.split("#")[1]);
+    return n >= start && n < start + 6;
+  }) as Id[];
+s.apply("group", { cellIds: cellsOfBlock(6), name: "hood" });
+s.apply("group", { cellIds: cellsOfBlock(12), name: "cabin" });
+s.apply("group", { cellIds: cellsOfBlock(18), name: "decklid" });
+s.apply("group", { cellIds: cellsOfBlock(42), name: "rear-haunch" });
+s.apply("assign-material", { targetId: "cell#0" as Id, name: "body-in-white", color: "#c8c8c2" });
+
+// --- wheel arches: recorded cuts, evaluated as booleans downstream ----------
+const ARCH_CLEARANCE = 60;
+const archCut = (centerX: number, radius: number): void => {
+  s.apply("cut", {
+    profile: { kind: "half-circle", center: [centerX, 165], radius, view: side, at: -961, depth: 1922 },
+    targets: ["cell#2" as Id],
+  });
+};
+archCut(FRONT_AXLE_X, FRONT_R + ARCH_CLEARANCE);
+archCut(REAR_AXLE_X, REAR_R + ARCH_CLEARANCE);
+
+// ---------------------------------------------------------------------------
+// 3. Evaluate: quilt -> conforming mesh -> closed check -> STL
+// ---------------------------------------------------------------------------
+const quilt = computeQuilt(s.state);
+const mesh = meshQuilt(quilt, {});
+const report = closedMeshCheck(mesh);
+
+// lowest sprung surface, for the ground-clearance body check
+let lowestZ = Infinity;
+for (let i = 2; i < mesh.positions.length; i += 3) lowestZ = Math.min(lowestZ, mesh.positions[i]!);
+
+// ---------------------------------------------------------------------------
+// 4. Mass ledger
+// ---------------------------------------------------------------------------
+const wheelLabels = [...car.frontWheels, ...car.rearWheels];
+const ledger = massLedger({
+  parts: car.input.parts,
+  placements: packed.placements,
+  wheels: wheelLabels.map((w, i) => {
+    const pose = packed.placements.get(w.id);
+    return {
+      label: `${i < 2 ? "front" : "rear"}-${i % 2 === 0 ? "L" : "R"}`,
+      at: (pose ? pose.origin : [0, 0, 0]) as Pt3,
+      loadCapacityKg: (w as { loadCapacity?: never }).loadCapacity ?? w.mass!,
+    };
+  }),
+  massTarget: p1Config.brief.massTargetKg,
+});
+
+// ---------------------------------------------------------------------------
+// 5. Emit
+// ---------------------------------------------------------------------------
+const doc = s.save();
+mkdirSync(new URL("../cars", import.meta.url), { recursive: true });
+writeFileSync(new URL("../cars/panoramic-p1.car.json", import.meta.url), JSON.stringify(doc));
+writeFileSync(new URL("../../panoramic-p1.stl", import.meta.url), writeStlBinary(mesh, "panoramic-p1"));
+
+// replay integrity: the car is a first-class replayable document
+const reloaded = load(doc);
+const same = JSON.stringify(reloaded.save()) === JSON.stringify(doc);
+
+const line = (k: string, v: string): string => `${k.padEnd(26)} ${v}`;
+console.log("\n=== PANORAMIC P1 ===");
+console.log(line("verbs in history", String(doc.verbs.length)));
+console.log(line("cells / curves", `${s.state.cells.size} / ${s.state.curves.size}`));
+console.log(line("quilt cells (with mirror)", String(quilt.cells.length)));
+console.log(line("triangles", String(mesh.indices.length / 3)));
+console.log(line("closed mesh", `${report.closed} (${report.violations.length} violations)`));
+console.log(line("replay round-trip", String(same)));
+console.log(line("lowest body point", `${lowestZ.toFixed(0)} mm (brief asks ${p1Config.brief.groundClearanceMm.value} mm)`));
+console.log("\n--- package ---");
+console.log(line("solve closed", String(packed.closed)));
+console.log(line("placed parts", String(packed.placements.size)));
+console.log(line("hard points", String(packed.hardPoints.length)));
+console.log(line("clamps", String(packed.clamps.length)));
+console.log(line("violations", String(packed.violations.length)));
+console.log("\n--- mass ledger ---");
+console.log(line("total", `${ledger.total.value.toFixed(1)} kg (target ${p1Config.brief.massTargetKg.value} kg)`));
+console.log(line("gap to target", `${ledger.targetGap.value.toFixed(1)} kg`));
+console.log(line("CG", ledger.cg.map((v) => v.toFixed(0)).join(", ")));
+console.log(line("axle loads F/R", `${ledger.axleLoads.front.value.toFixed(0)} / ${ledger.axleLoads.rear.value.toFixed(0)} kg`));
+console.log(line("ASSUMED outstanding", String(ledger.assumedOutstanding.length)));
+console.log("\nwrote cars/panoramic-p1.car.json and panoramic-p1.stl");
+void evalChain; void hp;

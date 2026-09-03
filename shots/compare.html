@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#08080a;font-family:ui-monospace,Menlo,monospace}
+h1{color:#d8d8d2;font-size:17px;letter-spacing:.3em;text-transform:uppercase;
+  margin:0;padding:26px 26px 6px;font-weight:400}
+h1 span{color:#6e6e68;letter-spacing:.16em}
+.wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:12px 26px 26px}
+.cap{color:#8f8f88;font-size:14px;letter-spacing:.18em;text-transform:uppercase;padding:14px 0 10px}
+.cap b{color:#ff5533;font-weight:400}
+.cap em{color:#e6e6e0;font-style:normal}
+.shot{overflow:hidden;border:1px solid #1e1e22}
+img{display:block;width:100%;margin-top:-9%;margin-bottom:-22%}
+</style></head><body>
+<h1>Panoramic P1 <span>· analytic zebra — per-patch Coons normals, no crease splitting</span></h1>
+<div class="wrap">
+<div><div class="cap">Before · bilinear Coons — <em>G0</em> · <b>6 of 64 smooth joins G1 · median 3.16° · worst 61.02°</b></div>
+<div class="shot"><img src="zebra-analytic-before.png"></div></div>
+<div><div class="cap">After · cross-boundary tangent field — <em>G1</em> · <b>60 of 64 smooth joins G1 · median 0.00° · worst 4.35°</b></div>
+<div class="shot"><img src="zebra-analytic-after.png"></div></div>
+</div></body></html>

@@ -1,0 +1,899 @@
+<title>The Continuity Ladder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ── the note ──────────────────────────────────────────────────────────────
+   Paper, not instrument. The bench is mono-first because it is a machine you
+   operate; this is serif-first because it is a thing you read. Same family so
+   the lineage holds, different register so the two are never confused.
+   The neutral is warmed toward the teal rather than left at a dead grey. */
+:root{
+  --paper:#f6f5f1; --panel:#edebe4; --band:#e6e8e6;
+  --ink:#15181a; --ink-2:#4c5356; --ink-3:#78807f;
+  --rule:#d9d6ce; --rule-2:#c4c0b6;
+  --teal:#12707c; --amber:#96650f; --red:#b23a25; --violet:#5b4b8a;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+  --cond:"IBM Plex Sans Condensed","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d0f11; --panel:#14181b; --band:#12171a;
+    --ink:#e7e7e0; --ink-2:#a3a9ab; --ink-3:#767d80;
+    --rule:#242a2e; --rule-2:#333b40;
+    --teal:#54cdd6; --amber:#e3a441; --red:#ff7a5c; --violet:#a094d8;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d0f11; --panel:#14181b; --band:#12171a;
+  --ink:#e7e7e0; --ink-2:#a3a9ab; --ink-3:#767d80;
+  --rule:#242a2e; --rule-2:#333b40;
+  --teal:#54cdd6; --amber:#e3a441; --red:#ff7a5c; --violet:#a094d8;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1020px;margin:0 auto;padding:0 28px 120px}
+
+/* ── masthead ── */
+header{padding:74px 0 34px;border-bottom:2px solid var(--ink);margin-bottom:0}
+.kicker{
+  font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--teal);margin:0 0 16px;
+}
+h1{
+  font-family:var(--cond);font-weight:700;font-size:clamp(38px,6.4vw,62px);
+  line-height:1.02;letter-spacing:-.012em;margin:0;text-wrap:balance;
+}
+.standfirst{
+  margin:20px 0 0;max-width:62ch;font-size:20px;line-height:1.5;color:var(--ink-2);
+}
+.byline{
+  margin:26px 0 0;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  display:flex;flex-wrap:wrap;gap:6px 22px;
+}
+
+/* ── the answer box, first thing on the page ── */
+.answer{
+  margin:0 0 8px;padding:26px 28px;background:var(--panel);
+  border-bottom:1px solid var(--rule);
+}
+.answer h2{
+  font-family:var(--cond);font-weight:600;font-size:14px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 14px;
+}
+.answer p{margin:0 0 12px;max-width:70ch}
+.answer p:last-child{margin-bottom:0}
+
+/* ── sections, numbered in the margin ── */
+section{padding:52px 0 0}
+.head{display:flex;gap:20px;align-items:baseline;margin:0 0 22px}
+.num{
+  font-family:var(--mono);font-size:12px;color:var(--teal);
+  flex:0 0 46px;padding-top:.5em;letter-spacing:.06em;
+}
+h2.sec{
+  font-family:var(--cond);font-weight:700;font-size:clamp(25px,3.6vw,34px);
+  line-height:1.12;margin:0;letter-spacing:-.008em;text-wrap:balance;
+}
+h3{
+  font-family:var(--cond);font-weight:600;font-size:19px;margin:34px 0 12px;
+  letter-spacing:.005em;
+}
+p{margin:0 0 15px;max-width:70ch}
+.body{padding-left:66px}
+@media (max-width:680px){ .body{padding-left:0} .num{flex-basis:34px} }
+
+strong{font-weight:600}
+em.term{font-style:normal;font-family:var(--mono);font-size:.86em;color:var(--teal)}
+code{
+  font-family:var(--mono);font-size:.85em;background:var(--panel);
+  padding:1px 5px;border-radius:2px;color:var(--ink);
+}
+a{color:var(--teal)}
+
+/* ── display equations ── */
+figure.eq{
+  margin:26px 0;padding:20px 24px;background:var(--band);
+  border-left:2px solid var(--teal);
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;column-gap:20px;
+}
+figure.eq > math{font-size:1.06em;min-width:0;overflow-x:auto;overflow-y:hidden;display:block}
+figcaption math{display:inline}
+figure.eq .tag{
+  font-family:var(--mono);font-size:11px;color:var(--ink-3);
+  align-self:start;padding-top:.35em;
+}
+figcaption{
+  grid-column:1 / -1;
+  font-size:14px;color:var(--ink-2);margin:14px 0 0;max-width:68ch;
+  font-style:italic;padding-top:12px;border-top:1px solid var(--rule);
+}
+math{color:var(--ink)}
+
+/* ── callouts ── */
+.claim{
+  margin:26px 0;padding:18px 22px;border:1px solid var(--rule-2);
+  background:var(--paper);
+}
+.claim .label{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--amber);display:block;margin-bottom:8px;
+}
+.claim.finding .label{color:var(--teal)}
+.claim.limit .label{color:var(--red)}
+.claim p:last-child{margin-bottom:0}
+
+/* ── tables ── */
+.scroll{overflow-x:auto;margin:24px 0}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:13px;min-width:520px}
+caption{
+  text-align:left;font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);padding-bottom:10px;
+}
+th{
+  text-align:left;font-weight:500;color:var(--ink-3);border-bottom:1px solid var(--ink);
+  padding:7px 14px 7px 0;white-space:nowrap;
+}
+td{padding:7px 14px 7px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+td.n{font-variant-numeric:tabular-nums}
+tr.total td{border-bottom:2px solid var(--ink);font-weight:500;color:var(--ink)}
+.good{color:var(--teal)}
+.warn{color:var(--amber)}
+.bad{color:var(--red)}
+
+/* ── lists ── */
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:22px 0}
+ol.steps>li{
+  counter-increment:s;position:relative;padding:0 0 20px 46px;max-width:70ch;
+}
+ol.steps>li::before{
+  content:counter(s);position:absolute;left:0;top:.1em;
+  font-family:var(--mono);font-size:12px;color:var(--paper);
+  background:var(--teal);width:24px;height:24px;border-radius:50%;
+  display:grid;place-items:center;
+}
+ul.plain{margin:16px 0;padding-left:20px;max-width:70ch}
+ul.plain li{margin-bottom:9px}
+
+/* ── the appendix ── */
+pre{
+  font-family:var(--mono);font-size:12.5px;line-height:1.65;background:var(--panel);
+  padding:16px 18px;overflow-x:auto;margin:8px 0 22px;border-left:2px solid var(--rule-2);
+  color:var(--ink);
+}
+.eqsrc{margin:0 0 4px;font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.08em}
+
+footer{
+  margin-top:70px;padding-top:26px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="kicker">Panoramic · surfacing architecture</p>
+  <h1>The Continuity Ladder</h1>
+  <p class="standfirst">What G1, G2 and G3 actually demand of a patch, what degree each one costs,
+    and why the wobble everyone fears cannot reach this construction.</p>
+  <p class="byline">
+    <span>read the code, not the memory</span>
+    <span>degrees measured by <code>scripts/patch-degree.ts</code></span>
+    <span>686 tests green at <code>2a0f711</code></span>
+  </p>
+</header>
+
+<div class="answer">
+  <h2>The question you asked, answered first</h2>
+  <p><strong>Neither, exactly — and the halfway house is the interesting part.</strong>
+  The surface is a bilinearly blended Coons patch on chains of <strong>cubic</strong> Bézier
+  segments, evaluated procedurally as <code>S = S₀ + Φ + Ψ</code>. It has never been a
+  tensor-product B-spline object, there is no control net, and until an hour ago there was no
+  degree elevation anywhere in the tree.</p>
+  <p>But the <em>correction fields</em> already are splines. Stage C1 made
+  <math><mrow><msup><mi>D</mi><mo>*</mo></msup></mrow></math>, <math><mi>a</mi></math>,
+  <math><mi>λ</mi></math> and <math><mi>μ</mi></math> into cubic B-splines with adaptive
+  knots — one to thirty-two spans per edge, chosen by doubling until the residual meets
+  tolerance. <code>@car/num</code> carries Bernstein and B-spline bases, Cox–de Boor, and an
+  equilibrated least squares.</p>
+  <p>So: a spline <em>foundation</em> without a spline <em>surface</em>. The commit this note
+  documents closes that gap at the bottom — exact degree elevation, the Bernstein product rule,
+  Boehm knot insertion and Bézier extraction, all of them identities rather than
+  approximations. Everything below stands on that floor.</p>
+</div>
+
+<section>
+  <div class="head"><span class="num">§ 1</span><h2 class="sec">What each rung actually demands</h2></div>
+  <div class="body">
+    <p>The usual framing — G1 matches normals, G2 matches curvature, G3 matches curvature
+      rate — is true but hides the thing that decides the architecture: <strong>each rung is
+      exactly one scalar equation per station along the seam.</strong> Not three, not nine.
+      One. The derivation is worth writing down because the whole solver falls out of it.</p>
+
+    <p>Let patch <math><mi>A</mi></math> be parametrised
+      <math><mrow><mi>A</mi><mo>(</mo><mi>τ</mi><mo>,</mo><mi>s</mi><mo>)</mo></mrow></math>
+      with <math><mrow><mi>s</mi><mo>=</mo><mn>0</mn></mrow></math> on the seam, and
+      <math><mi>B</mi></math> be
+      <math><mrow><mi>B</mi><mo>(</mo><mi>τ</mi><mo>,</mo><mi>t</mi><mo>)</mo></mrow></math>
+      with <math><mrow><mi>t</mi><mo>=</mo><mn>0</mn></mrow></math> on it. Both agree there:
+      that is G0, and in this tool it holds bit for bit because the patch edge <em>is</em> the
+      shared curve rather than a copy of it.</p>
+
+    <p><math><msup><mi>G</mi><mi>k</mi></msup></math> continuity means there exists a
+      reparametrisation <math><mi>φ</mi></math> — a diffeomorphism germ that keeps the seam
+      fixed — such that <math><mrow><mi>B</mi><mo>∘</mo><mi>φ</mi></mrow></math> and
+      <math><mi>A</mi></math> agree to order <math><mi>k</mi></math>. Write its jet:</p>
+
+    <figure class="eq">
+      <math display="block"><mrow>
+        <mi>φ</mi><mo>(</mo><mi>τ</mi><mo>,</mo><mi>s</mi><mo>)</mo><mo>=</mo>
+        <mrow><mo>(</mo><mrow>
+          <mi>τ</mi><mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><mi>s</mi>
+          <mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><msub><mi>β</mi><mn>2</mn></msub><msup><mi>s</mi><mn>2</mn></msup>
+          <mo>+</mo><mfrac><mn>1</mn><mn>6</mn></mfrac><msub><mi>β</mi><mn>3</mn></msub><msup><mi>s</mi><mn>3</mn></msup>
+          <mo>,</mo><mspace width="0.6em"/>
+          <msub><mi>α</mi><mn>1</mn></msub><mi>s</mi>
+          <mo>+</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><msub><mi>α</mi><mn>2</mn></msub><msup><mi>s</mi><mn>2</mn></msup>
+          <mo>+</mo><mfrac><mn>1</mn><mn>6</mn></mfrac><msub><mi>α</mi><mn>3</mn></msub><msup><mi>s</mi><mn>3</mn></msup>
+        </mrow><mo>)</mo></mrow>
+      </mrow></math>
+      <span class="tag">(1)</span>
+    </figure>
+
+    <p>Faà di Bruno on <math><mrow><mi>B</mi><mo>∘</mo><mi>φ</mi></mrow></math>, evaluated at
+      <math><mrow><mi>s</mi><mo>=</mo><mn>0</mn></mrow></math> where
+      <math><mrow><msub><mi>B</mi><mi>τ</mi></msub><mo>=</mo><msup><mi>C</mi><mo>′</mo></msup></mrow></math>,
+      gives the three orders:</p>
+
+    <figure class="eq">
+      <math display="block"><mtable columnalign="right center left" rowspacing="0.7em">
+        <mtr>
+          <mtd><msub><mi>A</mi><mi>s</mi></msub></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow>
+            <msub><mi>α</mi><mn>1</mn></msub><msub><mi>B</mi><mi>t</mi></msub>
+            <mo>+</mo><msub><mi>β</mi><mn>1</mn></msub><msup><mi>C</mi><mo>′</mo></msup>
+          </mrow></mtd>
+        </mtr>
+        <mtr>
+          <mtd><msub><mi>A</mi><mrow><mi>s</mi><mi>s</mi></mrow></msub></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow>
+            <msubsup><mi>α</mi><mn>1</mn><mn>2</mn></msubsup><msub><mi>B</mi><mrow><mi>t</mi><mi>t</mi></mrow></msub>
+            <mo>+</mo><mn>2</mn><msub><mi>α</mi><mn>1</mn></msub><msub><mi>β</mi><mn>1</mn></msub><msub><mi>B</mi><mrow><mi>τ</mi><mi>t</mi></mrow></msub>
+            <mo>+</mo><msubsup><mi>β</mi><mn>1</mn><mn>2</mn></msubsup><msup><mi>C</mi><mo>″</mo></msup>
+            <mo>+</mo><msub><mi>α</mi><mn>2</mn></msub><msub><mi>B</mi><mi>t</mi></msub>
+            <mo>+</mo><msub><mi>β</mi><mn>2</mn></msub><msup><mi>C</mi><mo>′</mo></msup>
+          </mrow></mtd>
+        </mtr>
+        <mtr>
+          <mtd><msub><mi>A</mi><mrow><mi>s</mi><mi>s</mi><mi>s</mi></mrow></msub></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow>
+            <msubsup><mi>α</mi><mn>1</mn><mn>3</mn></msubsup><msub><mi>B</mi><mrow><mi>t</mi><mi>t</mi><mi>t</mi></mrow></msub>
+            <mo>+</mo><mn>3</mn><msubsup><mi>α</mi><mn>1</mn><mn>2</mn></msubsup><msub><mi>β</mi><mn>1</mn></msub><msub><mi>B</mi><mrow><mi>τ</mi><mi>t</mi><mi>t</mi></mrow></msub>
+            <mo>+</mo><mn>3</mn><msub><mi>α</mi><mn>1</mn></msub><msubsup><mi>β</mi><mn>1</mn><mn>2</mn></msubsup><msub><mi>B</mi><mrow><mi>τ</mi><mi>τ</mi><mi>t</mi></mrow></msub>
+            <mo>+</mo><msubsup><mi>β</mi><mn>1</mn><mn>3</mn></msubsup><msup><mi>C</mi><mo>‴</mo></msup>
+          </mrow></mtd>
+        </mtr>
+        <mtr>
+          <mtd></mtd><mtd></mtd>
+          <mtd><mrow>
+            <mo>+</mo><mn>3</mn><msub><mi>α</mi><mn>1</mn></msub><msub><mi>α</mi><mn>2</mn></msub><msub><mi>B</mi><mrow><mi>t</mi><mi>t</mi></mrow></msub>
+            <mo>+</mo><mn>3</mn><mo>(</mo><msub><mi>α</mi><mn>1</mn></msub><msub><mi>β</mi><mn>2</mn></msub><mo>+</mo><msub><mi>α</mi><mn>2</mn></msub><msub><mi>β</mi><mn>1</mn></msub><mo>)</mo><msub><mi>B</mi><mrow><mi>τ</mi><mi>t</mi></mrow></msub>
+            <mo>+</mo><mn>3</mn><msub><mi>β</mi><mn>1</mn></msub><msub><mi>β</mi><mn>2</mn></msub><msup><mi>C</mi><mo>″</mo></msup>
+            <mo>+</mo><msub><mi>α</mi><mn>3</mn></msub><msub><mi>B</mi><mi>t</mi></msub>
+            <mo>+</mo><msub><mi>β</mi><mn>3</mn></msub><msup><mi>C</mi><mo>′</mo></msup>
+          </mrow></mtd>
+        </mtr>
+      </mtable></math>
+      <span class="tag">(2)</span>
+    </figure>
+
+    <p>Now project every line onto the shared unit normal
+      <math><mi>N̂</mi></math>. Both
+      <math><msup><mi>C</mi><mo>′</mo></msup></math> and
+      <math><msub><mi>B</mi><mi>t</mi></msub></math> lie in the tangent plane, so at each order
+      the two <em>highest-index</em> free scalars —
+      <math><msub><mi>α</mi><mi>k</mi></msub></math> and
+      <math><msub><mi>β</mi><mi>k</mi></msub></math> — are annihilated. They are exactly the
+      reparametrisation freedom, and they cost nothing. What survives is one scalar per rung:</p>
+
+    <figure class="eq">
+      <math display="block"><mtable columnalign="left" rowspacing="0.7em">
+        <mtr><mtd><mrow>
+          <msup><mi>G</mi><mn>1</mn></msup><mo>:</mo><mspace width="1em"/>
+          <mo>⟨</mo><msub><mi>A</mi><mi>s</mi></msub><mo>,</mo><mi>N̂</mi><mo>⟩</mo>
+          <mo>=</mo><mn>0</mn>
+        </mrow></mtd></mtr>
+        <mtr><mtd><mrow>
+          <msup><mi>G</mi><mn>2</mn></msup><mo>:</mo><mspace width="1em"/>
+          <mo>⟨</mo><msub><mi>A</mi><mrow><mi>s</mi><mi>s</mi></mrow></msub><mo>,</mo><mi>N̂</mi><mo>⟩</mo>
+          <mo>=</mo>
+          <msubsup><mi>α</mi><mn>1</mn><mn>2</mn></msubsup><mo>⟨</mo><msub><mi>B</mi><mrow><mi>t</mi><mi>t</mi></mrow></msub><mo>,</mo><mi>N̂</mi><mo>⟩</mo>
+          <mo>+</mo><mn>2</mn><msub><mi>α</mi><mn>1</mn></msub><msub><mi>β</mi><mn>1</mn></msub><mo>⟨</mo><msub><mi>B</mi><mrow><mi>τ</mi><mi>t</mi></mrow></msub><mo>,</mo><mi>N̂</mi><mo>⟩</mo>
+          <mo>+</mo><msubsup><mi>β</mi><mn>1</mn><mn>2</mn></msubsup><mo>⟨</mo><msup><mi>C</mi><mo>″</mo></msup><mo>,</mo><mi>N̂</mi><mo>⟩</mo>
+        </mrow></mtd></mtr>
+        <mtr><mtd><mrow>
+          <msup><mi>G</mi><mn>3</mn></msup><mo>:</mo><mspace width="1em"/>
+          <mo>⟨</mo><msub><mi>A</mi><mrow><mi>s</mi><mi>s</mi><mi>s</mi></mrow></msub><mo>,</mo><mi>N̂</mi><mo>⟩</mo>
+          <mo>=</mo>
+          <mtext>the third line of (2), projected;</mtext><mspace width="0.5em"/>
+          <msub><mi>α</mi><mn>2</mn></msub><mo>,</mo><msub><mi>β</mi><mn>2</mn></msub>
+          <mspace width="0.4em"/><mtext>are already fixed by</mtext><mspace width="0.4em"/>
+          <msup><mi>G</mi><mn>2</mn></msup>
+        </mrow></mtd></mtr>
+      </mtable></math>
+      <span class="tag">(3)</span>
+    </figure>
+
+    <div class="claim finding">
+      <span class="label">What this buys</span>
+      <p>Each rung is one scalar per station, and the rungs are <em>sequential</em>: solving
+      G2 fixes <math><msub><mi>α</mi><mn>2</mn></msub></math> and
+      <math><msub><mi>β</mi><mn>2</mn></msub></math>, which are then constants in the G3
+      equation. So the ladder is a triangular system, not a coupled one. G3 can be added
+      later without disturbing anything below it — which is not true of most surfacing
+      schemes and is the reason this one can be built in stages.</p>
+    </div>
+
+    <h3>Why G1 is free here and G2 is not</h3>
+    <p>The tool does not <em>solve</em> the G1 equation; it makes the equation vacuous. Both
+      owners of a shared curve read the same transverse field
+      <math><msup><mi>D</mi><mo>*</mo></msup></math>, and each builds its cross-derivative as</p>
+
+    <figure class="eq">
+      <math display="block"><mrow>
+        <mi>E</mi><mo>(</mo><mi>τ</mi><mo>)</mo><mo>=</mo>
+        <mi>a</mi><mo>(</mo><mi>τ</mi><mo>)</mo><mspace width="0.15em"/><msup><mi>C</mi><mo>′</mo></msup><mo>(</mo><mi>τ</mi><mo>)</mo>
+        <mo>+</mo><mi>λ</mi><mo>(</mo><mi>τ</mi><mo>)</mo><mspace width="0.15em"/><msup><mi>D</mi><mo>*</mo></msup><mo>(</mo><mi>τ</mi><mo>)</mo>
+        <mspace width="2em"/><mo>⟹</mo><mspace width="1em"/>
+        <mi>span</mi><mo>{</mo><msup><mi>C</mi><mo>′</mo></msup><mo>,</mo><msub><mi>E</mi><mi>A</mi></msub><mo>}</mo>
+        <mo>=</mo>
+        <mi>span</mi><mo>{</mo><msup><mi>C</mi><mo>′</mo></msup><mo>,</mo><msub><mi>E</mi><mi>B</mi></msub><mo>}</mo>
+      </mrow></math>
+      <span class="tag">(4)</span>
+      <figcaption>True for <em>any</em> shared <math><msup><mi>D</mi><mo>*</mo></msup></math>,
+        which is why it may be a spline of our choosing rather than the normalised bisector it
+        started as. A different <math><msup><mi>D</mi><mo>*</mo></msup></math> changes
+        <em>which</em> tangent plane the two patches share, never <em>whether</em> they share
+        one.</figcaption>
+    </figure>
+
+    <p>The tangential slot must carry <math><msup><mi>C</mi><mo>′</mo></msup></math> itself and
+      nothing else. If it carried some other in-plane vector
+      <math><msup><mi>T</mi><mo>*</mo></msup></math>, the two owners' planes would coincide only
+      when</p>
+
+    <figure class="eq">
+      <math display="block"><mrow>
+        <mi>det</mi><mo>(</mo><msup><mi>C</mi><mo>′</mo></msup><mo>,</mo><msub><mi>E</mi><mi>A</mi></msub><mo>,</mo><msub><mi>E</mi><mi>B</mi></msub><mo>)</mo>
+        <mo>=</mo>
+        <mo>(</mo><msub><mi>a</mi><mi>A</mi></msub><msub><mi>λ</mi><mi>B</mi></msub><mo>−</mo><msub><mi>a</mi><mi>B</mi></msub><msub><mi>λ</mi><mi>A</mi></msub><mo>)</mo>
+        <mspace width="0.25em"/><msup><mi>C</mi><mo>′</mo></msup><mo>·</mo>
+        <mo>(</mo><msup><mi>T</mi><mo>*</mo></msup><mo>×</mo><msup><mi>D</mi><mo>*</mo></msup><mo>)</mo>
+        <mo>=</mo><mn>0</mn>
+      </mrow></math>
+      <span class="tag">(5)</span>
+    </figure>
+
+    <p>which needs <math><msup><mi>C</mi><mo>′</mo></msup></math> to lie in
+      <math><mrow><mi>span</mi><mo>{</mo><msup><mi>T</mi><mo>*</mo></msup><mo>,</mo><msup><mi>D</mi><mo>*</mo></msup><mo>}</mo></mrow></math>
+      — a condition on the geometry rather than on our choices. Putting
+      <math><msup><mi>C</mi><mo>′</mo></msup></math> in the slot makes it hold identically.</p>
+
+    <p>G2 does not have that structure. It is a statement about a <em>scalar</em> —
+      <math><mrow><mi>II</mi><mo>(</mo><mi>ê</mi><mo>,</mo><mi>ê</mi><mo>)</mo></mrow></math>
+      — and no choice of polynomial coefficients makes two rational functions equal
+      identically. That is why the P1 currently reads <span class="good">exact</span> at G1 and
+      <span class="warn">0.0015 % median relative</span> at G2. The gap is structural, not
+      effort.</p>
+
+    <div class="claim finding">
+      <span class="label">The move that closes it</span>
+      <p>Do to G2 what C1 did to G1: <strong>stop fitting the natural field and choose the
+      shared one.</strong> Prescribe a normal-curvature field
+      <math><msup><mi>κ</mi><mo>*</mo></msup></math> along each seam and require both owners to
+      realise it. Then both sides carry the same second fundamental form by construction and
+      G2 becomes exact, at the same cost G1 paid: the surface deviates further from the bare
+      blend, and <math><msup><mi>κ</mi><mo>*</mo></msup></math> becomes a design control rather
+      than a derived quantity. It is fullness, one order up.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="num">§ 2</span><h2 class="sec">Degrees of freedom, and the cubic–quintic–septic ladder</h2></div>
+  <div class="body">
+    <p>Your instinct is right, and it is right about a different object than the one this tool
+      builds. Both answers matter, so here are both.</p>
+
+    <h3>The textbook answer: 2k + 1</h3>
+    <p>Take a bare tensor-product patch and ask it to meet
+      <math><msup><mi>G</mi><mi>k</mi></msup></math> on all four sides. Control row
+      <math><mi>j</mi></math> in a direction determines the transversal derivative of order
+      <math><mi>j</mi></math> at that edge. Row 0 is the boundary, spent on G0. Rows
+      <math><mrow><mn>1</mn><mo>…</mo><mi>k</mi></mrow></math> are spent on the rungs, at
+      <em>each</em> of two opposite edges. So:</p>
+
+    <figure class="eq">
+      <math display="block"><mrow>
+        <mtext>rows</mtext><mo>≥</mo><mn>2</mn><mo>(</mo><mi>k</mi><mo>+</mo><mn>1</mn><mo>)</mo>
+        <mspace width="2em"/><mo>⟹</mo><mspace width="1em"/>
+        <mtext>degree</mtext><mo>≥</mo><mn>2</mn><mi>k</mi><mo>+</mo><mn>1</mn>
+        <mspace width="2em"/>
+        <mtext>and with </mtext><mi>m</mi><mtext> interior rows,</mtext><mspace width="0.5em"/>
+        <mtext>degree</mtext><mo>=</mo><mn>2</mn><mi>k</mi><mo>+</mo><mn>1</mn><mo>+</mo><mi>m</mi>
+      </mrow></math>
+      <span class="tag">(6)</span>
+    </figure>
+
+    <div class="scroll">
+      <table>
+        <caption>the bare tensor-product patch</caption>
+        <thead><tr><th>order</th><th>rows</th><th>min degree</th><th>interior rows left</th><th>with 2 interior rows</th></tr></thead>
+        <tbody>
+          <tr><td>G1</td><td class="n">4</td><td>3 — cubic</td><td class="bad">0, fully determined</td><td>5 — quintic</td></tr>
+          <tr><td>G2</td><td class="n">6</td><td>5 — quintic</td><td class="bad">0, fully determined</td><td>7 — septic</td></tr>
+          <tr><td>G3</td><td class="n">8</td><td>7 — septic</td><td class="bad">0, fully determined</td><td>9 — nonic</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Note the column on the right. At the <em>minimum</em> degree the patch has no interior
+      freedom at all: its shape is entirely dictated by its four edges' jets. That is not a
+      surface a designer can crown. The honest minimum for a tool is
+      <math><mrow><mn>2</mn><mi>k</mi><mo>+</mo><mn>3</mn></mrow></math>, not
+      <math><mrow><mn>2</mn><mi>k</mi><mo>+</mo><mn>1</mn></mrow></math>.</p>
+
+    <h3>What this construction actually costs</h3>
+    <p>The tool does not spend control rows on continuity. It prescribes the transversal jet
+      directly, through an additive correction on a Hermite basis:</p>
+
+    <figure class="eq">
+      <math display="block"><mtable columnalign="right center left" rowspacing="0.55em">
+        <mtr>
+          <mtd><mi>S</mi></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow><msub><mi>S</mi><mn>0</mn></msub><mo>+</mo><mi>Φ</mi><mo>+</mo><mi>Ψ</mi><mo>+</mo><mi>Ω</mi></mrow></mtd>
+        </mtr>
+        <mtr>
+          <mtd><mi>Φ</mi></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow>
+            <mi>g</mi><mo>(</mo><mi>v</mi><mo>)</mo><msub><mi>Δ</mi><mn>0</mn></msub><mo>(</mo><mi>u</mi><mo>)</mo>
+            <mo>+</mo><mi>h</mi><mo>(</mo><mi>u</mi><mo>)</mo><msub><mi>Δ</mi><mn>1</mn></msub><mo>(</mo><mi>v</mi><mo>)</mo>
+            <mo>+</mo><mi>h</mi><mo>(</mo><mi>v</mi><mo>)</mo><msub><mi>Δ</mi><mn>2</mn></msub><mo>(</mo><mi>u</mi><mo>)</mo>
+            <mo>+</mo><mi>g</mi><mo>(</mo><mi>u</mi><mo>)</mo><msub><mi>Δ</mi><mn>3</mn></msub><mo>(</mo><mi>v</mi><mo>)</mo>
+          </mrow></mtd>
+        </mtr>
+        <mtr>
+          <mtd><mi>Ψ</mi></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow>
+            <mi>q</mi><mo>(</mo><mi>v</mi><mo>)</mo><msubsup><mi>Δ</mi><mn>0</mn><mn>2</mn></msubsup><mo>(</mo><mi>u</mi><mo>)</mo>
+            <mo>+</mo><mi>r</mi><mo>(</mo><mi>u</mi><mo>)</mo><msubsup><mi>Δ</mi><mn>1</mn><mn>2</mn></msubsup><mo>(</mo><mi>v</mi><mo>)</mo>
+            <mo>+</mo><mo>…</mo>
+          </mrow></mtd>
+        </mtr>
+      </mtable></math>
+      <span class="tag">(7)</span>
+      <figcaption>The blends are the Hermite basis at each order: <code>g = x(1−x)²</code> and
+        <code>h = x²(1−x)</code> cubic, <code>q = ½x²(1−x)³</code> and <code>r = ½x³(1−x)²</code>
+        quintic. Each vanishes with all its lower derivatives at both ends, so no term disturbs a
+        rung below it — the triangularity of §1, made concrete.</figcaption>
+    </figure>
+
+    <p>The Hermite blends do obey <math><mrow><mn>2</mn><mi>k</mi><mo>+</mo><mn>1</mn></mrow></math>:
+      cubic at order 1, quintic at order 2, septic at order 3. <strong>The ladder is real. It
+      just lands on the blend function rather than on the patch.</strong> And the patch's
+      degree is a sum with the correction fields, not a max with them — which changes the
+      arithmetic entirely:</p>
+
+    <div class="scroll">
+      <table>
+        <caption>measured by scripts/patch-degree.ts, not estimated</caption>
+        <thead><tr><th>term</th><th>interior</th><th>on a fade span</th><th>why</th></tr></thead>
+        <tbody>
+          <tr><td>S₀ · the blend</td><td class="n">(3,3)</td><td class="n">(3,3)</td><td>cubic boundaries, linear blend</td></tr>
+          <tr><td>Φ · order 1</td><td class="n">(6,6)</td><td class="n">(11,11)</td><td>Δ = ρ·(E − N), E = a·C′ + λ·D*</td></tr>
+          <tr><td>Ψ · order 2</td><td class="n">(8,8)</td><td class="n">(13,13)</td><td>Δ² = μ·M*, M* = C′ × D*</td></tr>
+          <tr><td>Ω · order 3 <span class="warn">not built</span></td><td class="n">(8,8)</td><td class="n">(13,13)</td><td>Δ³ = ν·M*</td></tr>
+          <tr class="total"><td>through G1</td><td class="n">(6,6)</td><td class="n">(11,11)</td><td>144 control points</td></tr>
+          <tr class="total"><td>through G2</td><td class="n">(8,8)</td><td class="n">(13,13)</td><td>196 control points</td></tr>
+          <tr class="total"><td>through G3</td><td class="n">(8,8)</td><td class="n">(13,13)</td><td class="good">196 — no increase</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="claim finding">
+      <span class="label">The finding</span>
+      <p><strong>G3 costs nothing in degree over G2.</strong> The composite bidegree is set by
+      the correction fields and the corner window — the cubic splines
+      <math><mrow><mi>a</mi><mo>,</mo><mi>λ</mi><mo>,</mo><mi>μ</mi><mo>,</mo><mi>ν</mi></mrow></math>,
+      the shared direction <math><msup><mi>D</mi><mo>*</mo></msup></math>, and the quintic
+      smootherstep — never by the blend. Going from a quintic blend to a septic one raises a
+      term that is nowhere near binding. So the G3 layer is a matter of <em>solver work and
+      one more field per edge</em>, not of a degree upgrade.</p>
+    </div>
+
+    <p>The corner window is the expensive factor, and it is worth seeing why. It multiplies
+      <math><mi>Δ</mi></math> by a quintic smootherstep that vanishes to second order at each
+      end of a fade band, so every corrected term picks up five degrees on a fade span. Drop
+      the window and the patch is <math><mrow><mo>(</mo><mn>8</mn><mo>,</mo><mn>8</mn><mo>)</mo></mrow></math>
+      — but then §4's last limit bites, so the window stays until that is solved properly.</p>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="num">§ 3</span><h2 class="sec">Runge, and why it cannot reach this</h2></div>
+  <div class="body">
+    <p>The worry is exactly right in general and structurally absent here, and the reason is
+      worth being precise about, because "high degree" and "wobble" are not the same thing.</p>
+
+    <p>Runge's phenomenon is a statement about <strong>interpolation at equispaced nodes as the
+      degree grows</strong>. Its mechanism is the Lebesgue constant — the operator norm of the
+      interpolation projector:</p>
+
+    <figure class="eq">
+      <math display="block"><mrow>
+        <msubsup><mi>Λ</mi><mi>n</mi><mrow><mi>equi</mi></mrow></msubsup>
+        <mo>∼</mo>
+        <mfrac>
+          <msup><mn>2</mn><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msup>
+          <mrow><mi>e</mi><mspace width="0.15em"/><mi>n</mi><mspace width="0.15em"/><mi>log</mi><mi>n</mi></mrow>
+        </mfrac>
+        <mspace width="3em"/>
+        <msubsup><mi>Λ</mi><mi>n</mi><mrow><mi>cheb</mi></mrow></msubsup>
+        <mo>∼</mo>
+        <mfrac><mn>2</mn><mi>π</mi></mfrac><mi>log</mi><mi>n</mi>
+      </mrow></math>
+      <span class="tag">(8)</span>
+      <figcaption>Exponential against logarithmic. The whole disease is in the left-hand
+        expression, and it needs three ingredients: interpolation, equispaced nodes, and a
+        degree allowed to grow.</figcaption>
+    </figure>
+
+    <p>This pipeline supplies none of the three where it matters.</p>
+
+    <ol class="steps">
+      <li><strong>No high-degree fit exists anywhere.</strong> The only least-squares in the
+        tool fits the edge fields, and it fits them at <em>degree 3, fixed</em>. Residual is
+        driven down by adding spans, not by adding degree — h-refinement, whose error bound
+        for a cubic spline is
+        <math><mrow><msub><mo>∥</mo><mo>∞</mo></msub></mrow></math>-clean and convergent:
+        <math><mrow>
+          <mo>∥</mo><mi>f</mi><mo>−</mo><mi>s</mi><mo>∥</mo><mo>≤</mo>
+          <mfrac><mn>5</mn><mn>384</mn></mfrac><msup><mi>h</mi><mn>4</mn></msup>
+          <mo>∥</mo><msup><mi>f</mi><mrow><mo>(</mo><mn>4</mn><mo>)</mo></mrow></msup><mo>∥</mo>
+        </mrow></math>.
+        Each doubling is a factor of sixteen. The P1's worst edge went
+        24 → 1.8 → 0.047 → 0.002 mm on exactly that ladder.</li>
+      <li><strong>The composite degree is exact algebra, not a fit.</strong> Degree elevation
+        is a convex operator,
+        <math><mrow>
+          <msubsup><mi>c</mi><mi>i</mi><mo>′</mo></msubsup><mo>=</mo>
+          <mfrac><mi>i</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></mfrac><msub><mi>c</mi><mrow><mi>i</mi><mo>−</mo><mn>1</mn></mrow></msub>
+          <mo>+</mo>
+          <mrow><mo>(</mo><mn>1</mn><mo>−</mo><mfrac><mi>i</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></mfrac><mo>)</mo></mrow>
+          <msub><mi>c</mi><mi>i</mi></msub>
+        </mrow></math>,
+        and the Bernstein product rule has positive weights summing to one. Neither can
+        introduce an oscillation the surface did not already have, because neither changes the
+        surface at all. Degree 13 here is a <em>representation</em> of a surface built from
+        cubics, not a cubic-count of freedom someone had to pin down.</li>
+      <li><strong>Variation diminishing bounds what is left.</strong> A B-spline crosses any
+        plane no more often than its control polygon does. At degree 13 the surface still
+        cannot wobble more than its net, and the net came from products of low-degree factors
+        rather than from a solve.</li>
+    </ol>
+
+    <div class="claim limit">
+      <span class="label">Where it would bite, and the guard</span>
+      <p>Two places. First, if the finished patch were ever <em>re-approximated</em> to a
+      chosen degree within a tolerance — which is what most kernels do on export, and which
+      the ship gate forbids precisely because it trades the by-construction guarantee for the
+      file. Second, in the field fit itself if the sample density were allowed to fall: three
+      stations per cubic span interpolates them exactly and does as it pleases in between.
+      That is Runge in miniature, we hit it — the span doubling stalled at 1.85 mm from 4 to 16
+      spans — and the fix is the floor <code>MIN_POINTS_PER_SPAN = 8</code> that has been in
+      the code since. Where degree must rise in a <em>fit</em> rather than in the algebra, the
+      guard is Chebyshev–Gauss–Lobatto stations,
+      <math><mrow><msub><mi>τ</mi><mi>j</mi></msub><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>(</mo><mn>1</mn><mo>−</mo><mi>cos</mi><mfrac><mrow><mi>j</mi><mi>π</mi></mrow><mi>n</mi></mfrac><mo>)</mo></mrow></math>,
+      plus the fairing term of §4, which is a positive-definite penalty on exactly the modes
+      an oscillation lives in.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="num">§ 4</span><h2 class="sec">The curvature field solver</h2></div>
+  <div class="body">
+    <p>Everything above is local to one seam. The solver is what makes it global, and its job
+      is stated exactly the way you stated it: satisfy the constraints everywhere while moving
+      the surface as little as possible from what the designer drew.</p>
+
+    <h3>The unknowns</h3>
+    <p>Per shared curve <math><mi>e</mi></math>: the control points of
+      <math><msubsup><mi>D</mi><mi>e</mi><mo>*</mo></msubsup></math> (shared), and per owner
+      <math><mrow><mi>X</mi><mo>∈</mo><mo>{</mo><mi>A</mi><mo>,</mo><mi>B</mi><mo>}</mo></mrow></math>
+      the magnitude splines
+      <math><mrow><msubsup><mi>a</mi><mi>e</mi><mi>X</mi></msubsup><mo>,</mo><msubsup><mi>λ</mi><mi>e</mi><mi>X</mi></msubsup><mo>,</mo><msubsup><mi>μ</mi><mi>e</mi><mi>X</mi></msubsup><mo>,</mo><msubsup><mi>ν</mi><mi>e</mi><mi>X</mi></msubsup></mrow></math>
+      at orders one, two and three. Plus, per cell, the interior coefficients that fullness
+      already reaches at order zero. Collect them all in
+      <math><mi mathvariant="bold">p</mi></math>.</p>
+
+    <div class="claim finding">
+      <span class="label">The structural fact the whole solver rests on</span>
+      <p>With <math><msup><mi>D</mi><mo>*</mo></msup></math> held fixed,
+      <math><mrow><mi>S</mi><mo>(</mo><mi mathvariant="bold">p</mi><mo>)</mo></mrow></math> is
+      <strong>linear in every remaining unknown</strong>. Each correction term is a blend
+      function times a magnitude spline times a fixed direction field, and a magnitude spline
+      is linear in its own coefficients. So the fidelity and fairness terms are quadratic, the
+      constraints are affine, and the whole thing is one sparse KKT solve — not an optimiser,
+      not an iteration to a tolerance.</p>
+    </div>
+
+    <h3>The functional</h3>
+    <figure class="eq">
+      <math display="block"><mrow>
+        <mi>𝒥</mi><mo>(</mo><mi mathvariant="bold">p</mi><mo>)</mo><mo>=</mo>
+        <munder><mo>∑</mo><mi>c</mi></munder>
+        <mrow><mo>[</mo>
+          <msub><mi>w</mi><mn>0</mn></msub>
+          <msub><mo>∬</mo><mrow><msup><mrow><mo>[</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo>]</mo></mrow><mn>2</mn></msup></mrow></msub>
+          <msup><mrow><mo>∥</mo><msub><mi>S</mi><mi>c</mi></msub><mo>(</mo><mi mathvariant="bold">p</mi><mo>)</mo><mo>−</mo><msub><mi>Ŝ</mi><mi>c</mi></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+          <mo>+</mo><msub><mi>w</mi><mn>2</mn></msub><msub><mi>E</mi><mn>2</mn></msub><mo>(</mo><msub><mi>S</mi><mi>c</mi></msub><mo>)</mo>
+          <mo>+</mo><msub><mi>w</mi><mn>3</mn></msub><msub><mi>E</mi><mn>3</mn></msub><mo>(</mo><msub><mi>S</mi><mi>c</mi></msub><mo>)</mo>
+        <mo>]</mo></mrow>
+      </mrow></math>
+      <span class="tag">(9)</span>
+      <figcaption><math><mi>Ŝ</mi></math> is the bare Coons blend of
+        the designer's own curves — literally what they drew, before any correction. The first
+        term is therefore the geometric cost of continuity, in millimetres, and it is the
+        quantity <code>fieldDisplacement</code> already reports.</figcaption>
+    </figure>
+
+    <figure class="eq">
+      <math display="block"><mtable columnalign="right center left" rowspacing="0.6em">
+        <mtr>
+          <mtd><msub><mi>E</mi><mn>2</mn></msub></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow><mo>∬</mo>
+            <msup><mrow><mo>∥</mo><msub><mi>S</mi><mrow><mi>u</mi><mi>u</mi></mrow></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+            <mo>+</mo><mn>2</mn><msup><mrow><mo>∥</mo><msub><mi>S</mi><mrow><mi>u</mi><mi>v</mi></mrow></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+            <mo>+</mo><msup><mrow><mo>∥</mo><msub><mi>S</mi><mrow><mi>v</mi><mi>v</mi></mrow></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+            <mspace width="0.4em"/><mi>d</mi><mi>u</mi><mspace width="0.15em"/><mi>d</mi><mi>v</mi>
+          </mrow></mtd>
+        </mtr>
+        <mtr>
+          <mtd><msub><mi>E</mi><mn>3</mn></msub></mtd><mtd><mo>=</mo></mtd>
+          <mtd><mrow><mo>∬</mo>
+            <msup><mrow><mo>∥</mo><msub><mi>S</mi><mrow><mi>u</mi><mi>u</mi><mi>u</mi></mrow></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+            <mo>+</mo><mn>3</mn><msup><mrow><mo>∥</mo><msub><mi>S</mi><mrow><mi>u</mi><mi>u</mi><mi>v</mi></mrow></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+            <mo>+</mo><mn>3</mn><msup><mrow><mo>∥</mo><msub><mi>S</mi><mrow><mi>u</mi><mi>v</mi><mi>v</mi></mrow></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+            <mo>+</mo><msup><mrow><mo>∥</mo><msub><mi>S</mi><mrow><mi>v</mi><mi>v</mi><mi>v</mi></mrow></msub><mo>∥</mo></mrow><mn>2</mn></msup>
+            <mspace width="0.4em"/><mi>d</mi><mi>u</mi><mspace width="0.15em"/><mi>d</mi><mi>v</mi>
+          </mrow></mtd>
+        </mtr>
+      </mtable></math>
+      <span class="tag">(10)</span>
+      <figcaption>Thin-plate and its third-order sibling. Every integrand is a polynomial, so
+        each integral is exact by Gauss–Legendre at
+        <math><mrow><mo>⌈</mo><mo>(</mo><mi>p</mi><mo>+</mo><mn>1</mn><mo>)</mo><mo>/</mo><mn>2</mn><mo>⌉</mo></mrow></math>
+        points per direction — no quadrature error enters the system matrix.</figcaption>
+    </figure>
+
+    <h3>The system</h3>
+    <figure class="eq">
+      <math display="block"><mrow>
+        <mrow><mo minsize="2.4em" maxsize="2.4em">[</mo><mtable columnspacing="1em" rowspacing="0.35em">
+          <mtr><mtd><mi>H</mi></mtd><mtd><msup><mi>A</mi><mo>⊤</mo></msup></mtd></mtr>
+          <mtr><mtd><mi>A</mi></mtd><mtd><mn>0</mn></mtd></mtr>
+        </mtable><mo minsize="2.4em" maxsize="2.4em">]</mo></mrow>
+        <mrow><mo minsize="2.4em" maxsize="2.4em">[</mo><mtable columnspacing="1em" rowspacing="0.35em">
+          <mtr><mtd><mi mathvariant="bold">p</mi></mtd></mtr>
+          <mtr><mtd><mi mathvariant="bold">ℓ</mi></mtd></mtr>
+        </mtable><mo minsize="2.4em" maxsize="2.4em">]</mo></mrow>
+        <mo>=</mo>
+        <mrow><mo minsize="2.4em" maxsize="2.4em">[</mo><mtable columnspacing="1em" rowspacing="0.35em">
+          <mtr><mtd><mi mathvariant="bold">b</mi></mtd></mtr>
+          <mtr><mtd><mi mathvariant="bold">c</mi></mtd></mtr>
+        </mtable><mo minsize="2.4em" maxsize="2.4em">]</mo></mrow>
+        <mspace width="2em"/>
+        <mi>H</mi><mo>=</mo>
+        <msub><mi>w</mi><mn>0</mn></msub><mi>M</mi><mo>+</mo>
+        <msub><mi>w</mi><mn>2</mn></msub><msub><mi>K</mi><mn>2</mn></msub><mo>+</mo>
+        <msub><mi>w</mi><mn>3</mn></msub><msub><mi>K</mi><mn>3</mn></msub>
+      </mrow></math>
+      <span class="tag">(11)</span>
+    </figure>
+
+    <p>The constraint block <math><mi>A</mi></math> carries only what cannot be made vacuous:
+      the shared-curvature conditions of §1 and the corner compatibilities below. G0 and G1
+      contribute <em>no rows at all</em> — they hold by construction, which is the whole point,
+      and it keeps <math><mi>A</mi></math> small and well conditioned.
+      <math><mi>H</mi></math> is symmetric positive definite the moment
+      <math><mrow><msub><mi>w</mi><mn>2</mn></msub><mo>&gt;</mo><mn>0</mn></mrow></math>,
+      because the fairing term penalises exactly the modes the fidelity term leaves flat. That
+      is §3's guard restated as a matrix property.</p>
+
+    <p>The one nonlinearity is <math><msup><mi>D</mi><mo>*</mo></msup></math> itself, which
+      begins life as a normalised bisector. Handle it by outer alternation: freeze
+      <math><msup><mi>D</mi><mo>*</mo></msup></math>, solve (11), re-derive
+      <math><msup><mi>D</mi><mo>*</mo></msup></math> from the new geometry, solve again.
+      <strong>Two passes, then report the residual</strong> — the same discipline the corner
+      fairing runs under, and for the same reason: a solver that silently iterates to
+      convergence is a solver whose answer nobody can reproduce.</p>
+
+    <div class="claim limit">
+      <span class="label">The limit that will not go away by solving harder</span>
+      <p>At a mesh vertex, G2 is generically <em>unattainable</em>. Going around an
+      <math><mi>n</mi></math>-valent vertex, the second-order data of the patches must close up,
+      and for a generic curve network the resulting linear system has no solution — the
+      <strong>vertex enclosure problem</strong>. It is why the P1 reads G1 to
+      <math><mrow><mn>7.9</mn><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>4</mn></mrow></msup></mrow></math>
+      degrees corner to corner and still says "G1 holds, G2 never can" at a corner. There are
+      four ways out and the tool currently takes the fourth:</p>
+      <ul class="plain">
+        <li><strong>Split every patch 2×2</strong> so the vertex is surrounded by four times as
+          many patches. Solvable, and it quadruples the patch count.</li>
+        <li><strong>Raise degree</strong> and spend the extra rows on the compatibility. Costs
+          the degrees §2 says are otherwise free.</li>
+        <li><strong>Constrain the boundary curves</strong> so the compatibility holds by
+          construction — the second-order sibling of the corner fairing already shipped at A11.
+          Cheapest, and it moves the designer's curves.</li>
+        <li><strong>Fade the correction to zero at the corner</strong> and report the band.
+          What we do now. Honest, costs a small region of G1-only surface, and is the reason
+          the corner window buys five degrees.</li>
+      </ul>
+      <p>This is a genuine choice with a shape cost attached to each branch, so it is yours to
+      make, not the solver's.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="num">§ 5</span><h2 class="sec">The build, in dependency order</h2></div>
+  <div class="body">
+    <p>Each stage ships as capability a designer can reach, and the P1 changes only when you
+      drive it. That rule has held for every stage so far and it holds here.</p>
+
+    <ol class="steps">
+      <li><strong>Exact polynomial algebra.</strong> <span class="good">Done — commit
+        <code>2a0f711</code>.</span> Degree elevation, the Bernstein product rule, Boehm knot
+        insertion, Bézier extraction, subdivision, interval restriction; scalars and vectors;
+        27 tests, all identities.</li>
+      <li><strong><code>cellBezier</code> — the control net.</strong> Assemble (7) with the
+        algebra rather than sampling it. Gate: the net and <code>boundaryCoonsPoint</code>
+        agree to <math><msup><mn>10</mn><mrow><mo>−</mo><mn>9</mn></mrow></msup></math> mm at a
+        hundred stations per patch. This is the claim; everything after it is transport.</li>
+      <li><strong>G2 by construction.</strong> Prescribe the shared
+        <math><msup><mi>κ</mi><mo>*</mo></msup></math> instead of fitting the natural one, per
+        §1. Gate: median relative curvature gap goes from 0.0015 % to zero away from corners,
+        and the G1 probe still reads exact.</li>
+      <li><strong>The solver.</strong> (9) through (11), sparse, one KKT solve per outer pass,
+        two passes and a reported residual. This is where "global" starts being true.</li>
+      <li><strong>G3.</strong> One more field per edge, a septic blend, no degree increase.
+        Add the curvature-rate probe first — <em>a rung you cannot measure is a rung you
+        cannot claim</em>, and row 4 of the audit has said "not measured" since the beginning.</li>
+      <li><strong>STEP.</strong> <code>B_SPLINE_SURFACE_WITH_KNOTS</code> written by us, read
+        back through OpenCascade's <code>STEPControl_Reader</code>, sampled against
+        <code>boundaryCoonsPoint</code>. Bound and verified as reachable in C0.</li>
+      <li><strong>Into the authoring shell.</strong> The verbs the solver needs —
+        <em class="term">crown</em> at order 2, <em class="term">tension</em> at order 3 — beside
+        the fullness control that landed at A12, with the bench's lenses live in the viewport
+        so a change and its continuity reading arrive together.</li>
+    </ol>
+
+    <div class="claim">
+      <span class="label">What must survive all of it</span>
+      <p>G0 and G1 hold <em>by construction</em> rather than to a tolerance: the patch edge
+      <strong>is</strong> the shared curve, bit for bit. That is not how Alias does it and not
+      something a trimmed B-rep can promise. If sewing ever needs a tolerance, the guarantee
+      has been traded for the export, and the trade is not worth making.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><span class="num">§ A</span><h2 class="sec">The governing equations, in LaTeX</h2></div>
+  <div class="body">
+    <p>Copyable source for everything numbered above.</p>
+
+<p class="eqsrc">(1) — the reparametrisation jet</p>
+<pre>\varphi(\tau,s)=\Bigl(\tau+\beta_1 s+\tfrac12\beta_2 s^2+\tfrac16\beta_3 s^3,\;
+                       \alpha_1 s+\tfrac12\alpha_2 s^2+\tfrac16\alpha_3 s^3\Bigr)</pre>
+
+<p class="eqsrc">(2) — Faà di Bruno, orders one to three</p>
+<pre>\begin{aligned}
+A_s   &amp;= \alpha_1 B_t + \beta_1 C' \\
+A_{ss}&amp;= \alpha_1^2 B_{tt} + 2\alpha_1\beta_1 B_{\tau t} + \beta_1^2 C''
+         + \alpha_2 B_t + \beta_2 C' \\
+A_{sss}&amp;= \alpha_1^3 B_{ttt} + 3\alpha_1^2\beta_1 B_{\tau tt}
+         + 3\alpha_1\beta_1^2 B_{\tau\tau t} + \beta_1^3 C''' \\
+      &amp;\quad + 3\alpha_1\alpha_2 B_{tt}
+         + 3(\alpha_1\beta_2+\alpha_2\beta_1)B_{\tau t}
+         + 3\beta_1\beta_2 C'' + \alpha_3 B_t + \beta_3 C'
+\end{aligned}</pre>
+
+<p class="eqsrc">(3) — one scalar per rung, after projecting on the shared normal</p>
+<pre>\begin{aligned}
+G^1:&amp;\quad \langle A_s,\hat N\rangle = 0 \\
+G^2:&amp;\quad \langle A_{ss},\hat N\rangle
+      = \alpha_1^2\langle B_{tt},\hat N\rangle
+      + 2\alpha_1\beta_1\langle B_{\tau t},\hat N\rangle
+      + \beta_1^2\langle C'',\hat N\rangle \\
+G^3:&amp;\quad \langle A_{sss},\hat N\rangle
+      = \alpha_1^3\langle B_{ttt},\hat N\rangle
+      + 3\alpha_1^2\beta_1\langle B_{\tau tt},\hat N\rangle
+      + 3\alpha_1\beta_1^2\langle B_{\tau\tau t},\hat N\rangle
+      + \beta_1^3\langle C''',\hat N\rangle \\
+    &amp;\qquad + 3\alpha_1\alpha_2\langle B_{tt},\hat N\rangle
+      + 3(\alpha_1\beta_2+\alpha_2\beta_1)\langle B_{\tau t},\hat N\rangle
+      + 3\beta_1\beta_2\langle C'',\hat N\rangle
+\end{aligned}</pre>
+
+<p class="eqsrc">(4) — the shared-field lemma that makes G1 free</p>
+<pre>E(\tau)=a(\tau)\,C'(\tau)+\lambda(\tau)\,D^{*}(\tau)
+\quad\Longrightarrow\quad
+\operatorname{span}\{C',E_A\}=\operatorname{span}\{C',E_B\}</pre>
+
+<p class="eqsrc">(5) — why the tangential slot must be C′ itself</p>
+<pre>\det\bigl(C',E_A,E_B\bigr)
+ = (a_A\lambda_B-a_B\lambda_A)\;C'\cdot\bigl(T^{*}\times D^{*}\bigr)</pre>
+
+<p class="eqsrc">(6) — control rows a bare tensor-product patch must spend</p>
+<pre>\#\text{rows}\;\ge\;2(k+1)
+\quad\Longrightarrow\quad
+\deg \ge 2k+1,
+\qquad \deg = 2k+1+m \ \text{with } m \text{ interior rows}</pre>
+
+<p class="eqsrc">(7) — the surface and its correction layers</p>
+<pre>S = S_0 + \Phi + \Psi + \Omega \\
+\Phi = g(v)\Delta_0(u) + h(u)\Delta_1(v) + h(v)\Delta_2(u) + g(u)\Delta_3(v) \\
+\Psi = q(v)\Delta^2_0(u) + r(u)\Delta^2_1(v) + r(v)\Delta^2_2(u) + q(u)\Delta^2_3(v) \\
+g(x)=x(1-x)^2,\quad h(x)=x^2(1-x),\quad
+q(x)=\tfrac12 x^2(1-x)^3,\quad r(x)=\tfrac12 x^3(1-x)^2 \\
+\Delta = \rho(s)\bigl(E - N\bigr),\qquad
+\Delta^2 = \mu\,M^{*},\qquad M^{*} = C' \times D^{*}</pre>
+
+<p class="eqsrc">(8) — Lebesgue constants: the whole of Runge's phenomenon</p>
+<pre>\Lambda_n^{\mathrm{equi}} \sim \frac{2^{\,n+1}}{e\,n\log n}
+\qquad
+\Lambda_n^{\mathrm{cheb}} \sim \frac{2}{\pi}\log n
+\qquad
+\tau_j = \tfrac12\Bigl(1-\cos\tfrac{j\pi}{n}\Bigr)</pre>
+
+<p class="eqsrc">(9) — the objective</p>
+<pre>\mathcal{J}(\mathbf{p}) = \sum_{c}\left[
+  w_0\iint_{[0,1]^2}\bigl\|S_c(\mathbf{p})-\hat S_c\bigr\|^2\,du\,dv
+  + w_2 E_2(S_c) + w_3 E_3(S_c)\right]</pre>
+
+<p class="eqsrc">(10) — the fairing energies</p>
+<pre>E_2 = \iint \|S_{uu}\|^2 + 2\|S_{uv}\|^2 + \|S_{vv}\|^2 \,du\,dv \\
+E_3 = \iint \|S_{uuu}\|^2 + 3\|S_{uuv}\|^2 + 3\|S_{uvv}\|^2 + \|S_{vvv}\|^2 \,du\,dv</pre>
+
+<p class="eqsrc">(11) — the KKT system, one sparse solve per outer pass</p>
+<pre>\begin{bmatrix} H &amp; A^{\top} \\ A &amp; 0 \end{bmatrix}
+\begin{bmatrix} \mathbf{p} \\ \boldsymbol{\ell} \end{bmatrix}
+=
+\begin{bmatrix} \mathbf{b} \\ \mathbf{c} \end{bmatrix},
+\qquad
+H = w_0 M + w_2 K_2 + w_3 K_3 \succ 0 \ \text{ for } w_2 > 0</pre>
+
+<p class="eqsrc">degree elevation and the Bernstein product rule, as implemented</p>
+<pre>c'_i = \frac{i}{n+1}c_{i-1} + \Bigl(1-\frac{i}{n+1}\Bigr)c_i \\[4pt]
+\Bigl(\sum_i a_i B_i^m\Bigr)\Bigl(\sum_j b_j B_j^n\Bigr)
+ = \sum_{k=0}^{m+n} c_k B_k^{m+n},
+\qquad
+c_k = \sum_{i+j=k}\frac{\binom{m}{i}\binom{n}{j}}{\binom{m+n}{k}}\,a_i b_j</pre>
+  </div>
+</section>
+
+<footer>
+  Panoramic · the instrument · <code>claude/panoramic-car-design-authoring-2ls5f7</code><br>
+  Degrees from <code>npx tsx scripts/patch-degree.ts</code>. Continuity readings from
+  <code>npx tsx scripts/surface-report.ts</code> on the P1 at 62 of 62 smooth joins.
+</footer>
+</div>

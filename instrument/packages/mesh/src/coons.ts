@@ -1,0 +1,338 @@
+/**
+ * meshQuilt — structured conforming interiors over the GlobalSampleTable.
+ *
+ * Per cell the four loop-ordered sides map onto the unit square:
+ *   side 0 → v=0 (south, u runs with the loop), side 1 → u=1 (east),
+ *   side 2 → v=1 (north, loop runs u 1→0), side 3 → u=0 (west, loop runs v 1→0).
+ * U is the sorted union of south and north grid params, V of west and east.
+ * Boundary grid points resolve to TABLE vertices by index — a boundary param
+ * the side itself does not sample snaps to the side's nearest table vertex at
+ * or below it, so the seam polyline stays exactly the table polyline and the
+ * snap only reshapes interior transition triangles (duplicates degenerate and
+ * are dropped). Interior points are discrete transfinite (Coons) blends of the
+ * four sampled boundary polylines. A collapsed (tapered) side contributes one
+ * vertex; its whole grid row is that vertex and the row's quads shed one
+ * degenerate triangle each — the taper fan, NaN-free by construction.
+ *
+ * ── THE SECOND EVALUATOR ─────────────────────────────────────────────────
+ *
+ * This is not the same code as `@car/surface`'s Coons blend and never was:
+ * that one is analytic and feeds the render, the lenses and the continuity
+ * probe; this one is discrete, over the shared sample table, and feeds the
+ * print. Two evaluators is a deliberate choice — the conforming union-of-
+ * samples mesh is what makes the STL watertight — but it is also a standing
+ * hazard: raise the surface quality in one and the probe reports a body that
+ * is not the body being printed.
+ *
+ * So the tangent-plane term (`@car/surface`'s Φ) is applied HERE TOO, from
+ * the same field, in the same parameterisation. `coons-agreement.test.ts`
+ * samples interiors through both and asserts they land in the same place;
+ * that test should have existed from the first day there were two of these.
+ *
+ * Φ is exactly zero on all four edges, so the table vertices — the shared
+ * seam — are untouched, and the closed-mesh check is still checking the same
+ * topology it always was.
+ */
+
+import type { FeedRange, Id, Pt3, QuiltSpec } from "@car/schema";
+import { lerp3 } from "@car/num";
+import {
+  coonsPhi, splitShare, tangentField, type CrossPrescription, type PhiSample,
+} from "@car/surface";
+import { compareId } from "./ids.js";
+import { buildSampleTable, type GlobalSampleTable, type SideSamples } from "./table.js";
+
+export interface MeshOptions {
+  /** Uniform base samples per chain segment of every curve. Default 8. */
+  readonly baseDensity?: number;
+  /**
+   * Tangent-plane prescription. OMIT and one is derived from the quilt: the
+   * printed body is the model, and the model has a tangent field. Pass `null`
+   * to print the bare G0 blend — which a diagnostic may well want, and which
+   * nobody should get by forgetting.
+   */
+  readonly cross?: CrossPrescription | null;
+}
+
+export const DEFAULT_BASE_DENSITY = 8;
+
+export interface QuiltMesh {
+  /** xyz per vertex, mm, Float64. Table vertices first, cell interiors after. */
+  readonly positions: Float64Array;
+  /** Triangles, outward CCW winding (from the quilt's CCW-outside side loops). */
+  readonly indices: Uint32Array;
+  /** Per cell, sorted by cell id; start/count into `indices`. */
+  readonly ranges: readonly FeedRange[];
+  /** The shared boundary table — its vertices are positions[0 .. vertexCount). */
+  readonly table: GlobalSampleTable;
+  /**
+   * Where the interior vertices start. Below this index a vertex belongs to a
+   * shared CURVE (the table); at or above it, to one patch's interior.
+   */
+  readonly interiorBase: number;
+  /** Cell of interior vertex (index - interiorBase). */
+  readonly interiorCell: readonly Id[];
+  /**
+   * Patch parameter (u,v) of each interior vertex, two floats each.
+   *
+   * Published because without it nothing can relate a printed triangle back
+   * to the surface it came from — which is how two Coons evaluators managed
+   * to coexist for this long without anyone being able to check that they
+   * agree. `coons-agreement.test.ts` is the first caller.
+   */
+  readonly interiorUV: Float64Array;
+}
+
+/** A side re-parameterized to its grid axis: ascending grid coords + table verts. */
+interface GridSide {
+  readonly collapsed: boolean;
+  readonly g: readonly number[];
+  readonly verts: readonly number[];
+}
+
+function toGridSide(side: SideSamples, flip: boolean): GridSide {
+  if (side.collapsed) return { collapsed: true, g: [0], verts: [...side.verts] };
+  if (!flip) return { collapsed: false, g: [...side.s], verts: [...side.verts] };
+  // flipped axis: use the table's exact reverse parameterization, never 1 - s
+  const g: number[] = [];
+  const verts: number[] = [];
+  for (let i = side.s.length - 1; i >= 0; i--) {
+    g.push(side.sOpp[i]!);
+    verts.push(side.verts[i]!);
+  }
+  return { collapsed: false, g, verts };
+}
+
+/** Index of the largest grid param <= q (q ∈ [0,1]; g[0] is always 0). */
+function floorIndex(g: readonly number[], q: number): number {
+  let lo = 0;
+  let hi = g.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (g[mid]! <= q) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+const snapVert = (side: GridSide, q: number): number =>
+  side.collapsed ? side.verts[0]! : side.verts[floorIndex(side.g, q)]!;
+
+function plEval(side: GridSide, posOf: (v: number) => Pt3, q: number): Pt3 {
+  if (side.collapsed) return posOf(side.verts[0]!);
+  const k = floorIndex(side.g, q);
+  if (k === side.g.length - 1 || side.g[k] === q) return posOf(side.verts[k]!);
+  const g0 = side.g[k]!;
+  const g1 = side.g[k + 1]!;
+  return lerp3(posOf(side.verts[k]!), posOf(side.verts[k + 1]!), (q - g0) / (g1 - g0));
+}
+
+/**
+ * Two grid lines closer than this carry the same INTERIOR vertex.
+ *
+ * Where it comes from. `sOpp` exists so that a side running against the loop
+ * gets bitwise-identical params to the side opposite it — `1-(1-t)` is not `t`
+ * in floats, and that ulp would split the union into near-duplicate columns.
+ * It does its job where the two sides share a trim. Where they do not — two
+ * different curves, two different `(t-lo)/span` — the params come from
+ * different arithmetic and land an ulp or two apart. On the P1, 214 of 2462
+ * grid gaps were like that, the smallest 2.8e-17, and each one spread a column
+ * of zero-area slivers across its cell: 6,692 of 32,612 triangles, and 980
+ * vertices the curvature lens could not measure.
+ *
+ * NOT a tuning choice. The two populations do not overlap: 214 gaps below
+ * 1e-9, NONE AT ALL between 1e-9 and 1e-2, and 2248 above. Seven orders of
+ * magnitude of clear water, so any threshold in that band gives the same
+ * answer.
+ *
+ * WHAT IT MUST NOT DO. Drop the column. The seam polyline has to stay exactly
+ * the table polyline, and the neighbouring cell across that seam builds its own
+ * union from its own sides — so a column dropped here and kept there is a
+ * T-gap. Removing near-duplicates from `unionParams` opened 612 edges on the
+ * P1 while every test stayed green, because no fixture has two curves whose
+ * sampling nearly coincides. So the column stays, the boundary rows still snap
+ * to their own table vertices, and only the INTERIOR reuses its neighbour's
+ * vertex. The quads between then have two equal corners and are dropped by the
+ * degenerate-triangle filter that was already there.
+ */
+const COLUMN_MERGE = 1e-9;
+
+function unionParams(a: GridSide, b: GridSide): number[] {
+  const all: number[] = [0, 1];
+  if (!a.collapsed) all.push(...a.g);
+  if (!b.collapsed) all.push(...b.g);
+  all.sort((x, y) => x - y);
+  const out: number[] = [];
+  for (const p of all) {
+    if (out.length === 0 || out[out.length - 1] !== p) out.push(p);
+  }
+  return out;
+}
+
+/** For each grid line, whether it sits within COLUMN_MERGE of the one before. */
+function nearDuplicates(axis: readonly number[]): boolean[] {
+  return axis.map((v, i) => i > 0 && v - axis[i - 1]! <= COLUMN_MERGE);
+}
+
+export function meshQuilt(quilt: QuiltSpec, opts?: MeshOptions): QuiltMesh {
+  const table = buildSampleTable(quilt, opts?.baseDensity ?? DEFAULT_BASE_DENSITY);
+  const cross = opts?.cross === undefined ? tangentField(quilt, { order: 2 }) : opts.cross;
+
+  const pos: number[] = Array.from(table.positions);
+  const posOf = (v: number): Pt3 => [pos[3 * v]!, pos[3 * v + 1]!, pos[3 * v + 2]!];
+  const pushVert = (p: Pt3): number => {
+    const v = pos.length / 3;
+    pos.push(p[0], p[1], p[2]);
+    return v;
+  };
+
+  const indices: number[] = [];
+  const ranges: FeedRange[] = [];
+  const interiorBase = pos.length / 3;
+  const interiorCell: Id[] = [];
+  const interiorUV: number[] = [];
+
+  const cells = [...quilt.cells].sort((a, b) => compareId(a.id, b.id));
+  for (const cell of cells) {
+    const [s0, s1, s2, s3] = table.sidesOf(cell.id);
+    const south = toGridSide(s0, false);
+    const east = toGridSide(s1, false);
+    const north = toGridSide(s2, true);
+    const west = toGridSide(s3, true);
+
+    const U = unionParams(south, north);
+    const V = unionParams(west, east);
+
+    // corner positions for the bilinear correction — exact table vertex positions
+    const P00 = plEval(south, posOf, 0);
+    const P10 = plEval(south, posOf, 1);
+    const P01 = plEval(north, posOf, 0);
+    const P11 = plEval(north, posOf, 1);
+
+    // Cross-field tables on the cell's own union axes. Side 0 and side 1 read
+    // the grid coordinate directly; sides 2 and 3 run against it, so they are
+    // read at 1-u and 1-v — the same convention the analytic evaluator uses,
+    // which is what lets the two agree.
+    //
+    // BOTH SHARES, and the split is `splitShare` rather than four lines of
+    // arithmetic repeated here. This block used to hold its own copy of the Φ
+    // formula, and the day the G2 term landed the copy did not get it: the
+    // print, the aero map and the curvature lens described a body up to 85 mm
+    // away from the surface every analytic probe was reading, for as long as
+    // it took somebody to build a displacement map. There is one formula now
+    // and this calls it.
+    const D0: Pt3[] = [], D1: Pt3[] = [], D2: Pt3[] = [], D3: Pt3[] = [];
+    const T0: Pt3[] = [], T1: Pt3[] = [], T2: Pt3[] = [], T3: Pt3[] = [];
+    // The G2 tables, read from the SAME prescription. A field at order 1
+    // returns zero here, so this costs nothing when there is no curvature
+    // correction and is not a second code path.
+    const S0: Pt3[] = [], S1: Pt3[] = [], S2: Pt3[] = [], S3: Pt3[] = [];
+    const second = cross?.secondDefect;
+    const ZERO: Pt3 = [0, 0, 0];
+    const band: [number, number, number, number] = [0, 0, 0, 0];
+    const wide: [number, number, number, number] = [0, 0, 0, 0];
+    if (cross) {
+      const share = cross.tightShare, shareD = cross.tightShareDeriv;
+      for (let k = 0; k < 4; k++) {
+        band[k] = cross.band ? cross.band(cell.id, k) : 0;
+        wide[k] = cross.wideBand ? cross.wideBand(cell.id, k) : 0;
+      }
+      const at = (k: number, s: number): Pt3[] => {
+        const sp = splitShare(
+          cross.defect(cell.id, k, s), ZERO,
+          share ? share(cell.id, k, s) : 0, shareD ? shareD(cell.id, k, s) : 0,
+        );
+        return [sp.wide, sp.tight];
+      };
+      for (const u of U) {
+        const [w0, t0] = at(0, u); D0.push(w0!); T0.push(t0!);
+        const [w2, t2] = at(2, 1 - u); D2.push(w2!); T2.push(t2!);
+        S0.push(second ? second(cell.id, 0, u) : ZERO);
+        S2.push(second ? second(cell.id, 2, 1 - u) : ZERO);
+      }
+      for (const v of V) {
+        const [w1, t1] = at(1, v); D1.push(w1!); T1.push(t1!);
+        const [w3, t3] = at(3, 1 - v); D3.push(w3!); T3.push(t3!);
+        S1.push(second ? second(cell.id, 1, v) : ZERO);
+        S3.push(second ? second(cell.id, 3, 1 - v) : ZERO);
+      }
+    }
+
+    const nu = U.length;
+    const nv = V.length;
+    const dupU = nearDuplicates(U);
+    const dupV = nearDuplicates(V);
+    const grid = new Uint32Array(nu * nv);
+    for (let j = 0; j < nv; j++) {
+      const v = V[j]!;
+      for (let i = 0; i < nu; i++) {
+        const u = U[i]!;
+        let vert: number;
+        if (j === 0) vert = snapVert(south, u);
+        else if (j === nv - 1) vert = snapVert(north, u);
+        else if (i === 0) vert = snapVert(west, v);
+        else if (i === nu - 1) vert = snapVert(east, v);
+        else if (dupU[i] || dupV[j]) {
+          // A near-duplicate grid line: reuse the neighbour's interior vertex
+          // rather than push one a femtometre away. U wins over V when both,
+          // for no reason but determinism.
+          vert = dupU[i] ? grid[j * nu + i - 1]! : grid[(j - 1) * nu + i]!;
+        } else {
+          const b = plEval(south, posOf, u);
+          const t = plEval(north, posOf, u);
+          const l = plEval(west, posOf, v);
+          const r = plEval(east, posOf, v);
+          const q: number[] = [0, 0, 0];
+          for (let c = 0; c < 3; c++) {
+            q[c] =
+              (1 - v) * b[c]! + v * t[c]! + (1 - u) * l[c]! + u * r[c]! -
+              ((1 - u) * (1 - v) * P00[c]! + u * (1 - v) * P10[c]! +
+               (1 - u) * v * P01[c]! + u * v * P11[c]!);
+          }
+          if (cross) {
+            const sample: PhiSample = {
+              value: [D0[i]!, D1[j]!, D2[i]!, D3[j]!],
+              deriv: [ZERO, ZERO, ZERO, ZERO],
+              second: [S0[i]!, S1[j]!, S2[i]!, S3[j]!],
+              tight: [T0[i]!, T1[j]!, T2[i]!, T3[j]!],
+              tightDeriv: [ZERO, ZERO, ZERO, ZERO],
+              band,
+              wide,
+            };
+            const f = coonsPhi(sample, u, v);
+            for (let c = 0; c < 3; c++) q[c]! += f[c]!;
+          }
+          vert = pushVert([q[0]!, q[1]!, q[2]!]);
+          interiorCell.push(cell.id);
+          interiorUV.push(u, v);
+        }
+        grid[j * nu + i] = vert;
+      }
+    }
+
+    const start = indices.length;
+    for (let j = 0; j + 1 < nv; j++) {
+      for (let i = 0; i + 1 < nu; i++) {
+        const a = grid[j * nu + i]!;
+        const b = grid[j * nu + i + 1]!;
+        const c = grid[(j + 1) * nu + i + 1]!;
+        const d = grid[(j + 1) * nu + i]!;
+        // two triangles per quad, outward CCW; index-degenerate triangles
+        // (snap duplicates, taper rows) are dropped before any closed check
+        if (a !== b && b !== c && a !== c) indices.push(a, b, c);
+        if (a !== c && c !== d && a !== d) indices.push(a, c, d);
+      }
+    }
+    ranges.push({ id: cell.id, start, count: indices.length - start });
+  }
+
+  return {
+    positions: new Float64Array(pos),
+    indices: new Uint32Array(indices),
+    ranges,
+    table,
+    interiorBase,
+    interiorCell,
+    interiorUV: new Float64Array(interiorUV),
+  };
+}

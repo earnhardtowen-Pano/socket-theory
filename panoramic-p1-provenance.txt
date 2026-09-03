@@ -1,0 +1,126 @@
+PROVENANCE REPORT — Panoramic P1
+============================================================
+Read this before believing the model. Every number in the design carries
+a licence: DERIVED means it follows from others by stated arithmetic,
+SOURCED means somebody consulted something, ASSUMED means nobody did.
+This report is emitted with the print because a printed object stops
+looking like a model and starts looking like a fact.
+
+THE RUN
+------------------------------------------------------------
+  verbs in history               231
+  cells / curves                 68 / 86
+  quilt cells with mirror        80
+  triangles printed              25920
+  closed mesh                    true (0 violations)
+  STL bytes                      1296084
+  print scale                    1:24 on a 0.4 mm nozzle
+  shutline grooves               84 vertices sunk, 0.80 mm wide printed
+  packaging solve closed         false
+  packaging violations           44
+
+WHAT WAS FORCED — requirements that bound a dimension
+------------------------------------------------------------
+  Nothing. The packaging solve clamped no dimension, which means every
+  placement below is a free choice and no requirement is holding it.
+
+WHAT THE BODY MUST ANSWER — demands no placement can settle
+------------------------------------------------------------
+  demand#78      protected-zone  (principal: brief)
+                 owner's brief: air under the whole body — the protected slab runs from the ground datum up to the clearance line; no sprung part (exhaust, pack, sills) may reach into it
+
+WHAT WAS FREE — 68 ASSUMED quantities
+------------------------------------------------------------
+  A long list is not a failure. It is an accurate picture of how much of
+  this concept is still taste, and every one of them is somewhere a
+  decision could be argued with.
+
+  brakes.discDiameter                        355 mm         P1 chassis — front disc; it sets the wheel-diameter floor
+  brakes.wheelRimDiameter                    482.59999999999997 mm P1 chassis — 19 in rim
+  brief.approachDeg                          12 deg         P1 brief — consequence of the splitter
+  brief.cargoAperture.h                      420 mm         P1 brief — hatch aperture
+  brief.cargoAperture.w                      900 mm         P1 brief — hatch aperture
+  brief.cargoVolumeL                         230 L          P1 brief — a weekend for two behind the seats
+  brief.departureDeg                         16 deg         P1 brief
+  brief.groundClearanceMm                    110 mm         P1 brief — low, and it says so
+  brief.massTargetKg                         1450 kg        P1 brief — the ledger will show the gap
+  brief.rangeKm                              600 km         P1 brief
+  brief.seatCount                            2 count        P1 brief — two seats
+  cooling.power                              285 kW         P1 powertrain — peak output the loop must survive
+  driveline.halfshaftLength                  620 mm         P1 authored placement — diff flange to rear hub
+  driveline.shaftLength                      1200 mm        P1 authored placement — transmission tail to diff nose
+  driveline.torque                           500 Nm         P1 powertrain — peak crank torque the propshaft carries
+  engine.boreStrokeRatio                     0.92 ratio     P1 powertrain — slightly undersquare, torque-biased
+  engine.cylinders                           6 count        P1 powertrain — inline six, the shape a long hood wants
+  engine.displacement                        3 L            P1 powertrain — 3.0 L
+  engine.sumpDepth                           120 mm         P1 authored placement — shallow sump, engine sits low
+  frontSuspension.jounceTravel               70 mm          P1 chassis — short travel, sports calibration
+  frontSuspension.reboundTravel              75 mm          P1 chassis — short travel, sports calibration
+  frontSuspension.tireOverallDiameter        678.5999999999999 mm P1 chassis — 245/40R19 front
+  frontSuspension.tireSectionWidth           245 mm         P1 chassis — 245/40R19 front
+  frontSuspension.trackWidth                 1620 mm        P1 proportion — owner's brief, cab-rearward sports coupe
+  frontTire.aspectPercent                    40 ratio       P1 chassis — 245/40R19
+  frontTire.loadIndex                        98 count       P1 chassis — load index 98
+  frontTire.rimDiameterIn                    19 count       P1 chassis — 245/40R19
+  frontTire.sectionWidth                     245 mm         P1 chassis — 245/40R19
+  fuelTank.consumption                       9.5 L/100km    P1 brief — ASSUMED until mass and drag exist; it iterates
+  fuelTank.range                             600 km         P1 brief — touring range between fills
+  occupants.rows[0].H30                      245 mm         P1 package — hip 245 mm above the heel: a low sports seat
+  occupants.rows[0].occupants                2 count        P1 brief — two seats, two doors
+  placement.engineHeight                     75 mm          P1 authored placement — crank above the rails, sump clearing the crossmember
+  placement.engineSetback                    430 mm         P1 authored placement — block center aft of the front axle so the FRONT FACE clears the axle line: front-MID for real. The first solve caught the block sitting on the axle
+  placement.heelHeight                       275 mm         P1 authored placement — heel above the ground; raised 25 mm after the first solve put the foot area into the ground slab
+  placement.heelStation                      1180 mm        P1 authored placement — driver heel aft of the front axle: cab-rearward
+  placement.pedalBoxHeight                   150 mm         P1 authored placement
+  placement.pedalBoxStation                  980 mm         P1 authored placement — pedal box at the firewall, tied to the heel
+  placement.rackHeight                       -30 mm         P1 authored placement — rack just below the rail centerline
+  placement.rackStation                      -95 mm         P1 authored placement — rack AHEAD of the axle line: the solve found it fouling the sump of a front-mid six
+  placement.radiatorAhead                    190 mm         P1 authored placement — core ahead of the axle, raked back into the nose
+  placement.radiatorHeight                   95 mm          P1 authored placement — raised after the first solve reported the core reaching into the ground slab
+  placement.railHeight                       330 mm         P1 authored placement — rail centerline above the ground
+  placement.tankAheadOfRearAxle              330 mm         P1 authored placement — tank ahead of the rear axle, clear of the axle hardware
+  placement.tankHeight                       165 mm         P1 authored placement — tank raised above the propshaft line after the solve found it sitting on the driveline
+  rearSuspension.jounceTravel                75 mm          P1 chassis — short travel, sports calibration
+  rearSuspension.reboundTravel               80 mm          P1 chassis — short travel, sports calibration
+  rearSuspension.tireOverallDiameter         675.0999999999999 mm P1 chassis — 275/35R19 rear
+  rearSuspension.tireSectionWidth            275 mm         P1 chassis — 275/35R19 rear
+  rearSuspension.trackWidth                  1640 mm        P1 proportion — owner's brief, cab-rearward sports coupe — rear track wider, haunches follow
+  rearTire.aspectPercent                     35 ratio       P1 chassis — 275/35R19
+  rearTire.loadIndex                         100 count      P1 chassis — load index 100
+  rearTire.rimDiameterIn                     19 count       P1 chassis — 275/35R19
+  rearTire.sectionWidth                      275 mm         P1 chassis — 275/35R19
+  steering.ratio                             14 ratio       P1 chassis — quick rack, sports calibration
+  steering.trackWidth                        1620 mm        P1 proportion — owner's brief, cab-rearward sports coupe
+  substrate.crossmemberCount                 4 count        P1 authored placement — front, dash, seat, rear
+  substrate.frontOverhang                    900 mm         P1 proportion — owner's brief, cab-rearward sports coupe — long hood, short front overhang
+  substrate.railSectionHeight                120 mm         P1 authored placement — shallow rail for a low car
+  substrate.railSectionWidth                 70 mm          P1 authored placement
+  substrate.railSpacing                      760 mm         P1 authored placement — rails inboard of the seats, tunnel between
+  substrate.rearOverhang                     960 mm         P1 proportion — owner's brief, cab-rearward sports coupe — fastback tail
+  substrate.rockerHeight                     150 mm         P1 authored placement — traded against the entry aperture, coupe
+  substrate.rockerWidth                      90 mm          P1 authored placement
+  substrate.tunnelHeight                     190 mm         P1 authored placement
+  substrate.tunnelWidth                      280 mm         P1 authored placement — propshaft plus exhaust past the seats
+  substrate.wheelbase                        2540 mm        P1 proportion — owner's brief, cab-rearward sports coupe — 2540 mm between axles
+  transmission.gearCount                     6 count        P1 powertrain — six-speed manual, the shift linkage is a demand
+
+WHAT WAS CONSULTED — 0 SOURCED quantities
+------------------------------------------------------------
+
+WHAT FOLLOWS — 0 DERIVED quantities
+------------------------------------------------------------
+  Each of these is arithmetic on the two lists above.
+
+
+WHAT IT WEIGHS — full ledger state
+------------------------------------------------------------
+  total                972.7 kg (target 1450 kg)
+  gap to target        -477.3 kg
+  CG                   1188, 9, 508 mm
+  axle loads F/R       518 / 455 kg
+  ASSUMED outstanding  16
+
+============================================================
+68 assumed · 0 sourced · 0 derived.
+No wall clock in this report: regenerate it from the same document and it
+comes out byte-identical, which is what makes two of them comparable.

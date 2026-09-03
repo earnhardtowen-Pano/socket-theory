@@ -1,0 +1,55 @@
+PROVENANCE REPORT — Ten-minute test car
+============================================================
+Read this before believing the model. Every number in the design carries
+a licence: DERIVED means it follows from others by stated arithmetic,
+SOURCED means somebody consulted something, ASSUMED means nobody did.
+This report is emitted with the print because a printed object stops
+looking like a model and starts looking like a fact.
+
+THE RUN
+------------------------------------------------------------
+  verbs in history               12
+  triangles printed              2800
+  closed after grooves           true
+  STL bytes                      140084
+  replay round-trip              true
+
+WHAT WAS FORCED — requirements that bound a dimension
+------------------------------------------------------------
+  Nothing. The packaging solve clamped no dimension, which means every
+  placement below is a free choice and no requirement is holding it.
+
+WHAT THE BODY MUST ANSWER — demands no placement can settle
+------------------------------------------------------------
+  None recorded.
+
+WHAT WAS FREE — 7 ASSUMED quantities
+------------------------------------------------------------
+  A long list is not a failure. It is an accurate picture of how much of
+  this concept is still taste, and every one of them is somewhere a
+  decision could be argued with.
+
+  archRadius                                 380 mm         blocked by the script
+  floor                                      140 mm         blocked by the script
+  halfWidth                                  900 mm         blocked by the script
+  length                                     4200 mm        blocked by the script, nothing consulted
+  nozzle                                     0.4 mm         0.4 mm nozzle — what the groove is sized from
+  printScale                                 24 count       1:24, the scale this test prints at
+  top                                        1300 mm        blocked by the script
+
+WHAT WAS CONSULTED — 0 SOURCED quantities
+------------------------------------------------------------
+
+WHAT FOLLOWS — 0 DERIVED quantities
+------------------------------------------------------------
+  Each of these is arithmetic on the two lists above.
+
+
+WHAT IT WEIGHS — full ledger state
+------------------------------------------------------------
+  no ledger: this car has no parts, only a skin
+
+============================================================
+7 assumed · 0 sourced · 0 derived.
+No wall clock in this report: regenerate it from the same document and it
+comes out byte-identical, which is what makes two of them comparable.

@@ -1,0 +1,808 @@
+<!--
+  The app: every car, in one page, orbitable.
+
+  The shaders, the studio rigs and the draw order below are the same ones
+  `apps/render/template.html` uses to make a photograph — that file is the
+  reference and this one is its travelling cousin. What differs is the payload
+  (quantised, index-free, four cars) and the chrome (tabs, a hand on the
+  camera, and the build report under it).
+-->
+<title>Panoramic Instrument</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#e9ecef; --surface:#f7f8f9; --sunk:#dfe3e7;
+  --ink:#101317; --muted:#5d656d; --faint:#8a929a; --rule:#d2d7dc;
+  --accent:#c14f0c; --signal:#1b5947; --warn:#8a3324;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0b0d10; --surface:#14181c; --sunk:#080a0c;
+    --ink:#e7eaed; --muted:#98a1aa; --faint:#6b747d; --rule:#252b32;
+    --accent:#f07a2c; --signal:#5cc4a1; --warn:#e08a72;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0b0d10; --surface:#14181c; --sunk:#080a0c;
+  --ink:#e7eaed; --muted:#98a1aa; --faint:#6b747d; --rule:#252b32;
+  --accent:#f07a2c; --signal:#5cc4a1; --warn:#e08a72;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+
+/* ── masthead ─────────────────────────────────────────────────────────── */
+header.top{border-bottom:1px solid var(--rule);background:var(--surface);
+  position:sticky;top:0;z-index:20;backdrop-filter:saturate(1.4)}
+.mast{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:13px 0 11px}
+.brand{font-family:var(--cond);font-weight:700;letter-spacing:.10em;font-size:14px;
+  text-transform:uppercase}
+.brand i{font-style:normal;color:var(--accent)}
+.mast .sub{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.03em}
+nav.cars{display:flex;gap:0;overflow-x:auto;border-top:1px solid var(--rule);
+  scrollbar-width:none}
+nav.cars::-webkit-scrollbar{display:none}
+nav.cars button{appearance:none;background:none;border:0;border-top:2px solid transparent;
+  margin-top:-1px;padding:11px 16px 10px;cursor:pointer;color:var(--muted);
+  font-family:var(--cond);font-weight:600;font-size:14px;letter-spacing:.02em;
+  white-space:nowrap;transition:color .15s}
+nav.cars button:hover{color:var(--ink)}
+nav.cars button[aria-pressed="true"]{color:var(--ink);border-top-color:var(--accent)}
+nav.cars button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* ── the viewer ───────────────────────────────────────────────────────── */
+.stage{position:relative;background:var(--sunk);border-bottom:1px solid var(--rule)}
+#gl{display:block;width:100%;height:min(62vh,560px);touch-action:none;cursor:grab}
+#gl.dragging{cursor:grabbing}
+.plate{position:absolute;left:22px;bottom:16px;pointer-events:none;
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  color:#fff;mix-blend-mode:difference}
+.plate b{display:block;font-family:var(--cond);font-size:19px;letter-spacing:.01em;
+  font-weight:700;margin-bottom:2px}
+.rig{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:9px 0;
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.rig .seg{display:inline-flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.rig .seg button{appearance:none;border:0;background:var(--surface);color:var(--muted);
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 11px;cursor:pointer}
+.rig .seg button+button{border-left:1px solid var(--rule)}
+.rig .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.rig .hint{margin-left:auto;color:var(--faint)}
+
+/* ── body copy ────────────────────────────────────────────────────────── */
+main{padding:34px 0 70px}
+h2{font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent);margin:44px 0 14px;
+  padding-bottom:7px;border-bottom:1px solid var(--rule)}
+main>.wrap>section:first-of-type h2{margin-top:0}
+h3{font-family:var(--cond);font-weight:600;font-size:18px;margin:26px 0 8px;
+  text-wrap:balance}
+p{margin:0 0 13px;max-width:66ch;color:var(--ink)}
+p.note{color:var(--muted);font-size:14px}
+.lede{font-size:17px;line-height:1.55;max-width:60ch}
+em{font-style:normal;color:var(--accent)}
+
+/* ── the numbers ──────────────────────────────────────────────────────── */
+table.rep{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px;
+  font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.rep th{text-align:left;font-weight:500;color:var(--faint);font-size:10.5px;
+  letter-spacing:.10em;text-transform:uppercase;padding:0 14px 7px 0;
+  border-bottom:1px solid var(--rule);white-space:nowrap}
+table.rep td{padding:6px 14px 6px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+table.rep td:first-child{color:var(--muted);white-space:nowrap}
+table.rep td.v{color:var(--ink);white-space:nowrap}
+table.rep tr:last-child td{border-bottom:0}
+.scroll+p,.scroll+p.note,table.rep+p{margin-top:15px}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  padding:1px 6px;border-radius:2px;border:1px solid currentColor;white-space:nowrap}
+.ok{color:var(--signal)} .bad{color:var(--warn)} .mid{color:var(--accent)}
+.grid{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:18px 0 6px}
+.grid div{background:var(--surface);padding:13px 14px}
+.grid .k{font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+.grid .n{font-family:var(--mono);font-size:20px;font-weight:500;
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.grid .u{font-size:12px;color:var(--muted)}
+blockquote{margin:18px 0;padding:14px 18px;background:var(--surface);
+  border-left:2px solid var(--accent);max-width:66ch}
+blockquote p:last-child{margin:0}
+code{font-family:var(--mono);font-size:.92em;background:var(--surface);
+  padding:1px 4px;border-radius:2px}
+footer{border-top:1px solid var(--rule);padding:22px 0 40px;color:var(--faint);
+  font-family:var(--mono);font-size:11px;letter-spacing:.03em}
+@media (max-width:620px){
+  .wrap{padding:0 16px}
+  #gl{height:46vh}
+  .plate{left:16px;bottom:12px}
+  .plate b{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="wrap mast">
+    <span class="brand">Panoramic<i> &#9679;</i> Instrument</span>
+    <span class="sub" id="subhead">six cars &middot; one surface engine</span>
+  </div>
+  <div class="wrap"><nav class="cars" id="cartabs"></nav></div>
+</header>
+
+<div class="stage">
+  <canvas id="gl"></canvas>
+  <div class="plate"><b id="plateName">&nbsp;</b><span id="plateDims">&nbsp;</span></div>
+</div>
+<div class="wrap rig">
+  <span class="seg" id="lightseg">
+    <button data-light="high" aria-pressed="true">cyclorama</button
+    ><button data-light="dark" aria-pressed="false">studio</button
+    ><button data-light="day" aria-pressed="false">daylight</button>
+  </span>
+  <span class="seg" id="ghostseg">
+    <button data-ghost="0" aria-pressed="true">body</button
+    ><button data-ghost="1" aria-pressed="false">ghost</button>
+  </span>
+  <span class="hint" id="hint">drag to orbit &middot; pinch or scroll to zoom</span>
+</div>
+
+<main><div class="wrap">
+__REPORT__
+</div></main>
+<footer><div class="wrap">
+  Panoramic &mdash; frame instrument. Geometry evaluated from the authored curve
+  network at build time; normals are the surface&rsquo;s own, not the mesh&rsquo;s.
+</div></footer>
+
+<script id="payload" type="application/json">__PAYLOAD__</script>
+<script>
+"use strict";
+(function () {
+const ALL = JSON.parse(document.getElementById("payload").textContent);
+const un = (s, T) => {
+  const bin = atob(s), buf = new ArrayBuffer(bin.length), view = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+  return new T(buf);
+};
+
+// ── the payload, and the three things it does not carry ────────────────────
+// Positions are sixteen bits over the car's own bounding box — a sixteenth of
+// a millimetre on a four-metre body. Normals are sixteen bits too, and that is
+// not caution: a clearcoat is a mirror, eight-bit normals step by 0.45 degrees
+// and a mirror shows a stepped normal as a band. Material is one byte per
+// CELL, because every vertex of a cell shares it. And the index buffer is not
+// in the file at all — the mesher lays every cell out as a regular grid and
+// triangulates it the same way each time, so the browser rebuilds it exactly.
+// The rebuild is checked against the mesher's own indices at build time.
+let P = null, positions = null, normals = null, indices = null;
+let mats = null, gaps = null, foot = null;
+function decodeCar(c) {
+  const n = c.res, vpc = (n + 1) * (n + 1), nv = c.cells * vpc;
+  const qp = un(c.pos, Uint16Array), qn = un(c.nrm, Int16Array);
+  const qg = un(c.gap, Uint8Array), mc = un(c.mat, Uint8Array);
+  positions = new Float32Array(nv * 3);
+  normals = new Float32Array(nv * 3);
+  for (let i = 0; i < nv * 3; i++) {
+    const k = i % 3;
+    positions[i] = c.qlo[k] + (qp[i] / 65535) * c.qspan[k];
+    normals[i] = qn[i] / 32767;
+  }
+  gaps = new Float32Array(nv);
+  for (let i = 0; i < nv; i++) gaps[i] = qg[i] >= 254 ? 1e4 : qg[i] / 10;
+  mats = new Float32Array(nv);
+  for (let ci = 0; ci < c.cells; ci++) mats.fill(mc[ci], ci * vpc, (ci + 1) * vpc);
+  indices = new Uint32Array(c.cells * 6 * n * n);
+  let t = 0;
+  for (let ci = 0; ci < c.cells; ci++) {
+    const vB = ci * vpc;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const a = vB + j * (n + 1) + i, d = vB + (j + 1) * (n + 1) + i + 1;
+      indices[t++] = a; indices[t++] = a + 1; indices[t++] = d;
+      indices[t++] = a; indices[t++] = d; indices[t++] = d - 1;
+    }
+  }
+  foot = un(c.footprint.data, Uint8Array);
+  P = c;
+}
+decodeCar(ALL.cars[0]);
+
+const canvas = document.getElementById("gl");
+const DPR = Math.min(window.devicePixelRatio || 1, 1.75);
+function resize() {
+  canvas.width = Math.round(canvas.clientWidth * DPR);
+  canvas.height = Math.round(canvas.clientHeight * DPR);
+}
+resize();
+const gl = canvas.getContext("webgl2", { antialias: true, alpha: false, preserveDrawingBuffer: true });
+if (!gl) throw new Error("webgl2 required");
+gl.getExtension("EXT_color_buffer_float");
+gl.getExtension("OES_element_index_uint");
+
+// ── which room the car is standing in ───────────────────────────────────────
+// ?light=dark is the original: a black room, two long softboxes, a cool
+// kicker. It is the right light to JUDGE a surface in — a highlight travelling
+// down a flank against a dark ground is what a surfacer looks at — and it is
+// the wrong light to SEE a car in. A dark green body in a black room is a
+// silhouette with two stripes on it, and that is what the first E-Type
+// photographs were.
+//
+// ?light=high is a cyclorama: white walls, white floor, light from every
+// direction and almost no shadow. Nothing about the surface is flattered and
+// nothing is hidden either — every square millimetre of the body returns
+// something to the camera, so the FORM reads instead of the highlights.
+//
+// ?light=day is outdoors: a real sky gradient, a sun, and a ground bounce.
+// The one that tells you whether the shape works, because it is the light
+// the car would actually be looked at in.
+
+let LIGHT = "high";
+let ghost = false;
+const RIGS = {
+  dark: {
+    ground: "vec3(0.030, 0.031, 0.036)", horizon: "vec3(0.115, 0.125, 0.145)",
+    sky: "vec3(0.330, 0.370, 0.430)", boxes: "2.30, 1.35, 0.85",
+    boxTint: "vec3(1.00, 0.97, 0.93)", kick: "0.55", fillTint: "vec3(0.62, 0.64, 0.68)",
+    fill: "0.38", sun: "0.0", page: "#0a0a0c",
+    floorNear: "vec3(0.085, 0.088, 0.098)", floorFar: "vec3(0.020, 0.021, 0.026)",
+    floorRefl: "0.30", floorDark: "0.10", floorAlpha: "0.0",
+  },
+  high: {
+    // A cyclorama. The softboxes stay — without them a curved panel has no
+    // highlight to travel and reads as flat paper — but they sit on a ground
+    // that is already bright, so they shape rather than reveal.
+    ground: "vec3(0.760, 0.770, 0.790)", horizon: "vec3(0.880, 0.890, 0.910)",
+    sky: "vec3(1.020, 1.030, 1.060)", boxes: "1.15, 0.70, 0.45",
+    boxTint: "vec3(1.00, 0.99, 0.97)", kick: "0.10", fillTint: "vec3(0.90, 0.91, 0.94)",
+    fill: "0.55", sun: "0.0", page: "#e9eaec",
+    floorNear: "vec3(0.780, 0.788, 0.800)", floorFar: "vec3(0.700, 0.708, 0.724)",
+    floorRefl: "0.22", floorDark: "0.42", floorAlpha: "0.82",
+  },
+  day: {
+    ground: "vec3(0.240, 0.235, 0.220)", horizon: "vec3(0.640, 0.700, 0.800)",
+    sky: "vec3(0.300, 0.480, 0.880)", boxes: "0.30, 0.18, 0.12",
+    boxTint: "vec3(1.00, 0.98, 0.94)", kick: "0.12", fillTint: "vec3(0.72, 0.68, 0.60)",
+    fill: "0.40", sun: "12.0", page: "#8fb4d8",
+    floorNear: "vec3(0.310, 0.305, 0.290)", floorFar: "vec3(0.250, 0.248, 0.240)",
+    floorRefl: "0.16", floorDark: "0.34", floorAlpha: "0.74",
+  },
+};
+const CLEARS = { dark: [0.020, 0.021, 0.026, 1], high: [0.905, 0.912, 0.925, 1], day: [0.400, 0.560, 0.870, 1] };
+
+// Every rig bakes its studio into the shader source, so switching light means
+// switching PROGRAM, not uniform. All three are compiled once at load — six
+// shaders, cheap — and the attribute slots are fixed before linking so one
+// vertex array serves all of them.
+function buildRig(RIG) {
+
+// ── the studio, shared by every shader ──────────────────────────────────────
+// A procedural environment rather than an image: two long softboxes overhead,
+// a cool kicker low and behind, a graded floor. The long boxes are the whole
+// point — a highlight that travels evenly down a flank is what a surfacer is
+// actually looking at, and a point light cannot make one.
+const ENV = `
+vec3 studio(vec3 d, float rough) {
+  float up = clamp(d.z, -1.0, 1.0);
+  vec3 ground  = ${RIG.ground};
+  vec3 horizon = ${RIG.horizon};
+  vec3 sky     = ${RIG.sky};
+  vec3 c = mix(horizon, sky, smoothstep(0.0, 0.9, up));
+  c = mix(ground, c, smoothstep(-0.10, 0.03, up));
+
+  // Two softboxes running the length of the room, tightened or spread by the
+  // roughness the caller is sampling at.
+  float k = mix(1.0, 0.16, rough);
+  float b1 = exp(-70.0 * k * pow(d.y - 0.34, 2.0)) * smoothstep(0.10, 0.72, up);
+  float b2 = exp(-95.0 * k * pow(d.y + 0.46, 2.0)) * smoothstep(0.16, 0.80, up);
+  float b3 = exp(-40.0 * k * pow(d.y - 0.02, 2.0)) * smoothstep(0.55, 0.98, up);
+  vec3 gain = vec3(${RIG.boxes});
+  c += ${RIG.boxTint} * (gain.x * b1 + gain.y * b2 + gain.z * b3);
+
+  // A cool kicker behind the car, low, to separate the tail from the ground.
+  float back = smoothstep(0.15, 1.0, -d.x) * exp(-6.0 * pow(up + 0.05, 2.0));
+  c += vec3(0.42, 0.52, 0.70) * back * ${RIG.kick};
+
+  // A bounce card at floor level on the camera side. Without it everything
+  // below the beltline is a void: all three softboxes are overhead, and a
+  // flank that turns down from them has nothing left to reflect. A real
+  // studio puts a white card on the floor for exactly this reason.
+  float fill = exp(-2.2 * pow(up + 0.28, 2.0)) * smoothstep(-0.2, 0.9, d.y);
+  c += ${RIG.fillTint} * fill * ${RIG.fill};
+
+  // The sun, outdoors only. Small, hard and hot — the thing that makes a
+  // highlight snap off a crown instead of smearing along it.
+  float sunGain = ${RIG.sun};
+  if (sunGain > 0.0) {
+    vec3 sunDir = normalize(vec3(-0.42, 0.46, 0.78));
+    float s = max(dot(normalize(d), sunDir), 0.0);
+    c += vec3(1.00, 0.95, 0.86) * sunGain * pow(s, mix(2200.0, 24.0, rough));
+  }
+  return c;
+}
+vec3 aces(vec3 x) {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+float shadowAt(sampler2D tex, vec2 uv, float spread) {
+  // A blurred read of the body's own footprint. Nine taps on a cross is
+  // enough at this map size and stays cheap in the floor pass.
+  float s = 0.0, w = 0.0;
+  for (int i = -2; i <= 2; i++) {
+    for (int j = -2; j <= 2; j++) {
+      vec2 o = vec2(float(i), float(j)) * spread;
+      float g = exp(-0.55 * float(i * i + j * j));
+      s += texture(tex, uv + o).r * g;
+      w += g;
+    }
+  }
+  return s / w;
+}`;
+
+const BODY_VS = `#version 300 es
+in vec3 aPos; in vec3 aNrm; in float aMat; in float aGap;
+uniform mat4 uMVP; uniform float uFlip;
+out vec3 vW; out vec3 vN; out float vGap; flat out int vMat;
+void main(){
+  vec3 p = vec3(aPos.x, aPos.y, aPos.z * uFlip);
+  vec3 n = vec3(aNrm.x, aNrm.y, aNrm.z * uFlip);
+  vW = p; vN = n; vMat = int(aMat + 0.5); vGap = aGap;
+  gl_Position = uMVP * vec4(p, 1.0);
+}`;
+
+const BODY_FS = `#version 300 es
+precision highp float;
+in vec3 vW; in vec3 vN; in float vGap; flat in int vMat;
+uniform vec3 uEye; uniform float uFlip; uniform float uGapW;
+uniform vec3 uBase[16];     // colour per material slot
+uniform vec4 uFinish[16];   // rough, metal, coat, opacity
+uniform float uKlass[16];   // 0 skin 1 structure 2 glazing 3 trim 4 tyre 5 wheel
+/**
+ * 0 opaque pass, 1 glazing pass, 2 ghost pass.
+ *
+ * Glazing is drawn after everything else with the depth buffer read but not
+ * written, which is the cheap version of sorting and is exact for a single
+ * layer of glass — which a windscreen is. The ghost pass draws the SKIN back
+ * over an already-drawn chassis at low alpha, so structure can be seen inside
+ * the body it lives in. Two silvers make them tell apart; the ghost is what
+ * lets you look at both at once.
+ */
+uniform float uPass;
+out vec4 outColor;
+${ENV}
+void main(){
+  // No two-sided flip. The lenses needed one because they draw a closed body
+  // uncustomised; a render culls its back faces, and flipping a normal that is
+  // legitimately facing away turns a silhouette band inside out.
+  vec3 n = normalize(vN);
+  vec3 v = normalize(uEye - vW);
+  vec3 r = reflect(-v, n);
+  float ndv = max(dot(n, v), 1e-3);
+
+  // One BRDF, six materials. Paint keeps exactly the numbers it had — coat 1,
+  // metal 1, rough 0.82 — so a car with no materials assigned renders as it
+  // always did; glass turns the roughness down and the metalness off, a
+  // folding top turns both off and drops the coat, a rim keeps the metal and
+  // loses the coat.
+  int m = clamp(vMat, 0, 15);
+  vec3 base = uBase[m];
+  float rough = uFinish[m].x, metal = uFinish[m].y, coatW = uFinish[m].z;
+  float opacity = uFinish[m].w;
+  float klass = uKlass[m];
+  bool isGlass = klass > 1.5 && klass < 2.5;
+  bool isStructure = klass > 0.5 && klass < 1.5;
+  if (uPass < 0.5 && isGlass) discard;                   // opaque pass
+  if (uPass > 0.5 && uPass < 1.5 && !isGlass) discard;   // glazing pass
+  if (uPass > 1.5 && uPass < 2.5 && isStructure) discard; // ghost: skin over it
+  if (uPass > 2.5 && !isStructure) discard;              // ghost: structure only
+
+  // The coat is a sharp mirror weighted by Fresnel; the body under it is a
+  // wide, rough sample of the same room tinted by the material, which is what
+  // gives a dark colour its glow in the shadows instead of going flat black.
+  float fres = pow(1.0 - ndv, 5.0);
+  float coat = coatW * (0.045 + 0.955 * fres);
+
+  vec3 wide = studio(r, rough) * 0.55 + studio(n, 0.95) * 0.45;
+  vec3 body = base * wide * 1.35;
+  // A metallic tilt: the surface reads lighter where it faces the room and
+  // deeper where it turns away, which is the flake and not the geometry. A
+  // dielectric does not do that, so it is weighted by metalness.
+  body *= mix(1.0, mix(0.72, 1.28, smoothstep(0.0, 1.0, ndv)), metal);
+
+  vec3 coatEnv = studio(r, 0.06);
+  vec3 col = body * (1.0 - coat * 0.55) + coatEnv * coat * 1.15;
+
+  // Grazing sheen along the very edge of the silhouette. A rough material has
+  // no sharp silhouette highlight, so it is weighted out.
+  col += vec3(0.55, 0.60, 0.72) * pow(1.0 - ndv, 12.0) * 0.55 * (1.0 - rough * 0.9);
+
+  // The shutline. vGap is millimetres to the nearest gap-marked curve, so
+  // the line is drawn at the car's own scale rather than in pixels — a 4.5 mm
+  // door gap is 4.5 mm from every camera, which is the point of measuring it
+  // in the model. Inside the gap there is no paint and no coat, only the dark
+  // of the panel edges; just outside it, the lip catches the light.
+  float hw = uGapW * 0.5;
+  float inGap = 1.0 - smoothstep(hw * 0.55, hw, vGap);
+  float lip = smoothstep(hw, hw * 1.5, vGap) * (1.0 - smoothstep(hw * 1.5, hw * 3.2, vGap));
+  col = mix(col, col * 0.055 + vec3(0.006, 0.007, 0.009), inGap);
+  col += vec3(0.20, 0.21, 0.24) * lip * (1.0 - rough * 0.7) * ndv;
+
+  // The reflected copy is dimmer, cooler, and dies with height.
+  if (uFlip < 0.0) {
+    float fade = exp(-max(0.0, -vW.z) / 900.0);
+    col *= vec3(0.30, 0.33, 0.38) * fade;
+  }
+  // Glass earns its silhouette from Fresnel, not from a flat alpha: edge-on
+  // it is a mirror and face-on you see through it, which is the one thing
+  // that stops a windscreen reading as grey plastic. The GHOST alpha wins
+  // over it, or the one surface you most want to see past stays opaque.
+  float alpha = isGlass ? clamp(opacity + (1.0 - opacity) * fres * 1.6, 0.0, 1.0) : opacity;
+  if (uPass > 1.5 && uPass < 2.5) alpha = 0.15;
+  outColor = vec4(aces(col), alpha);
+}`;
+
+const FLOOR_VS = `#version 300 es
+in vec2 aXY;
+uniform mat4 uMVP; uniform vec2 uLo; uniform vec2 uHi;
+out vec3 vW;
+void main(){
+  vec3 p = vec3(mix(uLo.x, uHi.x, aXY.x), mix(uLo.y, uHi.y, aXY.y), 0.0);
+  vW = p;
+  gl_Position = uMVP * vec4(p, 1.0);
+}`;
+
+const FLOOR_FS = `#version 300 es
+precision highp float;
+in vec3 vW;
+uniform vec3 uEye; uniform sampler2D uFoot;
+uniform vec4 uFootBox;   // x0, x1, y0, y1
+uniform vec2 uCentre;
+out vec4 outColor;
+${ENV}
+void main(){
+  vec2 uv = vec2((vW.x - uFootBox.x) / (uFootBox.y - uFootBox.x),
+                 (vW.y - uFootBox.z) / (uFootBox.w - uFootBox.z));
+  float occ = 0.0;
+  if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) {
+    occ = shadowAt(uFoot, uv, 0.016);
+  }
+
+  // The floor is a dark polished slab: a graded base, the room reflected in
+  // it at grazing angles, and the car's own contact shadow eating both.
+  float d = length(vW.xy - uCentre) / 5200.0;
+  vec3 base = mix(${RIG.floorNear}, ${RIG.floorFar}, clamp(d, 0.0, 1.0));
+  vec3 v = normalize(uEye - vW);
+  float grazing = pow(1.0 - clamp(v.z, 0.0, 1.0), 4.0);
+  base += studio(reflect(-v, vec3(0.0, 0.0, 1.0)), 0.45) * grazing * ${RIG.floorRefl};
+
+  base *= mix(1.0, ${RIG.floorDark}, occ * 0.95);
+  // How much of the reflection under it survives. A black polished slab wants
+  // all of it — that is what the room is for. A white cyclorama wants almost
+  // none: a full mirror image of a dark car on a white floor is a second car,
+  // and it competes with the one being photographed.
+  outColor = vec4(aces(base), mix(${RIG.floorAlpha}, 1.0, occ));
+}`;
+
+function compile(src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function program(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(vs, gl.VERTEX_SHADER));
+  gl.attachShader(p, compile(fs, gl.FRAGMENT_SHADER));
+  // Fixed slots: one VAO serves all three rigs.
+  gl.bindAttribLocation(p, 0, "aPos"); gl.bindAttribLocation(p, 0, "aXY");
+  gl.bindAttribLocation(p, 1, "aNrm"); gl.bindAttribLocation(p, 2, "aMat");
+  gl.bindAttribLocation(p, 3, "aGap");
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+  return { bodyProg: program(BODY_VS, BODY_FS), floorProg: program(FLOOR_VS, FLOOR_FS) };
+}
+const RIGSET = {};
+for (const k of ["high", "dark", "day"]) RIGSET[k] = buildRig(RIGS[k]);
+let bodyProg = RIGSET[LIGHT].bodyProg, floorProg = RIGSET[LIGHT].floorProg;
+
+function buffer(data, target) {
+  const b = gl.createBuffer();
+  gl.bindBuffer(target || gl.ARRAY_BUFFER, b);
+  gl.bufferData(target || gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  return b;
+}
+
+const bPos = buffer(positions), bNrm = buffer(normals), bMat = buffer(mats), bGap = buffer(gaps);
+const bIdx = buffer(indices, gl.ELEMENT_ARRAY_BUFFER);
+const bodyVao = gl.createVertexArray();
+gl.bindVertexArray(bodyVao);
+gl.bindBuffer(gl.ARRAY_BUFFER, bPos);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ARRAY_BUFFER, bNrm);
+gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ARRAY_BUFFER, bMat);
+gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ARRAY_BUFFER, bGap);
+gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 1, gl.FLOAT, false, 0, 0);
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bIdx);
+gl.bindVertexArray(null);
+
+const floorVao = gl.createVertexArray();
+gl.bindVertexArray(floorVao);
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer(new Float32Array([0,0, 1,0, 1,1, 0,0, 1,1, 0,1])));
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+gl.bindVertexArray(null);
+
+const footTex = gl.createTexture();
+function uploadFoot() {
+  gl.bindTexture(gl.TEXTURE_2D, footTex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, P.footprint.w, P.footprint.h, 0, gl.RED, gl.UNSIGNED_BYTE, foot);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+uploadFoot();
+
+// ── camera ─────────────────────────────────────────────────────────────────
+let centre = [0, 0, 0], radius = 1;
+function frameCar() {
+  const lo = P.bounds.lo, hi = P.bounds.hi;
+  centre = [(lo[0] + hi[0]) / 2, 0, hi[2] * 0.42];
+  radius = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2]) / 2;
+}
+frameCar();
+const cam = { yaw: -38 * Math.PI / 180, pitch: 9 * Math.PI / 180, dist: radius * 3.15, fov: 0.36 };
+function resetView() { cam.yaw = -38 * Math.PI / 180; cam.pitch = 9 * Math.PI / 180; cam.dist = radius * 3.15; }
+resetView();
+
+function mvp() {
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  const dir = [cp * cy, cp * sy, sp];
+  const eye = [
+    centre[0] + dir[0] * cam.dist,
+    centre[1] + dir[1] * cam.dist,
+    centre[2] + dir[2] * cam.dist,
+  ];
+  const f = [-dir[0], -dir[1], -dir[2]];
+  const upW = [0, 0, 1];
+  let sx = [f[1] * upW[2] - f[2] * upW[1], f[2] * upW[0] - f[0] * upW[2], f[0] * upW[1] - f[1] * upW[0]];
+  const sl = Math.hypot(sx[0], sx[1], sx[2]); sx = sx.map((x) => x / sl);
+  const u = [sx[1] * f[2] - sx[2] * f[1], sx[2] * f[0] - sx[0] * f[2], sx[0] * f[1] - sx[1] * f[0]];
+  const view = [
+    sx[0], u[0], -f[0], 0,
+    sx[1], u[1], -f[1], 0,
+    sx[2], u[2], -f[2], 0,
+    -(sx[0] * eye[0] + sx[1] * eye[1] + sx[2] * eye[2]),
+    -(u[0] * eye[0] + u[1] * eye[1] + u[2] * eye[2]),
+    (f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2]), 1,
+  ];
+  const aspect = canvas.width / Math.max(1, canvas.height);
+  const near = radius * 0.05, far = radius * 40;
+  const tf = 1 / Math.tan(cam.fov / 2);
+  const proj = [tf / aspect, 0, 0, 0, 0, tf, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, (2 * far * near) / (near - far), 0];
+  const out = new Float32Array(16);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    let v = 0; for (let k = 0; k < 4; k++) v += proj[k * 4 + j] * view[i * 4 + k];
+    out[i * 4 + j] = v;
+  }
+  return { mvp: out, eye };
+}
+
+const hex = (h) => [
+  parseInt(h.slice(1, 3), 16) / 255,
+  parseInt(h.slice(3, 5), 16) / 255,
+  parseInt(h.slice(5, 7), 16) / 255,
+].map((c) => Math.pow(c, 2.2));   // to linear; the shader tone-maps back
+
+
+function drawNow() {
+  resize();
+  const { mvp: M, eye } = mvp();
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  // The sky BEHIND the car, above the floor's horizon. It has to come off the
+  // same rig or a bright room ends at a black wall.
+  gl.clearColor(...CLEARS[LIGHT]);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.CULL_FACE);
+
+  // The palette, once per frame. Slot 0 is the command-line paint whether or
+  // not the car carries materials, so nothing regresses for a car that has none.
+  const slots = (P.materials && P.materials.length ? P.materials
+    : [{ name: "paint", rgb: null, rough: 0.82, metal: 1.0, coat: 1.0 }]);
+  const base = new Float32Array(16 * 3), fin = new Float32Array(16 * 4), kl = new Float32Array(16);
+  for (let i = 0; i < 16; i++) {
+    const m = slots[Math.min(i, slots.length - 1)];
+    const rgb = i === 0 || !m.rgb ? hex(P.paint) : m.rgb.map((c) => Math.pow(c, 2.2));
+    base.set(rgb, i * 3);
+    fin.set([m.rough, m.metal, m.coat, m.opacity === undefined ? 1 : m.opacity], i * 4);
+    kl[i] = m.klass === undefined ? 0 : m.klass;
+  }
+
+  // 1 — the body reflected in the floor, drawn first and below it.
+  gl.useProgram(bodyProg);
+  gl.uniformMatrix4fv(gl.getUniformLocation(bodyProg, "uMVP"), false, M);
+  gl.uniform3fv(gl.getUniformLocation(bodyProg, "uEye"), new Float32Array(eye));
+  gl.uniform3fv(gl.getUniformLocation(bodyProg, "uBase"), base);
+  gl.uniform4fv(gl.getUniformLocation(bodyProg, "uFinish"), fin);
+  gl.uniform1fv(gl.getUniformLocation(bodyProg, "uKlass"), kl);
+  gl.uniform1f(gl.getUniformLocation(bodyProg, "uGapW"), P.gapWidth || 4.5);
+  gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 0);
+  gl.uniform1f(gl.getUniformLocation(bodyProg, "uFlip"), -1);
+  gl.cullFace(gl.FRONT);
+  gl.bindVertexArray(bodyVao);
+  gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+
+  // 2 — the floor over it, alpha from the contact shadow.
+  gl.useProgram(floorProg);
+  gl.disable(gl.CULL_FACE);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.uniformMatrix4fv(gl.getUniformLocation(floorProg, "uMVP"), false, M);
+  gl.uniform3fv(gl.getUniformLocation(floorProg, "uEye"), new Float32Array(eye));
+  const span = radius * 26;
+  gl.uniform2f(gl.getUniformLocation(floorProg, "uLo"), centre[0] - span, -span);
+  gl.uniform2f(gl.getUniformLocation(floorProg, "uHi"), centre[0] + span, span);
+  gl.uniform4f(gl.getUniformLocation(floorProg, "uFootBox"),
+    P.footprint.x0, P.footprint.x1, P.footprint.y0, P.footprint.y1);
+  gl.uniform2f(gl.getUniformLocation(floorProg, "uCentre"), centre[0], 0);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, footTex);
+  gl.uniform1i(gl.getUniformLocation(floorProg, "uFoot"), 0);
+  gl.bindVertexArray(floorVao);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.disable(gl.BLEND);
+
+  // 3 — the car.
+  gl.useProgram(bodyProg);
+  gl.enable(gl.CULL_FACE);
+  gl.cullFace(gl.BACK);
+  gl.uniform1f(gl.getUniformLocation(bodyProg, "uFlip"), 1);
+  gl.bindVertexArray(bodyVao);
+
+  // GHOST: structure first and solid, then the skin back over it at low alpha
+  // with the depth buffer read and not written. Two silvers say which is
+  // which; this is what lets you see both at once.
+  if (ghost) {
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 3);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 2);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    gl.enable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  } else {
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 0);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    // 4 — the glazing last, blended, depth read but not written. One layer of
+    // glass needs no sort, and a windscreen is one layer.
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.uniform1f(gl.getUniformLocation(bodyProg, "uPass"), 1);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_INT, 0);
+    gl.enable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.disable(gl.BLEND);
+  }
+  gl.bindVertexArray(null);
+}
+
+// ── the loop ───────────────────────────────────────────────────────────────
+// One frame per change, not sixty per second: nothing on this page animates
+// unless a hand is moving it, and a still car should cost a still phone
+// nothing.
+let queued = false;
+function draw() {
+  if (queued) return;
+  queued = true;
+  requestAnimationFrame(() => { queued = false; drawNow(); });
+}
+new ResizeObserver(draw).observe(canvas);
+
+// ── the hand ───────────────────────────────────────────────────────────────
+const pointers = new Map();
+let lastPinch = 0;
+canvas.addEventListener("pointerdown", (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  canvas.classList.add("dragging");
+});
+canvas.addEventListener("pointermove", (e) => {
+  const prev = pointers.get(e.pointerId);
+  if (!prev) return;
+  const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (lastPinch > 0 && d > 0) zoom(lastPinch / d);
+    lastPinch = d;
+  } else {
+    cam.yaw -= dx * 0.007;
+    cam.pitch = Math.max(-0.32, Math.min(1.32, cam.pitch + dy * 0.005));
+  }
+  draw();
+});
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) lastPinch = 0;
+  if (pointers.size === 0) canvas.classList.remove("dragging");
+}
+canvas.addEventListener("pointerup", endPointer);
+canvas.addEventListener("pointercancel", endPointer);
+function zoom(f) { cam.dist = Math.max(radius * 1.25, Math.min(radius * 9, cam.dist * f)); }
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  zoom(Math.exp(e.deltaY * 0.0012));
+  draw();
+}, { passive: false });
+
+// ── the chrome ─────────────────────────────────────────────────────────────
+const tabs = document.getElementById("cartabs");
+const plateName = document.getElementById("plateName");
+const plateDims = document.getElementById("plateDims");
+let current = 0;
+function show(i) {
+  current = i;
+  decodeCar(ALL.cars[i]);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bPos); gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bNrm); gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bMat); gl.bufferData(gl.ARRAY_BUFFER, mats, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bGap); gl.bufferData(gl.ARRAY_BUFFER, gaps, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bIdx); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+  uploadFoot();
+  frameCar();
+  resetView();
+  plateName.textContent = P.label;
+  // \u00d7 and \u00b7 escaped rather than literal: this page is served inside a
+  // host document whose charset we do not own, and a mis-sniffed byte reads as
+  // mojibake on the one line a viewer looks at first.
+  plateDims.textContent = P.dims[0] + " \u00d7 " + P.dims[1] + " \u00d7 " + P.dims[2]
+    + " mm \u00b7 " + P.cells + " cells \u00b7 "
+    + P.triangles.toLocaleString("en-GB") + " triangles";
+  for (const b of tabs.children) b.setAttribute("aria-pressed", String(Number(b.dataset.i) === i));
+  for (const s of document.querySelectorAll("[data-car]"))
+    s.hidden = s.dataset.car !== String(i);
+  draw();
+}
+ALL.cars.forEach((c, i) => {
+  const b = document.createElement("button");
+  b.textContent = c.label;
+  b.dataset.i = String(i);
+  b.setAttribute("aria-pressed", String(i === 0));
+  b.addEventListener("click", () => show(i));
+  tabs.appendChild(b);
+});
+document.getElementById("lightseg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-light]");
+  if (!b) return;
+  LIGHT = b.dataset.light;
+  bodyProg = RIGSET[LIGHT].bodyProg;
+  floorProg = RIGSET[LIGHT].floorProg;
+  for (const s of b.parentElement.children) s.setAttribute("aria-pressed", String(s === b));
+  draw();
+});
+document.getElementById("ghostseg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-ghost]");
+  if (!b) return;
+  ghost = b.dataset.ghost === "1";
+  for (const s of b.parentElement.children) s.setAttribute("aria-pressed", String(s === b));
+  draw();
+});
+show(0);
+})();
+</script>

@@ -1,0 +1,37 @@
+node_modules/
+dist/
+.vite/
+*.log
+*.stl
+
+# The displacement map is one SVG path per triangle — four megabytes, and it
+# regenerates from `npx tsx scripts/displacement-map.ts`. The PNG beside it is
+# the artefact; the SVG is the intermediate.
+shots/displacement-map.svg
+shots/break-map.svg
+shots/lenses.svg
+
+# The bench is a single 1.3 MB file with the whole body base64'd inside it, and
+# the payload it is built from is the same megabyte again. Both regenerate from
+# `npx tsx scripts/export-viewer.ts`; the template beside it is the source.
+instrument/apps/viewer-payload.json
+instrument/apps/bench/bench.html
+
+# Render pages inline the whole tessellation (3-4 MB each) and regenerate from
+# `npx tsx scripts/render-car.ts <car> <out>`. The template beside them is the
+# source; the PNGs in shots/ are the artefacts.
+instrument/apps/render/*.html
+!instrument/apps/render/template.html
+instrument/apps/render/*.png
+
+# The app is the same trade one size down: 8.5 MB with all four cars inlined,
+# and it regenerates from `npx tsx scripts/build-app.ts`. The template and the
+# report beside it are the source.
+instrument/apps/app/*.html
+!instrument/apps/app/template.html
+!instrument/apps/app/report.html
+
+# The maker is a vite build folded into one file; both regenerate from
+# `npx vite build --config apps/maker/vite.config.ts && npx tsx scripts/build-maker.ts`.
+instrument/apps/maker/dist/
+instrument/apps/maker/maker.html

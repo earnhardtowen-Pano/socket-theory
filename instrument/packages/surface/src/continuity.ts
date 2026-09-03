@@ -1,0 +1,421 @@
+/**
+ * Cross-boundary continuity probe — how smooth the quilt actually is, as a
+ * number rather than as an impression.
+ *
+ * WHY THIS EXISTS. The zebra lens was used to claim the P1's body was "G1 and
+ * not G2". It could not have measured that: it runs on the crease-split
+ * render normals, so at the crease angle every deliberate smoothing-group
+ * split breaks a stripe by construction, and a real discontinuity and an
+ * intended one look identical. This asks the surfaces directly instead.
+ *
+ * WHAT IT MEASURES. Two patches sharing a curve are G0 if they meet on it
+ * (which this quilt guarantees by construction — a patch edge short-circuits
+ * to the shared curve bit for bit) and G1 if they share a TANGENT PLANE along
+ * it. So the test is the angle between the two patches' outward unit normals
+ * at the same point on the shared curve. Zero means the tangent planes agree
+ * and the join is G1; anything else is the G1 defect, in degrees.
+ *
+ * Comparing cross-boundary derivatives directly would be the obvious thing
+ * and the wrong one: two patches can span the same tangent plane with
+ * cross-derivatives of different length and different tangential component,
+ * and that join is perfectly G1. The normal is what is invariant.
+ *
+ * WHAT IT DELIBERATELY IGNORES. Creased curves. A crease is an authored
+ * tangent break, and reporting one as a defect would be the same class of
+ * mistake the zebra made. The count of excluded joins is reported so the
+ * exclusion cannot hide anything.
+ *
+ * Deterministic: ID-sorted traversal, fixed sampling, no wall clock.
+ */
+
+import type { Id, Pt3, QuiltSpec } from "@car/schema";
+import { add3, cross3, dot3, len3, natan2, norm3, npow, scale3, sub3 } from "@car/num";
+import { cellBoundary, type CellBoundary, type CrossPrescription } from "./boundary.js";
+import { boundaryCoonsNormal, boundaryCoonsPartials } from "./coons.js";
+import { edgeDefectProfile, medianOf, quiltAdjacency, sideParamOf, uvOnSide } from "./adjacency.js";
+import { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
+
+export interface ContinuityStation {
+  readonly curveId: Id;
+  readonly cellA: Id;
+  readonly cellB: Id;
+  /** Global curve parameter of the sample. */
+  readonly t: number;
+  readonly at: Pt3;
+  /** Angle between the two patches' outward normals, degrees. */
+  readonly angleDeg: number;
+}
+
+export interface ContinuityReport {
+  /** Shared-curve adjacencies actually compared. */
+  readonly joins: number;
+  /** Adjacencies skipped because the curve is creased — an authored break. */
+  readonly creased: number;
+  /**
+   * Adjacencies skipped because they turn sharper than the break angle. These
+   * are breaks the designer did not mark; the tool treats them as features
+   * for the same reason the renderer creases them, and counts them out loud
+   * because a body full of unmarked edges would otherwise read as a body with
+   * nothing wrong with it.
+   */
+  readonly sharp: number;
+  /** The angle used to separate a feature from a defect. */
+  readonly breakAngleDeg: number;
+  /** Adjacencies skipped because the two trims do not overlap. */
+  readonly disjoint: number;
+  readonly samples: number;
+  readonly worstDeg: number;
+  readonly medianDeg: number;
+  readonly p90Deg: number;
+  readonly worst: ContinuityStation | null;
+  /** Joins whose worst sample is under `g1ToleranceDeg`. */
+  readonly g1Joins: number;
+  readonly note: string;
+}
+
+export interface ContinuityOptions {
+  /** Interior samples per join. Endpoints are corners and are left alone. */
+  readonly samplesPerJoin?: number;
+  /** A join this close to flat counts as G1 for the summary. */
+  readonly g1ToleranceDeg?: number;
+  /** Joins turning sharper than this are features, not defects. Must match
+   *  whatever the field under test was built with. */
+  readonly breakAngleDeg?: number;
+  /**
+   * Measure the CORRECTED surface. The probe must be handed the same field
+   * the renderer and the mesher were handed, or it is reporting on a body
+   * nobody built — which is the exact failure this file exists to prevent.
+   */
+  readonly cross?: CrossPrescription;
+}
+
+const DEFAULT_SAMPLES = 9;
+
+/**
+ * Station fractions along a join: evenly spaced, PLUS a logarithmic crowd into
+ * both corners.
+ *
+ * WHY THE CROWD, AND WHY IT IS NOT OPTIONAL. The correction fades out inside a
+ * band of the edge next to each corner — that is where the vertex enclosure
+ * problem is absorbed, and it is therefore the only place a G1 defect can
+ * survive. Nine evenly spaced stations start at a tenth of the edge and never
+ * look inside a fade band narrower than that, so the probe was structurally
+ * incapable of seeing the thing it exists to find. On the P1 it read 2.3e-14°
+ * while the real worst was 8°, one twentieth of an edge from a corner.
+ *
+ * A probe that cannot see a defect is worse than no probe, because it gets
+ * quoted. So the stations run down to a millionth of an edge at both ends, and
+ * the number that comes out is the worst anywhere on the join.
+ */
+export function joinStations(n: number): { uniform: number[]; all: number[] } {
+  const uniform: number[] = [];
+  for (let m = 1; m <= n; m++) uniform.push(m / (n + 1));
+  const out = new Set<number>(uniform);
+  // Decades into each corner. Eight reaches a hundred-millionth of an edge —
+  // ten microns on a metre — which is two decades inside the narrowest band
+  // the field will build, so the peak of a fade is measured and not assumed.
+  for (let k = 1; k <= 8; k++) {
+    for (const mult of [1, 3]) {
+      const f = mult * npow(10, -k);
+      if (f > 0 && f < 0.5) { out.add(f); out.add(1 - f); }
+    }
+  }
+  return { uniform, all: [...out].sort((a, b) => a - b) };
+}
+
+/**
+ * WHICH STATIONS FEED WHICH NUMBER, and why they are not the same set.
+ *
+ * The corner crowd is two dozen stations packed into the last thousandth of an
+ * edge. Feeding it to a median makes the median a statement about corners
+ * rather than about the join — on a two-cell fixture it moved from 1e-15° to
+ * 25°, which describes the sampling and not the surface. So the distribution
+ * (median, p90) is read from the EVENLY SPACED stations, which are
+ * representative of arc length, and the extremes (worst, and whether a join
+ * counts as G1) are read from ALL of them, which is where a defect can hide.
+ *
+ * Neither half is optional. Uniform stations alone cannot see a fade band
+ * narrower than a tenth of an edge; corner stations alone describe a corner.
+ */
+const DEFAULT_G1_TOL_DEG = 1;
+
+/**
+ * Angle between two unit vectors, in degrees.
+ *
+ * atan2(|a×b|, a·b) rather than acos(a·b). The two agree mathematically and
+ * do not agree numerically anywhere near zero, which is precisely where this
+ * probe now spends its time: for a perfect join the dot product lands one ulp
+ * below 1 and acos turns that into sqrt(2ε) ≈ 1.2 × 10⁻⁶ degrees of pure
+ * arithmetic. That floor was invisible while the defect was ten degrees and
+ * would have been reported as the surface's residual once it wasn't. atan2
+ * has no such floor: it reads an exact join as an exact zero.
+ */
+const angleBetween = (a: Pt3, b: Pt3): number =>
+  (natan2(len3(cross3(a, b)), dot3(a, b)) * 180) / Math.PI;
+
+const isZero = (v: Pt3): boolean => v[0] === 0 && v[1] === 0 && v[2] === 0;
+
+/**
+ * Walk every shared curve and report how far the two patches on it are from
+ * sharing a tangent plane.
+ */
+export function continuityProbe(
+  quilt: QuiltSpec,
+  opts: ContinuityOptions = {},
+): ContinuityReport {
+  const n = opts.samplesPerJoin ?? DEFAULT_SAMPLES;
+  const { uniform, all: stations } = joinStations(n);
+  const spread = new Set(uniform);
+  const tol = opts.g1ToleranceDeg ?? DEFAULT_G1_TOL_DEG;
+  const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
+
+  // ONE adjacency walk, shared with the field that removes what this measures.
+  const adj = quiltAdjacency(quilt);
+
+  // Boundaries carrying the field under test. The adjacency's own boundaries
+  // are deliberately uncorrected — that is what the field is derived from —
+  // so when a field is supplied the probe rebuilds against it.
+  const cellsById = new Map<Id, (typeof quilt.cells)[number]>();
+  for (const c of quilt.cells) cellsById.set(c.id, c);
+  const measured = new Map<Id, CellBoundary>();
+  const boundaryOf = (id: Id): CellBoundary => {
+    if (!opts.cross) return adj.boundaries.get(id)!;
+    const hit = measured.get(id);
+    if (hit) return hit;
+    const built = cellBoundary(cellsById.get(id)!, quilt, opts.cross);
+    measured.set(id, built);
+    return built;
+  };
+
+  const angles: number[] = [];
+  let worst: ContinuityStation | null = null;
+  let joins = 0;
+  let creased = 0;
+  let sharp = 0;
+  let g1Joins = 0;
+
+  for (const edge of adj.edges) {
+    // A crease is an authored tangent break, not a defect. Reporting one
+    // would be the same class of mistake the zebra made.
+    if (edge.creased) { creased++; continue; }
+
+    // Classified on the UNCORRECTED geometry, exactly as the field classifies
+    // it. Reading the corrected surface here would be circular: a correction
+    // that half-smoothed a right angle would reclassify it as smooth and then
+    // be graded against its own handiwork.
+    if (medianOf(edgeDefectProfile(adj, edge, n)) > breakAngle) { sharp++; continue; }
+
+    const bA = boundaryOf(edge.a.cellId);
+    const bB = boundaryOf(edge.b.cellId);
+    const sA = bA.sides[edge.a.k]!;
+    const sB = bB.sides[edge.b.k]!;
+
+    joins++;
+    let worstHere = 0;
+    for (const f of stations) {
+      const t = edge.lo + (edge.hi - edge.lo) * f;               // interior only
+      const [ua, va] = uvOnSide(edge.a.k, sideParamOf(sA, t));
+      const [ub, vb] = uvOnSide(edge.b.k, sideParamOf(sB, t));
+      const nA = boundaryCoonsNormal(bA, ua, va);
+      const nB = boundaryCoonsNormal(bB, ub, vb);
+      // A degenerate patch corner has no normal; it has nothing to say about
+      // continuity either, so it is skipped rather than counted as agreement
+      // — the same rule the curvature lens landed on.
+      if (isZero(nA) || isZero(nB)) continue;
+      const deg = angleBetween(nA, nB);
+      if (spread.has(f)) angles.push(deg);
+      if (deg > worstHere) worstHere = deg;
+      if (worst === null || deg > worst.angleDeg) {
+        worst = {
+          curveId: edge.curveId, cellA: edge.a.cellId, cellB: edge.b.cellId, t,
+          at: sA.atCurveParam(t), angleDeg: deg,
+        };
+      }
+    }
+    if (worstHere <= tol) g1Joins++;
+  }
+
+  const disjoint = adj.disjointPairs;
+
+  const sorted = [...angles].sort((a, b) => a - b);
+  const at = (f: number): number =>
+    sorted.length === 0 ? 0 : sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))]!;
+
+  return {
+    joins, creased, sharp, breakAngleDeg: breakAngle, disjoint,
+    samples: angles.length,
+    // From EVERY station, not just the evenly spaced ones: the worst is the
+    // number the corner crowd exists to find, and `angles` deliberately holds
+    // only the spread. `worst` below is the same reading with its location.
+    worstDeg: worst === null ? 0 : worst.angleDeg,
+    medianDeg: at(0.5),
+    p90Deg: at(0.9),
+    worst,
+    g1Joins,
+    note:
+      "Angle between the two patches' outward normals on the shared curve. " +
+      "0° means they share a tangent plane and the join is G1. Creased curves " +
+      "are excluded — a crease is an authored break, not a defect — as are " +
+      `joins turning sharper than ${breakAngle}°, which are features nobody marked.`,
+  };
+}
+
+/**
+ * The corner obstruction — the part of the G1 defect no surfacing pass can
+ * remove, because the CURVE NETWORK pins it.
+ *
+ * A patch that interpolates its four boundary curves has no freedom at a
+ * corner: S_u there IS one curve's tangent and S_v IS the other's, so its
+ * tangent plane at the vertex is span of the two curves meeting there and
+ * nothing can be done about it. Two patches across a shared curve therefore
+ * agree at the vertex only if the curves turning that corner on their two
+ * sides are coplanar with the shared curve — a condition on the network, not
+ * on the surfaces.
+ *
+ * This is the vertex enclosure problem stated as a measurement. Where this
+ * comes back at zero, the tangent field can run to the corner and the join is
+ * G1 end to end. Where it does not, the corner window has to fade the
+ * correction out over some band, and this number is what is left inside that
+ * band. Reporting it separates two very different faults that look identical
+ * on a zebra: a surfacing pass that did not do its job, and a curve network
+ * that will not let it.
+ *
+ * Measured on the UNCORRECTED patches, which is not an approximation: every
+ * correction vanishes at the corners by construction, so the corner values
+ * are the same either way.
+ */
+export interface CornerObstruction {
+  readonly curveId: Id;
+  readonly cellA: Id;
+  readonly cellB: Id;
+  /** Which end of the shared stretch: 0 = lo, 1 = hi. */
+  readonly end: 0 | 1;
+  readonly at: Pt3;
+  readonly angleDeg: number;
+  /**
+   * How far each side's adjacent curve would have to swing AT THE VERTEX for
+   * the two tangent planes to coincide, in degrees.
+   *
+   * This is the price of the fix, and it is deliberately not the same number
+   * as `angleDeg`. The obstruction is an angle between two PLANES; the
+   * rotation is what it takes to close it by moving the curves that span them,
+   * and a curve running close to the shared one needs a large swing to move
+   * its plane a little. Reported so the cost of fairing a corner can be
+   * weighed against the defect it removes, rather than assumed to be small.
+   */
+  readonly rotateADeg: number;
+  readonly rotateBDeg: number;
+}
+
+export interface NetworkReport {
+  readonly corners: number;
+  readonly medianDeg: number;
+  readonly p90Deg: number;
+  readonly worstDeg: number;
+  /** Corners already coplanar to within `toleranceDeg`. */
+  readonly cleanCorners: number;
+  readonly toleranceDeg: number;
+  readonly worst: CornerObstruction | null;
+  /** Every corner that is not clean, worst first. The work list. */
+  readonly open: readonly CornerObstruction[];
+  /** Largest single curve swing any of them would need, degrees. */
+  readonly worstRotationDeg: number;
+  /** Median swing over the open corners, degrees. */
+  readonly medianRotationDeg: number;
+  readonly note: string;
+}
+
+export interface NetworkOptions {
+  readonly breakAngleDeg?: number;
+  /** How close to the corner to read. Not 0: a corner can be degenerate. */
+  readonly epsilon?: number;
+  readonly toleranceDeg?: number;
+  readonly samplesPerJoin?: number;
+}
+
+export function networkObstruction(
+  quilt: QuiltSpec,
+  opts: NetworkOptions = {},
+): NetworkReport {
+  const breakAngle = opts.breakAngleDeg ?? DEFAULT_CREASE_ANGLE;
+  const eps = opts.epsilon ?? 1e-5;
+  const tol = opts.toleranceDeg ?? DEFAULT_G1_TOL_DEG;
+  const n = opts.samplesPerJoin ?? DEFAULT_SAMPLES;
+  const adj = quiltAdjacency(quilt);
+
+  const angles: number[] = [];
+  const open: CornerObstruction[] = [];
+  let worst: CornerObstruction | null = null;
+  let clean = 0;
+
+  for (const edge of adj.edges) {
+    if (edge.creased) continue;
+    if (medianOf(edgeDefectProfile(adj, edge, n)) > breakAngle) continue;
+    const bA = adj.boundaries.get(edge.a.cellId)!;
+    const bB = adj.boundaries.get(edge.b.cellId)!;
+    const sA = bA.sides[edge.a.k]!;
+    const sB = bB.sides[edge.b.k]!;
+    for (const end of [0, 1] as const) {
+      const f = end === 0 ? eps : 1 - eps;
+      const t = edge.lo + (edge.hi - edge.lo) * f;
+      const [ua, va] = uvOnSide(edge.a.k, sideParamOf(sA, t));
+      const [ub, vb] = uvOnSide(edge.b.k, sideParamOf(sB, t));
+      const nA = boundaryCoonsNormal(bA, ua, va);
+      const nB = boundaryCoonsNormal(bB, ub, vb);
+      if (isZero(nA) || isZero(nB)) continue;
+      const deg = angleBetween(nA, nB);
+      angles.push(deg);
+
+      // What it would cost to close it. The two tangent planes have normals
+      // nA and nB; the common plane is the one whose normal bisects them, and
+      // each side's adjacent curve has to swing into it. That swing is the
+      // component of its tangent along the common normal, taken out.
+      const nStar = norm3(dot3(nA, nB) >= 0 ? add3(nA, nB) : sub3(nA, nB));
+      const swing = (b: CellBoundary, k: number, u: number, v: number): number => {
+        const { su, sv } = boundaryCoonsPartials(b, u, v);
+        const inward = k === 0 ? sv : k === 1 ? scale3(su, -1)
+          : k === 2 ? scale3(sv, -1) : su;
+        if (len3(inward) === 0 || isZero(nStar)) return 0;
+        const flat = sub3(inward, scale3(nStar, dot3(inward, nStar)));
+        if (len3(flat) === 0) return 90;
+        return angleBetween(norm3(inward), norm3(flat));
+      };
+      const station: CornerObstruction = {
+        curveId: edge.curveId, cellA: edge.a.cellId, cellB: edge.b.cellId,
+        end, at: sA.atCurveParam(t), angleDeg: deg,
+        rotateADeg: swing(bA, edge.a.k, ua, va),
+        rotateBDeg: swing(bB, edge.b.k, ub, vb),
+      };
+      if (deg <= tol) clean++; else open.push(station);
+      if (worst === null || deg > worst.angleDeg) worst = station;
+    }
+  }
+
+  const sorted = [...angles].sort((a, b) => a - b);
+  const rotations = open
+    .flatMap((c) => [c.rotateADeg, c.rotateBDeg])
+    .sort((a, b) => a - b);
+  const at = (f: number): number =>
+    sorted.length === 0 ? 0 : sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))]!;
+
+  return {
+    corners: angles.length,
+    medianDeg: at(0.5),
+    p90Deg: at(0.9),
+    // From EVERY station, not just the evenly spaced ones: the worst is the
+    // number the corner crowd exists to find, and `angles` deliberately holds
+    // only the spread. `worst` below is the same reading with its location.
+    worstDeg: worst === null ? 0 : worst.angleDeg,
+    cleanCorners: clean,
+    toleranceDeg: tol,
+    worst,
+    open: [...open].sort((a, b) => b.angleDeg - a.angleDeg),
+    worstRotationDeg: rotations.length === 0 ? 0 : rotations[rotations.length - 1]!,
+    medianRotationDeg: rotations.length === 0 ? 0 : rotations[Math.floor(rotations.length / 2)]!,
+    note:
+      "Tangent-plane disagreement AT the shared curve's endpoints, where a " +
+      "Coons patch has no freedom: its tangent plane there is spanned by the " +
+      "two curves meeting at the vertex. This is a curve-network property and " +
+      "no surfacing pass can remove it.",
+  };
+}

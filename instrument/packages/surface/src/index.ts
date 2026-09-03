@@ -1,0 +1,179 @@
+/**
+ * @car/surface — Coons evaluation over the frame, boundary extraction, and
+ * the render feed. One evaluator serves crude and smooth: a straight-edged
+ * frame's patch IS the flat panel. Position-watertight by construction:
+ * patch edges short-circuit to the shared curve itself, bit for bit.
+ *
+ * Tangent-plane continuity is a separate, opt-in layer on top of that:
+ * `tangentField` derives a cross-boundary direction owned by each shared
+ * CURVE, and the evaluator adds a term that carries it without moving a
+ * single boundary point. `continuityProbe` measures the result. Both run off
+ * ONE adjacency walk (`quiltAdjacency`) so the thing being measured and the
+ * thing being built cannot drift apart.
+ */
+
+export {
+  cellBoundary,
+  chainsOf,
+  type BoundarySide,
+  type CellBoundary,
+  type CellLike,
+  type ChainLookup,
+  type ChainSource,
+  type CrossDefects,
+  type CrossPrescription,
+  type FieldPiece,
+  type SideField,
+  type SideRange,
+} from "./boundary.js";
+export { DEFAULT_CREASE_ANGLE } from "./crease-angle.js";
+export {
+  bySize,
+  panelsOf,
+  type Panel,
+  type PanelReport,
+  type Seam,
+  type SeamKind,
+} from "./panels.js";
+export {
+  fieldDisplacement,
+  type CellDisplacement,
+  type DisplacementOptions,
+  type DisplacementReport,
+} from "./displacement.js";
+export {
+  degeneratePatches,
+  type CollapsedSide,
+  type DegenerateReport,
+} from "./degenerate.js";
+export {
+  DEFAULT_FAIR_TOLERANCE_DEG,
+  DEFAULT_MAX_SWING_DEG,
+  cornerFairing,
+  type FairingOptions,
+  type FairingPlan,
+  type TangentMove,
+} from "./fair.js";
+export {
+  curveComb,
+  curveQuality,
+  STRAIGHT_TURN,
+  type CombSample,
+  type CurveQuality,
+} from "./curve-quality.js";
+export {
+  edgeDefectProfile,
+  medianOf,
+  quiltAdjacency,
+  sideParamOf,
+  uvOnSide,
+  type EdgeOwner,
+  type QuiltAdjacency,
+  type SharedEdge,
+} from "./adjacency.js";
+export {
+  cornerWindow,
+  cornerWindowDeriv,
+  fieldFromAdjacency,
+  fieldMagnitude,
+  naturalCross,
+  tangentField,
+  type CrossField,
+  type CrossFieldOptions,
+  type CrossFieldStats,
+  type EdgeFitReport,
+} from "./tangent-field.js";
+export {
+  evalCrossDeriv,
+  fitEdgeField,
+  fitSecondMagnitude,
+  planeResidual,
+  sharedNormal,
+  type EdgeFieldFit,
+  type EdgeFitOptions,
+  type EdgeSample,
+  type OwnerCoeffs,
+  type SecondStation,
+} from "./cross-poly.js";
+export {
+  boundaryCoonsMixedNatural,
+  boundaryCoonsNormal,
+  boundaryCoonsPartials,
+  boundaryCoonsPartialsNatural,
+  boundaryCoonsPoint,
+  coonsBlend,
+  coonsNormal,
+  coonsPartials,
+  boundaryCoonsEdgeJet,
+  coonsPhi,
+  splitShare,
+  type ShareSplit,
+  coonsPhiU,
+  coonsPhiV,
+  coonsPoint,
+  inwardOf,
+  normalCurvatureAt,
+  qBasis,
+  rBasis,
+  gBasis,
+  hBasis,
+  phiAt,
+  NO_PHI,
+  type PhiSample,
+} from "./coons.js";
+export {
+  buildRenderFeed,
+  tessellateQuilt,
+  DEFAULT_RESOLUTION,
+  type RenderFeedOptions,
+} from "./feed.js";
+export {
+  curvatureJoinProbe,
+  type CurvatureJoinOptions,
+  type CurvatureJoinReport,
+  type CurvatureStation,
+} from "./curvature-join.js";
+export {
+  curvatureRateProbe,
+  type CurvatureRateOptions,
+  type CurvatureRateReport,
+  type RateStation,
+} from "./curvature-rate.js";
+export {
+  continuityProbe,
+  joinStations,
+  networkObstruction,
+  type ContinuityOptions,
+  type ContinuityReport,
+  type ContinuityStation,
+  type CornerObstruction,
+  type NetworkOptions,
+  type NetworkReport,
+} from "./continuity.js";
+export {
+  cellBezier,
+  netAt,
+  tileAt,
+  NotPolynomial,
+  type BezierTile,
+  type CellNet,
+  type CellNetOptions,
+} from "./bezier-patch.js";
+
+export {
+  bandRadius, blendPlan, partnerBand, radiusAt, rollingBallOffset, tightRadius, wideRadius,
+  WIDE_RATIO, visibleAt,
+  tightBasis, tightBasisHi, tightPrime, tightPrimeHi, tightPrime2, tightPrime2Hi,
+  q5, Q5_CURVATURE_PEAK, MIN_BAND,
+  type SoftenSpec, type BlendPlan, type BlendStation, type BlendOptions, type EdgeBlend,
+} from "./blend.js";
+
+export {
+  blendProbe,
+  type BlendReading, type BlendReport, type BlendProbeOptions,
+} from "./blend-probe.js";
+
+export {
+  profileQuality, WOBBLE_MM,
+  type ProfileQuality, type ProfileTurn, type ProfileOptions,
+} from "./profile-quality.js";

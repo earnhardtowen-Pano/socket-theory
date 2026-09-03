@@ -1,0 +1,188 @@
+/**
+ * Finishes — what a surface IS, not just what colour it is.
+ *
+ * `assign-material` carries a name and a colour and nothing else, and that was
+ * enough while nothing looked at the answer. The moment a renderer did, it had
+ * to guess: it sniffed substrings out of the name — "does it contain 'glass'?"
+ * — and a car whose paint happened to be called "Glasgow Grey" would have been
+ * rendered as a window. A guess in the renderer is a guess in the picture.
+ *
+ * So the classes live here, once, and everything reads them from one place.
+ *
+ * WHY A CLASS AND NOT JUST A ROUGHNESS. Because the class answers questions a
+ * BRDF cannot. Which panels are structure and which are skin — so a body does
+ * not read as one streamlined blob with a chassis somewhere inside it. Which
+ * are glazing — so the greenhouse can be checked for conforming to the body
+ * rather than leaning against it. Which are tyre, so a mass ledger can find
+ * the unsprung. The finish parameters ride along because they are a property
+ * of the same decision.
+ *
+ * THE TWO SILVERS are the defaults, and they are two on purpose:
+ *
+ *   body-in-white   a skin panel nobody has painted yet — light, coated
+ *   chassis         structure — darker, matte, and unmistakably not skin
+ *
+ * A car with neither assigned renders as one grey object, which is exactly
+ * the failure this exists to stop. The unpainted skin is what a panel LOOKS
+ * like before a colour decision; the chassis silver is what steel looks like
+ * when nobody has decided anything about it because there is nothing to
+ * decide.
+ *
+ * ADDING ONE. Put it in CATALOGUE with its class. Do not invent a class: the
+ * six are the ones the tool can do something different with, and a seventh
+ * that nothing branches on is a comment pretending to be data.
+ *
+ * WHY HERE AND NOT IN @car/types, WHERE IT STARTED. Because @car/types is a
+ * LICENSED package and a roughness is not a claim about the world. It went
+ * there first and the honesty police threw thirty-three violations at it,
+ * every one of them correct: `assumed(0.82, "ratio", ...)` on a clearcoat
+ * would say nothing true and would bury the numbers in that package that
+ * genuinely ARE assumptions. Same split @car/skin's own header describes —
+ * arithmetic and vocabulary here, claims next door.
+ */
+
+/** What a surface is. Six, because the tool treats six differently. */
+export type SurfaceClass =
+  | "skin"        // the outer panels — the thing being designed
+  | "structure"   // rails, crossmembers, pillars, the tunnel: what carries load
+  | "glazing"     // screen, backlight, side glass — TERTIARY, and must conform
+  | "trim"        // interior, undertray, seals: present, not styled
+  | "tyre"
+  | "wheel";
+
+export interface Finish {
+  readonly name: string;
+  /** sRGB hex, with the hash. */
+  readonly color: string;
+  readonly surfaceClass: SurfaceClass;
+  /** 0 mirror, 1 matte. */
+  readonly rough: number;
+  /** 0 dielectric, 1 metal. */
+  readonly metal: number;
+  /** How much clearcoat sits over it. Paint 1, bare structure 0. */
+  readonly coat: number;
+  /** 1 opaque. Only glazing is below it. */
+  readonly opacity: number;
+}
+
+const f = (
+  name: string, color: string, surfaceClass: SurfaceClass,
+  rough: number, metal: number, coat: number, opacity = 1,
+): Finish => ({ name, color, surfaceClass, rough, metal, coat, opacity });
+
+/**
+ * The standard finishes, by name. A car may assign any name it likes; one that
+ * is not here falls back to unpainted skin, which is visible as a decision
+ * nobody made rather than as a silent default paint.
+ */
+export const CATALOGUE: Readonly<Record<string, Finish>> = {
+  // ── the two silvers ──────────────────────────────────────────────────────
+  "body-in-white": f("body-in-white", "#c9ccd0", "skin", 0.55, 0.55, 0.35),
+  "chassis": f("chassis", "#7e838a", "structure", 0.78, 0.85, 0.0),
+
+  // ── skin ─────────────────────────────────────────────────────────────────
+  "Classic Red": f("Classic Red", "#a8202b", "skin", 0.82, 1.0, 1.0),
+  "Brilliant Black": f("Brilliant Black", "#101114", "skin", 0.80, 1.0, 1.0),
+  "Crystal White": f("Crystal White", "#e8e9ea", "skin", 0.84, 0.55, 1.0),
+  // Cellulose over hand-finished steel, not a modern basecoat: less flake and
+  // a softer, deeper clearcoat than a car painted forty years later.
+  "British Racing Green": f("British Racing Green", "#12352a", "skin", 0.86, 0.35, 1.0),
+  "body panel": f("body panel", "#8d1b24", "skin", 0.82, 1.0, 1.0),
+  // The colour the first one was shown in. Solid rather than metallic: a
+  // works orange has no flake in it, so it reads flatter and more saturated
+  // than any of the four above and takes a highlight in a harder line.
+  "Papaya Orange": f("Papaya Orange", "#d2571b", "skin", 0.88, 0.0, 1.0),
+  // The E90 M3's paint: Interlagos Blue metallic, a slate-leaning blue that
+  // reads steel under sun. Hex approximated from period colour references —
+  // the colour-chip sites sat behind a blocked egress, so RECALLED medium.
+  "Interlagos Blue": f("Interlagos Blue", "#2f547e", "skin", 0.80, 1.0, 1.0),
+  // The P2's paint: a warm dark bronze with fine flake. Chosen for the
+  // studio rather than the showroom — a mid-dark metallic is the colour a
+  // highlight travels on best, and the whole point of the second Panoramic
+  // is to be looked at down its flank.
+  "Panoramic Bronze": f("Panoramic Bronze", "#6b4d34", "skin", 0.78, 1.0, 1.0),
+
+  // ── structure ────────────────────────────────────────────────────────────
+  "screen frame": f("screen frame", "#8e9196", "structure", 0.42, 0.9, 0.25),
+  "roll hoop": f("roll hoop", "#6f747b", "structure", 0.55, 0.9, 0.0),
+  // THE THIRD SILVER, and it is not a silver. Two cars in, "chassis" was a
+  // grey metal because both their structures were steel. A carbon tub is
+  // neither grey nor metal: it is a black dielectric with a weave under a
+  // clearcoat, and painting it the steel colour would have said the F1's
+  // monocoque is a spaceframe. Same class, different material.
+  "carbon": f("carbon", "#2a2b2f", "structure", 0.34, 0.0, 0.55),
+
+  // ── glazing: tertiary, and the only class that is not opaque ─────────────
+  "windscreen": f("windscreen", "#2a3338", "glazing", 0.03, 0.05, 0.5, 0.24),
+  "backlight": f("backlight", "#232b30", "glazing", 0.03, 0.05, 0.5, 0.22),
+  "side glass": f("side glass", "#252d33", "glazing", 0.03, 0.05, 0.5, 0.24),
+
+  // ── trim ─────────────────────────────────────────────────────────────────
+  "cockpit trim": f("cockpit trim", "#232428", "trim", 0.92, 0.0, 0.0),
+  // A grille: black mesh in a black surround, matte, with just enough metal
+  // in it to catch a rim light. One cell of the nose cap wears it.
+  "grille": f("grille", "#121316", "trim", 0.86, 0.25, 0.05),
+  // A diffuser: the lowest band of the tail cap, matte black composite.
+  "diffuser": f("diffuser", "#1a1b1e", "trim", 0.88, 0.15, 0.1),
+  // A splitter: the lowest band of the nose cap, the same composite.
+  "splitter": f("splitter", "#1a1b1e", "trim", 0.88, 0.15, 0.1),
+  // A headlamp: a smoked lens over a reflector — glossy, dark, opaque. The
+  // two sail cells of the nose ring wear it, which is where a lamp sits on
+  // every car with a bonnet: the upper corners of the face, wrapping onto
+  // the wing.
+  "headlamp": f("headlamp", "#1b1f24", "trim", 0.06, 0.0, 0.95),
+  // A tail lamp band: deep red under a glossy lens. Trim rather than
+  // glazing because it is opaque — a lens over a reflector, not a window —
+  // and a see-through band across the tail would show the boot floor.
+  "tail lamp": f("tail lamp", "#8a1a1e", "trim", 0.06, 0.0, 0.95),
+  "undertray": f("undertray", "#17181a", "trim", 0.97, 0.0, 0.0),
+  "folding top": f("folding top", "#26262a", "trim", 0.95, 0.0, 0.0),
+
+  // ── the corners ──────────────────────────────────────────────────────────
+  "185/60R14": f("185/60R14", "#131315", "tyre", 0.88, 0.0, 0.12),
+  // A crossply on a 15 in wire wheel. Rougher and greyer than a modern
+  // radial: the rubber of 1961 had more carbon showing and less silica gloss.
+  "6.40-15": f("6.40-15", "#17171a", "tyre", 0.91, 0.0, 0.08),
+  // A modern low-profile radial on a big rim: more silica, less carbon
+  // showing, and a harder gloss than either of the two above.
+  "315/45ZR17": f("315/45ZR17", "#141419", "tyre", 0.85, 0.0, 0.16),
+  // The E90 M3's staggered pair — two names because the two axles wear
+  // different tyres, the lesson the F1's 315s taught one row up.
+  "245/40R18": f("245/40R18", "#141419", "tyre", 0.86, 0.0, 0.14),
+  "265/40R18": f("265/40R18", "#141419", "tyre", 0.86, 0.0, 0.14),
+  "alloy": f("alloy", "#b9bdc2", "wheel", 0.30, 1.0, 0.0),
+  // The P2's staggered 21s — and the first pair whose SIDEWALL is a tyre in
+  // the render, because the rim is its own disc standing proud of it.
+  "255/35R21": f("255/35R21", "#131318", "tyre", 0.84, 0.0, 0.16),
+  "295/35R21": f("295/35R21", "#131318", "tyre", 0.84, 0.0, 0.16),
+  // Forged and machined, darker in the recesses than a cast alloy's paint.
+  "forged alloy": f("forged alloy", "#9da1a6", "wheel", 0.26, 1.0, 0.0),
+  // Cast magnesium, lacquered rather than polished — darker and warmer than
+  // an aluminium alloy, which is what magnesium looks like under clear.
+  "magnesium": f("magnesium", "#9a9489", "wheel", 0.38, 1.0, 0.15),
+  // Chromed spokes on a painted hub. Modelled as one disc, so this is the
+  // average of a wheel that is mostly air — brighter than an alloy and
+  // rougher than chrome, which is what a hundred spokes read as at distance.
+  "wire wheel": f("wire wheel", "#c6c9cd", "wheel", 0.22, 1.0, 0.0),
+};
+
+/** The fallback: an unpainted skin panel. */
+export const UNPAINTED: Finish = CATALOGUE["body-in-white"]!;
+
+/**
+ * The finish a material name wears.
+ *
+ * An unknown name is unpainted skin AND KEEPS ITS OWN COLOUR — a car that
+ * names its paint something this file has never heard of should still come out
+ * that colour; only the class and the surface parameters fall back.
+ */
+export function finishOf(name: string, color?: string): Finish {
+  const known = CATALOGUE[name];
+  if (known) return known;
+  return color === undefined ? UNPAINTED : { ...UNPAINTED, name, color };
+}
+
+/** Everything in one class, for a lens or a view that wants only structure. */
+export function finishesOfClass(surfaceClass: SurfaceClass): Finish[] {
+  return Object.values(CATALOGUE).filter((k) => k.surfaceClass === surfaceClass);
+}
