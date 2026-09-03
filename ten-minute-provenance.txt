@@ -9,9 +9,9 @@ looking like a model and starts looking like a fact.
 THE RUN
 ------------------------------------------------------------
   verbs in history               12
-  triangles printed              3136
+  triangles printed              2800
   closed after grooves           true
-  STL bytes                      156884
+  STL bytes                      140084
   replay round-trip              true
 
 WHAT WAS FORCED — requirements that bound a dimension

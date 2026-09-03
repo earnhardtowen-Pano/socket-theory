@@ -38,6 +38,7 @@ import f1Doc from "../../../cars/mclaren-f1.car.json";
 import etypeDoc from "../../../cars/etype-s1-fhc.car.json";
 import mx5Doc from "../../../cars/mx5-na.car.json";
 import e90Doc from "../../../cars/e90-m3.car.json";
+import p2Doc from "../../../cars/panoramic-p2.car.json";
 
 const CARS = [
   { key: "p1", label: "P1", note: "80 cells · the quickest to shape", doc: p1Doc },
@@ -45,6 +46,7 @@ const CARS = [
   { key: "etype", label: "E-Type", note: "572 cells", doc: etypeDoc },
   { key: "f1", label: "F1", note: "620 cells", doc: f1Doc },
   { key: "e90", label: "M3", note: "the sedan · four doors, two rows", doc: e90Doc },
+  { key: "p2", label: "P2", note: "the flagship · domed caps, rims, a fastback", doc: p2Doc },
 ] as const;
 
 const RES = 14;

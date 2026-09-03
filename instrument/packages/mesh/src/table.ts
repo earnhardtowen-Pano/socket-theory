@@ -101,6 +101,40 @@ function chainOrThrow(quilt: QuiltSpec, curveId: Id): CurveChain {
 }
 
 /**
+ * Two parameters on ONE curve closer than this are one sample.
+ *
+ * Where it comes from. A trim end is written by whatever cut the cell: a
+ * station tape finds its crossing by bisection and stores the crossing to
+ * sixteen digits, not to the last one. Land that an ulp from a base-lattice
+ * point — `0.1 + 0.2` beside `3/10` — and the curve carries two samples at
+ * one point on the seam. A side that reads the curve backwards then folds
+ * them together, because `1 - 0.3` and `1 - 0.30000000000000004` are the
+ * same double: one grid parameter for two table vertices, and the cell's
+ * seam polyline skips the vertex its neighbour walks through. The P2's tail
+ * cap opened at exactly one triangle that way, on the sixth car, after five
+ * had printed closed.
+ *
+ * NOT a tuning choice, for the same reason `COLUMN_MERGE` is not. The
+ * populations do not overlap: a bisection residual is under 1e-15, the
+ * closest two AUTHORED trim ends on any body here are millimetres apart on
+ * a curve metres long — 1e-4 in parameter — and nothing lives between.
+ *
+ * WHAT IT DOES. The merged parameter keeps its first spelling as the
+ * canonical one and every other spelling ALIASES to it, so a side whose
+ * trim was written `0.30000000000000004` resolves to the same vertex as one
+ * written `0.3`. Index sharing, still: no coordinate is compared, and the
+ * parameter that survives is the one the sorted list met first.
+ */
+export const PARAM_MERGE = 1e-12;
+
+interface CurveParams {
+  /** Sorted, merged parameters — the samples the curve is evaluated at. */
+  readonly params: Map<Id, number[]>;
+  /** Per curve: every spelling that merged away, mapped to the one that stayed. */
+  readonly canon: Map<Id, Map<number, number>>;
+}
+
+/**
  * Build the per-curve global parameter lists.
  *
  * THE UNION STEP (charge §10, T-junction law): base lattice params are joined
@@ -110,7 +144,7 @@ function chainOrThrow(quilt: QuiltSpec, curveId: Id): CurveChain {
  * per-cell instead of per-curve would drop exactly this step and open a crack
  * at every T point.
  */
-function buildParams(quilt: QuiltSpec, baseDensity: number): Map<Id, number[]> {
+function buildParams(quilt: QuiltSpec, baseDensity: number): CurveParams {
   const density = Math.max(1, Math.floor(baseDensity));
   const trimEnds = new Map<Id, number[]>();
   for (const cell of quilt.cells) {
@@ -122,6 +156,7 @@ function buildParams(quilt: QuiltSpec, baseDensity: number): Map<Id, number[]> {
     }
   }
   const out = new Map<Id, number[]>();
+  const canon = new Map<Id, Map<number, number>>();
   for (const curveId of sortedIds(quilt.curves.keys())) {
     const ch = chainOrThrow(quilt, curveId);
     const n = Math.max(1, ch.segs.length) * density;
@@ -130,12 +165,16 @@ function buildParams(quilt: QuiltSpec, baseDensity: number): Map<Id, number[]> {
     params.push(...(trimEnds.get(curveId) ?? []));
     params.sort((a, b) => a - b);
     const dedup: number[] = [];
+    const alias = new Map<number, number>();
     for (const p of params) {
-      if (dedup.length === 0 || dedup[dedup.length - 1] !== p) dedup.push(p);
+      const last = dedup[dedup.length - 1];
+      if (last === undefined || p - last > PARAM_MERGE) dedup.push(p);
+      else if (p !== last) alias.set(p, last);
     }
     out.set(curveId, dedup);
+    if (alias.size > 0) canon.set(curveId, alias);
   }
-  return out;
+  return { params: out, canon };
 }
 
 interface SideTrim {
@@ -152,8 +191,10 @@ const trimOf = (side: QuiltSide): SideTrim => {
 };
 
 export function buildSampleTable(quilt: QuiltSpec, baseDensity: number): GlobalSampleTable {
-  const paramsByCurve = buildParams(quilt, baseDensity);
+  const { params: paramsByCurve, canon } = buildParams(quilt, baseDensity);
   const curveIds = sortedIds(paramsByCurve.keys());
+  /** The spelling of a parameter that the table actually sampled. */
+  const canonT = (curveId: Id, t: number): number => canon.get(curveId)?.get(t) ?? t;
 
   // one evaluation per (curveId, param) — raw vertex order is (curve, param) sorted
   const raw: RawSample[] = [];
@@ -168,14 +209,17 @@ export function buildSampleTable(quilt: QuiltSpec, baseDensity: number): GlobalS
     rawIndex.set(curveId, perParam);
   }
   const rawAt = (curveId: Id, t: number): number => {
-    const i = rawIndex.get(curveId)?.get(t);
+    const i = rawIndex.get(curveId)?.get(canonT(curveId, t));
     if (i === undefined) throw new Error(`no table sample at (${curveId}, ${t})`);
     return i;
   };
 
   // a side's loop endpoints as raw samples; collapse-aware
   const sideEnds = (side: QuiltSide): { start: number; end: number; collapsed: boolean } => {
-    const { lo, hi, reversed } = trimOf(side);
+    const trim = trimOf(side);
+    const reversed = trim.reversed;
+    const lo = canonT(side.curveId, trim.lo);
+    const hi = canonT(side.curveId, trim.hi);
     const iLo = rawAt(side.curveId, lo);
     const iHi = rawAt(side.curveId, hi);
     const collapsed = lo === hi || samePos(raw[iLo]!.pos, raw[iHi]!.pos);
@@ -222,7 +266,11 @@ export function buildSampleTable(quilt: QuiltSpec, baseDensity: number): GlobalS
 
   // per-cell loop-ordered side samples
   const buildSide = (side: QuiltSide): SideSamples => {
-    const { lo, hi, reversed } = trimOf(side);
+    const trim = trimOf(side);
+    const reversed = trim.reversed;
+    // The trim's ends as the table spelled them — see PARAM_MERGE.
+    const lo = canonT(side.curveId, trim.lo);
+    const hi = canonT(side.curveId, trim.hi);
     const ends = sideEnds(side);
     if (ends.collapsed) {
       return { collapsed: true, verts: [finalOfRaw[ends.start]!], s: [0], sOpp: [0] };

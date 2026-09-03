@@ -96,6 +96,11 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
   // reads steel under sun. Hex approximated from period colour references —
   // the colour-chip sites sat behind a blocked egress, so RECALLED medium.
   "Interlagos Blue": f("Interlagos Blue", "#2f547e", "skin", 0.80, 1.0, 1.0),
+  // The P2's paint: a warm dark bronze with fine flake. Chosen for the
+  // studio rather than the showroom — a mid-dark metallic is the colour a
+  // highlight travels on best, and the whole point of the second Panoramic
+  // is to be looked at down its flank.
+  "Panoramic Bronze": f("Panoramic Bronze", "#6b4d34", "skin", 0.78, 1.0, 1.0),
 
   // ── structure ────────────────────────────────────────────────────────────
   "screen frame": f("screen frame", "#8e9196", "structure", 0.42, 0.9, 0.25),
@@ -114,6 +119,22 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
 
   // ── trim ─────────────────────────────────────────────────────────────────
   "cockpit trim": f("cockpit trim", "#232428", "trim", 0.92, 0.0, 0.0),
+  // A grille: black mesh in a black surround, matte, with just enough metal
+  // in it to catch a rim light. One cell of the nose cap wears it.
+  "grille": f("grille", "#121316", "trim", 0.86, 0.25, 0.05),
+  // A diffuser: the lowest band of the tail cap, matte black composite.
+  "diffuser": f("diffuser", "#1a1b1e", "trim", 0.88, 0.15, 0.1),
+  // A splitter: the lowest band of the nose cap, the same composite.
+  "splitter": f("splitter", "#1a1b1e", "trim", 0.88, 0.15, 0.1),
+  // A headlamp: a smoked lens over a reflector — glossy, dark, opaque. The
+  // two sail cells of the nose ring wear it, which is where a lamp sits on
+  // every car with a bonnet: the upper corners of the face, wrapping onto
+  // the wing.
+  "headlamp": f("headlamp", "#1b1f24", "trim", 0.06, 0.0, 0.95),
+  // A tail lamp band: deep red under a glossy lens. Trim rather than
+  // glazing because it is opaque — a lens over a reflector, not a window —
+  // and a see-through band across the tail would show the boot floor.
+  "tail lamp": f("tail lamp", "#8a1a1e", "trim", 0.06, 0.0, 0.95),
   "undertray": f("undertray", "#17181a", "trim", 0.97, 0.0, 0.0),
   "folding top": f("folding top", "#26262a", "trim", 0.95, 0.0, 0.0),
 
@@ -130,6 +151,12 @@ export const CATALOGUE: Readonly<Record<string, Finish>> = {
   "245/40R18": f("245/40R18", "#141419", "tyre", 0.86, 0.0, 0.14),
   "265/40R18": f("265/40R18", "#141419", "tyre", 0.86, 0.0, 0.14),
   "alloy": f("alloy", "#b9bdc2", "wheel", 0.30, 1.0, 0.0),
+  // The P2's staggered 21s — and the first pair whose SIDEWALL is a tyre in
+  // the render, because the rim is its own disc standing proud of it.
+  "255/35R21": f("255/35R21", "#131318", "tyre", 0.84, 0.0, 0.16),
+  "295/35R21": f("295/35R21", "#131318", "tyre", 0.84, 0.0, 0.16),
+  // Forged and machined, darker in the recesses than a cast alloy's paint.
+  "forged alloy": f("forged alloy", "#9da1a6", "wheel", 0.26, 1.0, 0.0),
   // Cast magnesium, lacquered rather than polished — darker and warmer than
   // an aluminium alloy, which is what magnesium looks like under clear.
   "magnesium": f("magnesium", "#9a9489", "wheel", 0.38, 1.0, 0.15),

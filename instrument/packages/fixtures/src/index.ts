@@ -63,3 +63,11 @@ export {
 } from "./e90-m3.js";
 
 export { E90_PROFILE, E90_PROFILE_TOLERANCE_MM } from "./e90-m3-reference.js";
+
+export {
+  p2Config, P2_WHEELBASE, P2_FRONT_OVERHANG, P2_REAR_OVERHANG, P2_FRONT_TRACK,
+  P2_REAR_TRACK, P2_RAIL_HEIGHT, P2_LENGTH, P2_WIDTH, P2_HEIGHT,
+  P2_FRONT_DIAMETER, P2_REAR_DIAMETER, P2_FRONT_TIRE_WIDTH, P2_REAR_TIRE_WIDTH,
+} from "./panoramic-p2.js";
+
+export { P2_PROFILE, P2_PROFILE_TOLERANCE_MM } from "./panoramic-p2-reference.js";

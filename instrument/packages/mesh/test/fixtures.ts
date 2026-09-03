@@ -157,7 +157,64 @@ export function splitTopBoxQuilt(s = 100): Fixture {
  * geometric, and not equal to it, which is the whole difficulty.
  */
 export function nearDuplicateSplitQuilt(s = 100): Fixture {
-  const split = 0.5 + Number.EPSILON;
+  // TWO curves, TWO arithmetics: the split lands at 0.37 on one edge of the
+  // top face and one ulp past it on the other, which is what "different
+  // curves, different (t-lo)/span" produces on a body — every lattice point
+  // of the two sides then maps to a pair of grid columns an ulp apart.
+  // OFF the lattice on purpose: a trim end an ulp off a lattice point on
+  // ONE curve is a different defect with a different fix (`PARAM_MERGE`,
+  // see `ulpOffLatticeQuilt`), and the table now merges those away — so a
+  // split at 0.5 + ε beside the lattice's own 0.5 would leave this fixture
+  // with no near-duplicate column to guard.
+  const splitA = 0.37;
+  const splitB = 0.37 + Number.EPSILON;
+  const b = new Builder();
+  addBoxEdges(b, s);
+  b.addCurve("M", lineChain([s * splitA, 0, s], [s * splitB, s, s]));
+  for (const [name, loop] of BOX_FACES) {
+    if (name === "top") continue;
+    b.addCell(name, loopSides(b, loop));
+  }
+  b.addCell("topA", [
+    side(b.c("4-5"), 0, splitA, false),
+    side(b.c("M"), 0, 1, false),
+    side(b.c("6-7"), 0, splitB, true),
+    side(b.c("4-6"), 0, 1, true),
+  ]);
+  b.addCell("topB", [
+    side(b.c("4-5"), splitA, 1, false),
+    side(b.c("5-7"), 0, 1, false),
+    side(b.c("6-7"), splitB, 1, true),
+    side(b.c("M"), 0, 1, true),
+  ]);
+  return b.done();
+}
+
+/**
+ * The split-top box with the split one ulp off a lattice point ON THE SAME
+ * CURVE, and — the part that matters — read from a REVERSED side.
+ *
+ * What the P2's tail cap found. A band cut across a cell lands its seam on
+ * the cell's side curves by bisection, so the trim ends it writes are the
+ * crossing to sixteen digits and not to the last one: `0.1 + 0.2` rather
+ * than `0.3`. With a base lattice of ten, the curve then carries samples at
+ * 0.3 and 0.30000000000000004 — two table vertices at one point on the seam.
+ *
+ * A side that runs WITH the loop keeps them apart: (t - 0)/1 is t. A side
+ * that runs AGAINST it reads them through `sOpp = (1 - t)/1`, and
+ * 1 - 0.3 and 1 - 0.30000000000000004 are the SAME double, 0.7. The grid
+ * axis then holds one parameter for two vertices, `snapVert` can only
+ * return one of them, and the cell's seam polyline skips a vertex its
+ * neighbour across the seam walks through. One triangle with three open
+ * edges, on a print that reported closed for every car before this one.
+ *
+ * The two numbers here are the P2's, scaled: density 10 puts a lattice
+ * point at 3/10 = 0.3, and `0.1 + 0.2` is the next double up.
+ */
+export function ulpOffLatticeQuilt(s = 100): Fixture {
+  const lattice = 3 / 10;
+  const split = 0.1 + 0.2;
+  if (split === lattice) throw new Error("the fixture needs the split an ulp off the lattice");
   const b = new Builder();
   addBoxEdges(b, s);
   b.addCurve("M", lineChain([s * split, 0, s], [s * split, s, s]));

@@ -457,6 +457,39 @@ closed mesh              true → true        0 violations either way
 its split one ulp off a lattice point. It fails at 16 violations against the
 dropped-column version and passes against this one.
 
+**The sixth car found the other half of it.** The column rule above handles two
+DIFFERENT curves whose lattices land an ulp apart. The P2's tail cap, cut into
+bands by a tape line whose crossing is found by bisection, put a trim end one
+ulp off a lattice point on the SAME curve — `0.1 + 0.2` beside `3/10` — and a
+side reading that curve backwards folded the two into one grid parameter,
+because `1 − 0.3` and `1 − 0.30000000000000004` are the same double. One grid
+column for two table vertices, `snapVert` able to return only one of them, and
+the cap's seam polyline skipping a vertex its neighbour walked through: a single
+triangle with three open edges, on the sixth car, after five had printed closed.
+
+The fix is in the table, not the mesher: two parameters on one curve closer
+than `PARAM_MERGE = 1e-12` are one sample, the first spelling canonical and the
+others aliased to it. Index sharing still — no coordinate is compared — and the
+populations still do not overlap: a bisection residual is under 1e-15, the
+closest two authored trim ends on any body here are 1e-4 apart in parameter.
+`ulpOffLatticeQuilt` reproduces the defect at density 10 and is in the suite;
+`nearDuplicateSplitQuilt` moved its split off the lattice to 0.37 so that it
+keeps guarding the cross-curve column the merge does not touch.
+
+What the merge did to the five older prints, none of which was open:
+
+```
+                        P1        MX-5      E-Type     F1        E90 M3
+triangles before      27,612   359,796    414,630   488,686    496,774
+triangles after       25,920   357,940    412,032   486,322    494,124
+sliver triangles, P1   1,695 →       0
+closed mesh             true everywhere, before and after
+```
+
+The 1,695 slivers the stage above called "what the seam genuinely forces" were
+this: trim ends an ulp off the lattice, on one curve, twice sampled. The seam
+forces none.
+
 **The lesson is the lens's, not the mesher's.** The reading was right and the
 reason was invented, and an invented reason gets quoted onward as fact — this
 one put a defect on the geometry that belonged to the mesher, and I repeated it

@@ -1,6 +1,6 @@
 <section>
   <h2>What you are looking at</h2>
-  <p class="lede">Five cars, one surface engine. Nothing here is a mesh somebody
+  <p class="lede">Six cars, one surface engine. Nothing here is a mesh somebody
   sculpted &mdash; every panel is a Coons patch evaluated from an authored curve
   network at build time, and the normals in this viewer are the surface&rsquo;s own
   analytic normals, not the triangles&rsquo;. That is why a highlight travels down a
@@ -12,8 +12,64 @@
   only way to see both at once.</p>
 </section>
 
-<!-- ── E90 M3 ──────────────────────────────────────────────────────────── -->
+<!-- ── Panoramic P2 ────────────────────────────────────────────────────── -->
 <section data-car="0">
+  <h2>Panoramic P2 &mdash; the sixth car, and the first designed here</h2>
+  <p>Five bodies before this one: one authored from a brief, four rebuilt from
+  published envelopes, each of those four a test of whether the instrument could
+  reach a shape somebody else had already found. The P2 asks the other question.
+  A four-door fastback GT drawn to the company&rsquo;s own brief &mdash; three metres
+  between the axles, a front-mid twin-turbo V8, the hips over the rear wheels,
+  a roof that peaks over the driver and never stops falling until the ducktail
+  &mdash; on the four-door grammar the M3 proved out, pushed past it in three places
+  the M3 could not go.</p>
+  <div class="grid">
+    <div><div class="k">as built</div><div class="n">4951<span class="u"> &times; 1973 &times; 1405</span></div></div>
+    <div><div class="k">the brief</div><div class="n">4950<span class="u"> &times; 1960 &times; 1400</span></div></div>
+    <div><div class="k">G1 joins</div><div class="n">109<span class="u">/114</span></div></div>
+    <div><div class="k">headroom</div><div class="n">53<span class="u"> mm, under a fastback</span></div></div>
+  </div>
+  <div class="scroll"><table class="rep">
+    <tr><th>reading</th><th>value</th><th></th></tr>
+    <tr><td>cells &middot; curves &middot; verbs</td><td class="v">655 &middot; 773 &middot; 2,863</td><td></td></tr>
+    <tr><td>end caps</td><td class="v">nose domed 90 mm, tail 56 &middot; five band seams re-bowed onto the domes</td><td><span class="tag ok">no slab on the car</span></td></tr>
+    <tr><td>wheels</td><td class="v">tyre shoulders R18 &middot; 21&Prime; rims standing 3 mm proud of the sidewall</td><td><span class="tag ok">two solids a corner</span></td></tr>
+    <tr><td>G1 continuity</td><td class="v">median 1.6e&minus;15&deg; &middot; worst 5.889&deg;</td><td><span class="tag mid">5 joins, the nose ring and the hips</span></td></tr>
+    <tr><td>&nbsp;&nbsp;was, unfielded</td><td class="v">81/114 &middot; worst 47.5&deg;</td><td></td></tr>
+    <tr><td>G2 curvature</td><td class="v">106/114 within 1% &middot; median rel 0.0004% &middot; p90 0.043%</td><td><span class="tag ok">pass</span></td></tr>
+    <tr><td>G3 curvature rate</td><td class="v">1/114 within 5% &middot; median rel 101%</td><td><span class="tag mid">measured, not corrected</span></td></tr>
+    <tr><td>curve network</td><td class="v">223/228 corners coplanar &middot; worst 5.89&deg;</td><td></td></tr>
+    <tr><td>feature lines</td><td class="v">129 softened seams &middot; the blade: R8 over the wing, R12&rarr;40 through the doors, R40&rarr;14 back over the hip</td><td><span class="tag mid">A12</span></td></tr>
+    <tr><td>master lines</td><td class="v">worst balloon 6.6 mm &middot; 16 wobbles, the widest the door scallop it was drawn with</td><td></td></tr>
+    <tr><td>panels &middot; seams</td><td class="v">102 pieces &middot; 130 shut / 1,138 feature / 109 smooth</td><td></td></tr>
+    <tr><td>closed mesh</td><td class="v">true &middot; 0 violations</td><td><span class="tag ok">watertight</span></td></tr>
+    <tr><td>head under the roof</td><td class="v">53 mm &middot; H-point [2470, 390, 460]</td><td><span class="tag ok">a GT chair</span></td></tr>
+    <tr><td>structure</td><td class="v">81 members &middot; one body &middot; 4,054 of 4,054 points hidden by the skin</td><td><span class="tag ok">nothing showing</span></td></tr>
+    <tr><td>crush stroke</td><td class="v">front 1028 of 600 mm &middot; rear 900 of 450</td><td></td></tr>
+    <tr><td>package vs styling</td><td class="v">roofline lifted 0 mm &middot; one floor station raised 26 mm by the 500 kW radiator, and refused 23 of it by the road</td><td></td></tr>
+    <tr><td>profile vs the brief</td><td class="v">0 of 16 stations outside 40 mm</td><td><span class="tag ok">every station ASSUMED</span></td></tr>
+    <tr><td>print</td><td class="v">521,566 triangles</td><td></td></tr>
+  </table></div>
+  <p class="note">What the flagship gave the instrument, in order. <b>Domed end caps:</b>
+  a box&rsquo;s end faces bow forward from their corners now, the interior following
+  by the Coons construction, and a band cut across a dome is re-bowed onto it so
+  the pieces are the dome, split &mdash; a grille and a splitter on the nose, a
+  diffuser, a valance and a lamp band on the tail, headlamps in the wing tops.
+  <b>Wheels as two solids:</b> a tyre with softened shoulders and a rim disc proud
+  of the sidewall, where every car before painted the whole drum alloy.
+  <b>A mesher defect five cars never hit:</b> a band seam whose crossing landed one
+  ulp off a base-lattice point gave a curve two samples at one place, and a side
+  reading that curve backwards folded them into one grid column &mdash; a single
+  triangle with three open edges. The sample table now merges parameters
+  closer than 1e&minus;12 and the synthetic fixture that reproduces it is in the
+  suite; the five older prints lost their last sliver columns to the same fix.
+  And <b>door shuts are gapped, not creased</b>: amendment A2 read as written
+  &mdash; a shutline does not break flow &mdash; after the M3&rsquo;s creased rear-door shut
+  put a visible fold up this car&rsquo;s C-pillar.</p>
+</section>
+
+<!-- ── E90 M3 ──────────────────────────────────────────────────────────── -->
+<section data-car="1" hidden>
   <h2>BMW E90 M3 LCI &mdash; the fifth car</h2>
   <p>The first sedan: four doors, two seat rows, a boot. The occupant array
   carries five people for the first time, the classic front-mid package drives
@@ -44,7 +100,7 @@
     <tr><td>crush stroke</td><td class="v">front 1009 of 600 mm &middot; rear 786 of 450</td><td><span class="tag ok">room to spare, first time</span></td></tr>
     <tr><td>package vs styling</td><td class="v">contained &mdash; engine at 190 so the gearbox rides the tunnel; tank at 260 straddling the propshaft</td><td></td></tr>
     <tr><td>profile vs the real car</td><td class="v">0 of 17 stations outside 40 mm</td><td><span class="tag ok">envelope SOURCED</span></td></tr>
-    <tr><td>print</td><td class="v">492,000 triangles</td><td></td></tr>
+    <tr><td>print</td><td class="v">494,124 triangles</td><td></td></tr>
   </table></div>
   <p class="note">What the sedan taught the grammar: a shut station now says which
   bands it is a shut of &mdash; the B-pillar ring crosses flanks and sails and
@@ -55,7 +111,7 @@
 </section>
 
 <!-- ── McLaren F1 ──────────────────────────────────────────────────────── -->
-<section data-car="1" hidden>
+<section data-car="2" hidden>
   <h2>McLaren F1 &mdash; the fourth car</h2>
   <p>The first that is not front-engined, and the one the package actually
   drives: the floor is pushed down at five stations by cooling and the
@@ -89,7 +145,7 @@
     <tr><td>structure</td><td class="v">80 members &middot; roof carried within 94 mm worst &middot; wheels 30 mm to the nearest member</td><td></td></tr>
     <tr><td>crush stroke</td><td class="v">front 380 of 600 mm (63%) &middot; rear 253 of 450 mm (56%)</td><td><span class="tag mid">clamped by the ends</span></td></tr>
     <tr><td>cabin</td><td class="v">head 140 mm through the roof at the H-point</td><td><span class="tag bad">fault, reported</span></td></tr>
-    <tr><td>print</td><td class="v">488,686 triangles</td><td></td></tr>
+    <tr><td>print</td><td class="v">486,322 triangles</td><td></td></tr>
   </table></div>
   <p class="note">The cabin fault is real and it is left standing on purpose. Some
   of it is the occupant model &mdash; SAE J4004 seats a driver at 25&deg; of back
@@ -99,9 +155,9 @@
 </section>
 
 <!-- ── E-Type ──────────────────────────────────────────────────────────── -->
-<section data-car="2" hidden>
+<section data-car="3" hidden>
   <h2>Jaguar E-Type &mdash; Series 1 fixed head</h2>
-  <p>The cleanest network of the five: 196 of 200 corners coplanar, and the
+  <p>The cleanest network of the six: 196 of 200 corners coplanar, and the
   worst join on the whole body breaks by under five degrees.</p>
   <div class="grid">
     <div><div class="k">as built</div><div class="n">4453<span class="u"> &times; 1658 &times; 1221</span></div></div>
@@ -112,21 +168,21 @@
   <div class="scroll"><table class="rep">
     <tr><th>reading</th><th>value</th><th></th></tr>
     <tr><td>cells &middot; curves &middot; verbs</td><td class="v">572 &middot; 680 &middot; 2,668</td><td></td></tr>
-    <tr><td>G1 continuity</td><td class="v">median 3.2e&minus;15&deg; &middot; worst 4.763&deg;</td><td><span class="tag ok">tightest of the five</span></td></tr>
+    <tr><td>G1 continuity</td><td class="v">median 3.2e&minus;15&deg; &middot; worst 4.763&deg;</td><td><span class="tag ok">tightest of the six</span></td></tr>
     <tr><td>G2 curvature</td><td class="v">97/100 within 1% &middot; median rel 0.0001% &middot; p90 0.017%</td><td><span class="tag ok">pass</span></td></tr>
     <tr><td>curve network</td><td class="v">196/200 corners coplanar &middot; worst 4.76&deg;</td><td></td></tr>
     <tr><td>panels &middot; seams</td><td class="v">152 pieces &middot; 384 shut / 730 feature / 102 smooth</td><td></td></tr>
     <tr><td>net vs evaluator</td><td class="v">1.7e+2 mm worst, against a gate of 1e&minus;9</td><td><span class="tag bad">see below</span></td></tr>
     <tr><td>mirror symmetry</td><td class="v">worst 6.2943 mm &middot; 5,399 of 207,469 vertices over 0.05 mm</td><td></td></tr>
     <tr><td>profile vs the real car</td><td class="v">worst 17 mm wide at x 4008 &middot; 56 mm tall &middot; 1 of 16 stations outside 40 mm</td><td><span class="tag mid">one station out</span></td></tr>
-    <tr><td>print</td><td class="v">414,630 triangles</td><td></td></tr>
+    <tr><td>print</td><td class="v">412,032 triangles</td><td></td></tr>
   </table></div>
 </section>
 
 <!-- ── MX-5 ────────────────────────────────────────────────────────────── -->
-<section data-car="3" hidden>
+<section data-car="4" hidden>
   <h2>Mazda MX-5 &mdash; NA</h2>
-  <p>The hardest network of the five and the one that still shows it. Eight
+  <p>The hardest network of the six and the one that still shows it. Eight
   joins break past a degree and the worst is 16.4&deg;, all of them where the
   arch meets the sill on a body whose panels are small and whose curvature
   turns over quickly.</p>
@@ -146,7 +202,7 @@
     <tr><td>net vs evaluator</td><td class="v">6.9e+1 mm worst, against a gate of 1e&minus;9</td><td><span class="tag bad">see below</span></td></tr>
     <tr><td>mirror symmetry</td><td class="v">worst 6.4622 mm &middot; 5,005 of 180,034 vertices over 0.05 mm</td><td></td></tr>
     <tr><td>profile vs the real car</td><td class="v">worst 31 mm wide at x 199 &middot; &minus;30 mm tall &middot; 0 of 15 stations outside 40 mm</td><td><span class="tag ok">inside</span></td></tr>
-    <tr><td>print</td><td class="v">359,796 triangles</td><td></td></tr>
+    <tr><td>print</td><td class="v">357,940 triangles</td><td></td></tr>
   </table></div>
   <p class="note">Standing finding: the MX-5&rsquo;s body is not package-driven the way
   the F1&rsquo;s is. Its network was authored to a profile table and the frame was
@@ -154,9 +210,9 @@
 </section>
 
 <!-- ── P1 ──────────────────────────────────────────────────────────────── -->
-<section data-car="4" hidden>
+<section data-car="5" hidden>
   <h2>Panoramic P1 &mdash; the first car</h2>
-  <p>Eighty cells, and the only one of the five whose continuity is perfect
+  <p>Eighty cells, and the only one of the six whose continuity is perfect
   everywhere: 62 of 62 joins under a degree, worst 0.00079&deg;, every corner in
   the network coplanar. It is the witness the surfacing was proved against, and
   it stays deliberately coarse for that reason.</p>
@@ -176,7 +232,7 @@
     <tr><td>mirror symmetry</td><td class="v">worst 0.9418 mm &middot; 82 of 13,816 vertices over 0.05 mm</td><td></td></tr>
     <tr><td>replay round-trip</td><td class="v">true</td><td><span class="tag ok">hash matches</span></td></tr>
     <tr><td>solve closed</td><td class="v">false</td><td><span class="tag bad">open, and known</span></td></tr>
-    <tr><td>print</td><td class="v">27,612 triangles</td><td></td></tr>
+    <tr><td>print</td><td class="v">25,920 triangles</td><td></td></tr>
   </table></div>
 </section>
 
@@ -251,8 +307,8 @@
 <section>
   <h2>How this page is built</h2>
   <p>The photograph renderer ships thirty megabytes for one car: raw float
-  positions, raw float normals, a full index buffer. This page carries all five
-  in eleven and a half, by noticing that most of that file is derivable or
+  positions, raw float normals, a full index buffer. This page carries all six
+  in under fifteen, by noticing that most of that file is derivable or
   over-precise.</p>
   <div class="scroll"><table class="rep">
     <tr><th>what</th><th>how</th><th>cost</th></tr>
