@@ -1,0 +1,3809 @@
+{
+ "version": "car-1.0",
+ "when": "2026-11-22T21:12:57.323Z",
+ "random": {
+  "addresses": 3000,
+  "drawings": 30000,
+  "failures": [],
+  "ms": 5551
+ },
+ "xml": {
+  "parsed": 5000,
+  "bad": []
+ },
+ "identical": {
+  "compared": 424,
+  "flagged": [],
+  "faint": [
+   {
+    "axis": "tow",
+    "option": "Recovery hooks",
+    "against": "None",
+    "pixels": 18,
+    "share": 0.034,
+    "max": 191
+   },
+   {
+    "axis": "filler",
+    "option": "Hidden",
+    "against": "Rear wing",
+    "pixels": 28,
+    "share": 0.054,
+    "max": 36
+   }
+  ],
+  "errors": [],
+  "unreachable": [],
+  "helped": [
+   {
+    "axis": "peak",
+    "name": "Roof peak position",
+    "with": "Roof bow = 140 mm"
+   },
+   {
+    "axis": "hlsides",
+    "name": "Headlamp sides",
+    "with": "Headlamp height = 220 mm, Headlamp corner softness = 25%"
+   },
+   {
+    "axis": "hlsoft",
+    "name": "Headlamp corner softness",
+    "with": "Headlamp height = 160 mm"
+   },
+   {
+    "axis": "socket",
+    "name": "Socket depth",
+    "with": "Headlamp height = 160 mm"
+   },
+   {
+    "axis": "brow",
+    "name": "Brow ridge",
+    "with": "Headlamp height = 160 mm"
+   },
+   {
+    "axis": "aper",
+    "name": "Aperture ratio",
+    "with": "Headlamp height = 160 mm"
+   },
+   {
+    "axis": "grsoft",
+    "name": "Grille corner softness",
+    "with": "Grille height = 240 mm"
+   },
+   {
+    "axis": "grtaper",
+    "name": "Grille taper",
+    "with": "Grille height = 240 mm"
+   },
+   {
+    "axis": "tlsoft",
+    "name": "Tail lamp corner softness",
+    "with": "Tail lamp height = 200 mm"
+   },
+   {
+    "axis": "hlin",
+    "name": "Headlamp internals",
+    "with": "Headlamp height = 160 mm"
+   },
+   {
+    "axis": "grden",
+    "name": "Grille texture",
+    "with": "Grille height = 240 mm"
+   },
+   {
+    "axis": "grsur",
+    "name": "Grille surround",
+    "with": "Grille height = 240 mm"
+   },
+   {
+    "axis": "tlin",
+    "name": "Tail lamp internals",
+    "with": "Tail lamp height = 200 mm"
+   },
+   {
+    "axis": "drl",
+    "name": "Front light signature",
+    "with": "Headlamp height = 160 mm"
+   },
+   {
+    "axis": "tsig",
+    "name": "Rear light signature",
+    "with": "Tail lamp height = 200 mm"
+   },
+   {
+    "axis": "seats",
+    "name": "Seat rows",
+    "with": "Glass tint = 25%"
+   }
+  ]
+ },
+ "options": [
+  {
+   "axis": "wb",
+   "option": "2300 mm",
+   "against": "2700 mm",
+   "pixels": 1363,
+   "share": 10.517,
+   "max": 225
+  },
+  {
+   "axis": "wb",
+   "option": "2450 mm",
+   "against": "2700 mm",
+   "pixels": 1152,
+   "share": 8.889,
+   "max": 225
+  },
+  {
+   "axis": "wb",
+   "option": "2550 mm",
+   "against": "2700 mm",
+   "pixels": 880,
+   "share": 6.79,
+   "max": 225
+  },
+  {
+   "axis": "wb",
+   "option": "2850 mm",
+   "against": "2700 mm",
+   "pixels": 886,
+   "share": 6.836,
+   "max": 225
+  },
+  {
+   "axis": "wb",
+   "option": "3000 mm",
+   "against": "2700 mm",
+   "pixels": 1219,
+   "share": 9.406,
+   "max": 228
+  },
+  {
+   "axis": "wb",
+   "option": "3200 mm",
+   "against": "2700 mm",
+   "pixels": 1470,
+   "share": 11.343,
+   "max": 225
+  },
+  {
+   "axis": "wb",
+   "option": "2000 mm",
+   "against": "2700 mm",
+   "pixels": 1740,
+   "share": 13.426,
+   "max": 228
+  },
+  {
+   "axis": "wb",
+   "option": "3600 mm",
+   "against": "2700 mm",
+   "pixels": 1900,
+   "share": 14.66,
+   "max": 229
+  },
+  {
+   "axis": "fo",
+   "option": "600 mm",
+   "against": "850 mm",
+   "pixels": 1993,
+   "share": 15.378,
+   "max": 225
+  },
+  {
+   "axis": "fo",
+   "option": "720 mm",
+   "against": "850 mm",
+   "pixels": 1532,
+   "share": 11.821,
+   "max": 225
+  },
+  {
+   "axis": "fo",
+   "option": "980 mm",
+   "against": "850 mm",
+   "pixels": 1521,
+   "share": 11.736,
+   "max": 228
+  },
+  {
+   "axis": "fo",
+   "option": "1100 mm",
+   "against": "850 mm",
+   "pixels": 1989,
+   "share": 15.347,
+   "max": 225
+  },
+  {
+   "axis": "fo",
+   "option": "450 mm",
+   "against": "850 mm",
+   "pixels": 2346,
+   "share": 18.102,
+   "max": 225
+  },
+  {
+   "axis": "ro",
+   "option": "600 mm",
+   "against": "950 mm",
+   "pixels": 687,
+   "share": 5.301,
+   "max": 225
+  },
+  {
+   "axis": "ro",
+   "option": "750 mm",
+   "against": "950 mm",
+   "pixels": 491,
+   "share": 3.789,
+   "max": 225
+  },
+  {
+   "axis": "ro",
+   "option": "1100 mm",
+   "against": "950 mm",
+   "pixels": 383,
+   "share": 2.955,
+   "max": 225
+  },
+  {
+   "axis": "ro",
+   "option": "1300 mm",
+   "against": "950 mm",
+   "pixels": 673,
+   "share": 5.193,
+   "max": 225
+  },
+  {
+   "axis": "ro",
+   "option": "450 mm",
+   "against": "950 mm",
+   "pixels": 822,
+   "share": 6.343,
+   "max": 225
+  },
+  {
+   "axis": "height",
+   "option": "1150 mm",
+   "against": "1450 mm",
+   "pixels": 2497,
+   "share": 19.267,
+   "max": 225
+  },
+  {
+   "axis": "height",
+   "option": "1250 mm",
+   "against": "1450 mm",
+   "pixels": 2064,
+   "share": 15.926,
+   "max": 206
+  },
+  {
+   "axis": "height",
+   "option": "1350 mm",
+   "against": "1450 mm",
+   "pixels": 1319,
+   "share": 10.177,
+   "max": 141
+  },
+  {
+   "axis": "height",
+   "option": "1550 mm",
+   "against": "1450 mm",
+   "pixels": 1311,
+   "share": 10.116,
+   "max": 139
+  },
+  {
+   "axis": "height",
+   "option": "1650 mm",
+   "against": "1450 mm",
+   "pixels": 1760,
+   "share": 13.58,
+   "max": 171
+  },
+  {
+   "axis": "height",
+   "option": "1780 mm",
+   "against": "1450 mm",
+   "pixels": 2190,
+   "share": 16.898,
+   "max": 215
+  },
+  {
+   "axis": "height",
+   "option": "1900 mm",
+   "against": "1450 mm",
+   "pixels": 13500,
+   "share": 104.167,
+   "max": 255
+  },
+  {
+   "axis": "height",
+   "option": "1050 mm",
+   "against": "1450 mm",
+   "pixels": 2862,
+   "share": 22.083,
+   "max": 225
+  },
+  {
+   "axis": "height",
+   "option": "2100 mm",
+   "against": "1450 mm",
+   "pixels": 14580,
+   "share": 112.5,
+   "max": 255
+  },
+  {
+   "axis": "width",
+   "option": "1600 mm",
+   "against": "1820 mm",
+   "pixels": 4014,
+   "share": 12.743,
+   "max": 226
+  },
+  {
+   "axis": "width",
+   "option": "1700 mm",
+   "against": "1820 mm",
+   "pixels": 2739,
+   "share": 8.695,
+   "max": 225
+  },
+  {
+   "axis": "width",
+   "option": "1900 mm",
+   "against": "1820 mm",
+   "pixels": 2130,
+   "share": 6.762,
+   "max": 218
+  },
+  {
+   "axis": "width",
+   "option": "1980 mm",
+   "against": "1820 mm",
+   "pixels": 3235,
+   "share": 10.27,
+   "max": 226
+  },
+  {
+   "axis": "width",
+   "option": "2050 mm",
+   "against": "1820 mm",
+   "pixels": 4133,
+   "share": 13.121,
+   "max": 226
+  },
+  {
+   "axis": "width",
+   "option": "1480 mm",
+   "against": "1820 mm",
+   "pixels": 5211,
+   "share": 16.543,
+   "max": 231
+  },
+  {
+   "axis": "wheel",
+   "option": "620 mm",
+   "against": "660 mm",
+   "pixels": 392,
+   "share": 3.025,
+   "max": 116
+  },
+  {
+   "axis": "wheel",
+   "option": "700 mm",
+   "against": "660 mm",
+   "pixels": 441,
+   "share": 3.403,
+   "max": 122
+  },
+  {
+   "axis": "wheel",
+   "option": "580 mm",
+   "against": "660 mm",
+   "pixels": 536,
+   "share": 4.136,
+   "max": 165
+  },
+  {
+   "axis": "wheel",
+   "option": "740 mm",
+   "against": "660 mm",
+   "pixels": 633,
+   "share": 4.884,
+   "max": 154
+  },
+  {
+   "axis": "wheel",
+   "option": "520 mm",
+   "against": "660 mm",
+   "pixels": 651,
+   "share": 5.023,
+   "max": 213
+  },
+  {
+   "axis": "wheel",
+   "option": "620 mm",
+   "against": "660 mm",
+   "pixels": 390,
+   "share": 3.009,
+   "max": 114
+  },
+  {
+   "axis": "wheel",
+   "option": "700 mm",
+   "against": "660 mm",
+   "pixels": 439,
+   "share": 3.387,
+   "max": 119
+  },
+  {
+   "axis": "wheel",
+   "option": "580 mm",
+   "against": "660 mm",
+   "pixels": 534,
+   "share": 4.12,
+   "max": 165
+  },
+  {
+   "axis": "wheel",
+   "option": "740 mm",
+   "against": "660 mm",
+   "pixels": 633,
+   "share": 4.884,
+   "max": 146
+  },
+  {
+   "axis": "wheel",
+   "option": "800 mm",
+   "against": "660 mm",
+   "pixels": 856,
+   "share": 6.605,
+   "max": 188
+  },
+  {
+   "axis": "wheel",
+   "option": "520 mm",
+   "against": "660 mm",
+   "pixels": 647,
+   "share": 4.992,
+   "max": 213
+  },
+  {
+   "axis": "wheel",
+   "option": "620 mm",
+   "against": "660 mm",
+   "pixels": 389,
+   "share": 3.002,
+   "max": 109
+  },
+  {
+   "axis": "wheel",
+   "option": "700 mm",
+   "against": "660 mm",
+   "pixels": 444,
+   "share": 3.426,
+   "max": 114
+  },
+  {
+   "axis": "wheel",
+   "option": "580 mm",
+   "against": "660 mm",
+   "pixels": 536,
+   "share": 4.136,
+   "max": 165
+  },
+  {
+   "axis": "wheel",
+   "option": "740 mm",
+   "against": "660 mm",
+   "pixels": 645,
+   "share": 4.977,
+   "max": 146
+  },
+  {
+   "axis": "wheel",
+   "option": "800 mm",
+   "against": "660 mm",
+   "pixels": 864,
+   "share": 6.667,
+   "max": 188
+  },
+  {
+   "axis": "wheel",
+   "option": "520 mm",
+   "against": "660 mm",
+   "pixels": 653,
+   "share": 5.039,
+   "max": 213
+  },
+  {
+   "axis": "wheel",
+   "option": "880 mm",
+   "against": "660 mm",
+   "pixels": 1102,
+   "share": 8.503,
+   "max": 211
+  },
+  {
+   "axis": "clear",
+   "option": "100 mm",
+   "against": "150 mm",
+   "pixels": 315,
+   "share": 2.431,
+   "max": 227
+  },
+  {
+   "axis": "clear",
+   "option": "125 mm",
+   "against": "150 mm",
+   "pixels": 185,
+   "share": 1.427,
+   "max": 171
+  },
+  {
+   "axis": "clear",
+   "option": "180 mm",
+   "against": "150 mm",
+   "pixels": 255,
+   "share": 1.968,
+   "max": 212
+  },
+  {
+   "axis": "clear",
+   "option": "210 mm",
+   "against": "150 mm",
+   "pixels": 460,
+   "share": 3.549,
+   "max": 228
+  },
+  {
+   "axis": "clear",
+   "option": "250 mm",
+   "against": "150 mm",
+   "pixels": 656,
+   "share": 5.062,
+   "max": 228
+  },
+  {
+   "axis": "clear",
+   "option": "70 mm",
+   "against": "150 mm",
+   "pixels": 501,
+   "share": 3.866,
+   "max": 228
+  },
+  {
+   "axis": "clear",
+   "option": "320 mm",
+   "against": "150 mm",
+   "pixels": 1051,
+   "share": 8.11,
+   "max": 229
+  },
+  {
+   "axis": "archgap",
+   "option": "25 mm",
+   "against": "50 mm",
+   "pixels": 151,
+   "share": 1.165,
+   "max": 101
+  },
+  {
+   "axis": "archgap",
+   "option": "80 mm",
+   "against": "50 mm",
+   "pixels": 198,
+   "share": 1.528,
+   "max": 119
+  },
+  {
+   "axis": "archgap",
+   "option": "120 mm",
+   "against": "50 mm",
+   "pixels": 325,
+   "share": 2.508,
+   "max": 154
+  },
+  {
+   "axis": "track",
+   "option": "Flush",
+   "against": "40 mm in",
+   "pixels": 232,
+   "share": 0.737,
+   "max": 218
+  },
+  {
+   "axis": "track",
+   "option": "80 mm in",
+   "against": "40 mm in",
+   "pixels": 234,
+   "share": 0.743,
+   "max": 218
+  },
+  {
+   "axis": "track",
+   "option": "130 mm in",
+   "against": "40 mm in",
+   "pixels": 420,
+   "share": 1.333,
+   "max": 225
+  },
+  {
+   "axis": "track",
+   "option": "30 mm out",
+   "against": "40 mm in",
+   "pixels": 464,
+   "share": 1.473,
+   "max": 226
+  },
+  {
+   "axis": "tumble",
+   "option": "60 mm",
+   "against": "180 mm",
+   "pixels": 948,
+   "share": 3.01,
+   "max": 173
+  },
+  {
+   "axis": "tumble",
+   "option": "120 mm",
+   "against": "180 mm",
+   "pixels": 593,
+   "share": 1.883,
+   "max": 170
+  },
+  {
+   "axis": "tumble",
+   "option": "260 mm",
+   "against": "180 mm",
+   "pixels": 724,
+   "share": 2.298,
+   "max": 173
+  },
+  {
+   "axis": "tumble",
+   "option": "340 mm",
+   "against": "180 mm",
+   "pixels": 1077,
+   "share": 3.419,
+   "max": 174
+  },
+  {
+   "axis": "cowl",
+   "option": "250 mm ahead",
+   "against": "300 mm behind",
+   "pixels": 783,
+   "share": 6.042,
+   "max": 166
+  },
+  {
+   "axis": "cowl",
+   "option": "On the axle",
+   "against": "300 mm behind",
+   "pixels": 566,
+   "share": 4.367,
+   "max": 139
+  },
+  {
+   "axis": "cowl",
+   "option": "150 mm behind",
+   "against": "300 mm behind",
+   "pixels": 409,
+   "share": 3.156,
+   "max": 139
+  },
+  {
+   "axis": "cowl",
+   "option": "450 mm behind",
+   "against": "300 mm behind",
+   "pixels": 384,
+   "share": 2.963,
+   "max": 139
+  },
+  {
+   "axis": "cowl",
+   "option": "650 mm behind",
+   "against": "300 mm behind",
+   "pixels": 626,
+   "share": 4.83,
+   "max": 165
+  },
+  {
+   "axis": "nose",
+   "option": "55%",
+   "against": "78%",
+   "pixels": 149,
+   "share": 1.15,
+   "max": 114
+  },
+  {
+   "axis": "nose",
+   "option": "66%",
+   "against": "78%",
+   "pixels": 110,
+   "share": 0.849,
+   "max": 114
+  },
+  {
+   "axis": "nose",
+   "option": "88%",
+   "against": "78%",
+   "pixels": 101,
+   "share": 0.779,
+   "max": 108
+  },
+  {
+   "axis": "nose",
+   "option": "97%",
+   "against": "78%",
+   "pixels": 136,
+   "share": 1.049,
+   "max": 112
+  },
+  {
+   "axis": "nrake",
+   "option": "Upright",
+   "against": "12° back",
+   "pixels": 63,
+   "share": 0.486,
+   "max": 106
+  },
+  {
+   "axis": "nrake",
+   "option": "25° back",
+   "against": "12° back",
+   "pixels": 69,
+   "share": 0.532,
+   "max": 114
+  },
+  {
+   "axis": "nrake",
+   "option": "40° back",
+   "against": "12° back",
+   "pixels": 126,
+   "share": 0.972,
+   "max": 123
+  },
+  {
+   "axis": "nrake",
+   "option": "55° back",
+   "against": "12° back",
+   "pixels": 179,
+   "share": 1.381,
+   "max": 123
+  },
+  {
+   "axis": "nrake",
+   "option": "8° forward",
+   "against": "12° back",
+   "pixels": 73,
+   "share": 0.563,
+   "max": 129
+  },
+  {
+   "axis": "bonnet",
+   "option": "0%",
+   "against": "30%",
+   "pixels": 44,
+   "share": 0.34,
+   "max": 75
+  },
+  {
+   "axis": "bonnet",
+   "option": "60%",
+   "against": "30%",
+   "pixels": 41,
+   "share": 0.316,
+   "max": 84
+  },
+  {
+   "axis": "bonnet",
+   "option": "100%",
+   "against": "30%",
+   "pixels": 70,
+   "share": 0.54,
+   "max": 107
+  },
+  {
+   "axis": "screen",
+   "option": "22°",
+   "against": "32°",
+   "pixels": 440,
+   "share": 3.395,
+   "max": 164
+  },
+  {
+   "axis": "screen",
+   "option": "27°",
+   "against": "32°",
+   "pixels": 302,
+   "share": 2.33,
+   "max": 137
+  },
+  {
+   "axis": "screen",
+   "option": "38°",
+   "against": "32°",
+   "pixels": 275,
+   "share": 2.122,
+   "max": 136
+  },
+  {
+   "axis": "screen",
+   "option": "46°",
+   "against": "32°",
+   "pixels": 405,
+   "share": 3.125,
+   "max": 143
+  },
+  {
+   "axis": "screen",
+   "option": "56°",
+   "against": "32°",
+   "pixels": 485,
+   "share": 3.742,
+   "max": 166
+  },
+  {
+   "axis": "screen",
+   "option": "68°",
+   "against": "32°",
+   "pixels": 532,
+   "share": 4.105,
+   "max": 164
+  },
+  {
+   "axis": "screen",
+   "option": "82°",
+   "against": "32°",
+   "pixels": 595,
+   "share": 4.591,
+   "max": 167
+  },
+  {
+   "axis": "peak",
+   "option": "20%",
+   "against": "40%",
+   "pixels": 161,
+   "share": 1.242,
+   "max": 65
+  },
+  {
+   "axis": "peak",
+   "option": "60%",
+   "against": "40%",
+   "pixels": 162,
+   "share": 1.25,
+   "max": 73
+  },
+  {
+   "axis": "peak",
+   "option": "80%",
+   "against": "40%",
+   "pixels": 257,
+   "share": 1.983,
+   "max": 111
+  },
+  {
+   "axis": "crown",
+   "option": "0 mm",
+   "against": "40 mm",
+   "pixels": 102,
+   "share": 0.787,
+   "max": 62
+  },
+  {
+   "axis": "crown",
+   "option": "80 mm",
+   "against": "40 mm",
+   "pixels": 108,
+   "share": 0.833,
+   "max": 62
+  },
+  {
+   "axis": "crown",
+   "option": "140 mm",
+   "against": "40 mm",
+   "pixels": 188,
+   "share": 1.451,
+   "max": 118
+  },
+  {
+   "axis": "roofend",
+   "option": "45%",
+   "against": "72%",
+   "pixels": 576,
+   "share": 4.444,
+   "max": 171
+  },
+  {
+   "axis": "roofend",
+   "option": "58%",
+   "against": "72%",
+   "pixels": 390,
+   "share": 3.009,
+   "max": 171
+  },
+  {
+   "axis": "roofend",
+   "option": "84%",
+   "against": "72%",
+   "pixels": 187,
+   "share": 1.443,
+   "max": 133
+  },
+  {
+   "axis": "roofend",
+   "option": "93%",
+   "against": "72%",
+   "pixels": 241,
+   "share": 1.86,
+   "max": 111
+  },
+  {
+   "axis": "roofend",
+   "option": "100%",
+   "against": "72%",
+   "pixels": 257,
+   "share": 1.983,
+   "max": 126
+  },
+  {
+   "axis": "rdrop",
+   "option": "0 mm",
+   "against": "50 mm",
+   "pixels": 156,
+   "share": 1.204,
+   "max": 120
+  },
+  {
+   "axis": "rdrop",
+   "option": "110 mm",
+   "against": "50 mm",
+   "pixels": 170,
+   "share": 1.312,
+   "max": 131
+  },
+  {
+   "axis": "rdrop",
+   "option": "190 mm",
+   "against": "50 mm",
+   "pixels": 218,
+   "share": 1.682,
+   "max": 165
+  },
+  {
+   "axis": "rdrop",
+   "option": "280 mm",
+   "against": "50 mm",
+   "pixels": 447,
+   "share": 3.449,
+   "max": 171
+  },
+  {
+   "axis": "fall",
+   "option": "14°",
+   "against": "30°",
+   "pixels": 227,
+   "share": 1.752,
+   "max": 112
+  },
+  {
+   "axis": "fall",
+   "option": "20°",
+   "against": "30°",
+   "pixels": 199,
+   "share": 1.535,
+   "max": 124
+  },
+  {
+   "axis": "fall",
+   "option": "40°",
+   "against": "30°",
+   "pixels": 102,
+   "share": 0.787,
+   "max": 109
+  },
+  {
+   "axis": "fall",
+   "option": "52°",
+   "against": "30°",
+   "pixels": 242,
+   "share": 1.867,
+   "max": 171
+  },
+  {
+   "axis": "fall",
+   "option": "66°",
+   "against": "30°",
+   "pixels": 321,
+   "share": 2.477,
+   "max": 171
+  },
+  {
+   "axis": "fall",
+   "option": "80°",
+   "against": "30°",
+   "pixels": 371,
+   "share": 2.863,
+   "max": 171
+  },
+  {
+   "axis": "fall",
+   "option": "90°",
+   "against": "30°",
+   "pixels": 394,
+   "share": 3.04,
+   "max": 171
+  },
+  {
+   "axis": "tailh",
+   "option": "−120 mm",
+   "against": "Level",
+   "pixels": 50,
+   "share": 0.386,
+   "max": 134
+  },
+  {
+   "axis": "tailh",
+   "option": "−60 mm",
+   "against": "Level",
+   "pixels": 34,
+   "share": 0.262,
+   "max": 129
+  },
+  {
+   "axis": "tailh",
+   "option": "+70 mm",
+   "against": "Level",
+   "pixels": 47,
+   "share": 0.363,
+   "max": 137
+  },
+  {
+   "axis": "tailh",
+   "option": "+150 mm",
+   "against": "Level",
+   "pixels": 206,
+   "share": 1.59,
+   "max": 177
+  },
+  {
+   "axis": "trake",
+   "option": "Upright",
+   "against": "8° in at the top",
+   "pixels": 99,
+   "share": 0.764,
+   "max": 208
+  },
+  {
+   "axis": "trake",
+   "option": "18° in at the top",
+   "against": "8° in at the top",
+   "pixels": 161,
+   "share": 1.242,
+   "max": 203
+  },
+  {
+   "axis": "trake",
+   "option": "30° in at the top",
+   "against": "8° in at the top",
+   "pixels": 350,
+   "share": 2.701,
+   "max": 225
+  },
+  {
+   "axis": "trake",
+   "option": "10° out at the top",
+   "against": "8° in at the top",
+   "pixels": 131,
+   "share": 1.011,
+   "max": 131
+  },
+  {
+   "axis": "bed",
+   "option": "Open bed",
+   "against": "Closed",
+   "pixels": 94,
+   "share": 0.725,
+   "max": 83
+  },
+  {
+   "axis": "plan",
+   "option": "15%",
+   "against": "50%",
+   "pixels": 175,
+   "share": 1.092,
+   "max": 205
+  },
+  {
+   "axis": "plan",
+   "option": "85%",
+   "against": "50%",
+   "pixels": 208,
+   "share": 1.298,
+   "max": 215
+  },
+  {
+   "axis": "waist",
+   "option": "40 mm",
+   "against": "0 mm",
+   "pixels": 158,
+   "share": 0.986,
+   "max": 100
+  },
+  {
+   "axis": "waist",
+   "option": "90 mm",
+   "against": "0 mm",
+   "pixels": 228,
+   "share": 1.423,
+   "max": 124
+  },
+  {
+   "axis": "nround",
+   "option": "12%",
+   "against": "50%",
+   "pixels": 484,
+   "share": 0.565,
+   "max": 177
+  },
+  {
+   "axis": "nround",
+   "option": "30%",
+   "against": "50%",
+   "pixels": 404,
+   "share": 0.472,
+   "max": 177
+  },
+  {
+   "axis": "nround",
+   "option": "75%",
+   "against": "50%",
+   "pixels": 652,
+   "share": 0.761,
+   "max": 194
+  },
+  {
+   "axis": "nround",
+   "option": "100%",
+   "against": "50%",
+   "pixels": 996,
+   "share": 1.162,
+   "max": 194
+  },
+  {
+   "axis": "tround",
+   "option": "10%",
+   "against": "40%",
+   "pixels": 292,
+   "share": 0.341,
+   "max": 176
+  },
+  {
+   "axis": "tround",
+   "option": "70%",
+   "against": "40%",
+   "pixels": 525,
+   "share": 0.613,
+   "max": 211
+  },
+  {
+   "axis": "tround",
+   "option": "100%",
+   "against": "40%",
+   "pixels": 1097,
+   "share": 1.28,
+   "max": 231
+  },
+  {
+   "axis": "belt",
+   "option": "52%",
+   "against": "62%",
+   "pixels": 5042,
+   "share": 9.659,
+   "max": 142
+  },
+  {
+   "axis": "belt",
+   "option": "57%",
+   "against": "62%",
+   "pixels": 4154,
+   "share": 7.958,
+   "max": 148
+  },
+  {
+   "axis": "belt",
+   "option": "67%",
+   "against": "62%",
+   "pixels": 4125,
+   "share": 7.902,
+   "max": 148
+  },
+  {
+   "axis": "belt",
+   "option": "72%",
+   "against": "62%",
+   "pixels": 5275,
+   "share": 10.105,
+   "max": 223
+  },
+  {
+   "axis": "brise",
+   "option": "Level",
+   "against": "+40 mm",
+   "pixels": 1064,
+   "share": 2.038,
+   "max": 137
+  },
+  {
+   "axis": "brise",
+   "option": "+90 mm",
+   "against": "+40 mm",
+   "pixels": 1147,
+   "share": 2.197,
+   "max": 137
+  },
+  {
+   "axis": "brise",
+   "option": "+150 mm",
+   "against": "+40 mm",
+   "pixels": 2018,
+   "share": 3.866,
+   "max": 188
+  },
+  {
+   "axis": "brise",
+   "option": "−40 mm",
+   "against": "+40 mm",
+   "pixels": 1609,
+   "share": 3.082,
+   "max": 148
+  },
+  {
+   "axis": "kick",
+   "option": "+60 mm",
+   "against": "Level",
+   "pixels": 1257,
+   "share": 2.155,
+   "max": 140
+  },
+  {
+   "axis": "kick",
+   "option": "+130 mm",
+   "against": "Level",
+   "pixels": 1856,
+   "share": 3.182,
+   "max": 162
+  },
+  {
+   "axis": "kick",
+   "option": "−60 mm",
+   "against": "Level",
+   "pixels": 1354,
+   "share": 2.322,
+   "max": 140
+  },
+  {
+   "axis": "pillars",
+   "option": "Two, no centre pillar",
+   "against": "Three",
+   "pixels": 682,
+   "share": 1.169,
+   "max": 106
+  },
+  {
+   "axis": "pillars",
+   "option": "Four",
+   "against": "Three",
+   "pixels": 6491,
+   "share": 11.13,
+   "max": 173
+  },
+  {
+   "axis": "prake",
+   "option": "Upright",
+   "against": "Half way",
+   "pixels": 176,
+   "share": 0.302,
+   "max": 140
+  },
+  {
+   "axis": "prake",
+   "option": "Parallel to the back",
+   "against": "Half way",
+   "pixels": 4429,
+   "share": 7.594,
+   "max": 173
+  },
+  {
+   "axis": "rail",
+   "option": "50 mm",
+   "against": "90 mm",
+   "pixels": 2151,
+   "share": 3.688,
+   "max": 151
+  },
+  {
+   "axis": "rail",
+   "option": "140 mm",
+   "against": "90 mm",
+   "pixels": 2678,
+   "share": 4.592,
+   "max": 150
+  },
+  {
+   "axis": "rail",
+   "option": "210 mm",
+   "against": "90 mm",
+   "pixels": 9471,
+   "share": 16.24,
+   "max": 172
+  },
+  {
+   "axis": "float",
+   "option": "Floating, dark rear pillar",
+   "against": "Joined",
+   "pixels": 106,
+   "share": 0.182,
+   "max": 139
+  },
+  {
+   "axis": "float",
+   "option": "All pillars dark",
+   "against": "Joined",
+   "pixels": 2633,
+   "share": 4.515,
+   "max": 149
+  },
+  {
+   "axis": "float",
+   "option": "Dark front pillar",
+   "against": "Joined",
+   "pixels": 1819,
+   "share": 3.119,
+   "max": 149
+  },
+  {
+   "axis": "tint",
+   "option": "25%",
+   "against": "45%",
+   "pixels": 17187,
+   "share": 29.47,
+   "max": 36
+  },
+  {
+   "axis": "tint",
+   "option": "65%",
+   "against": "45%",
+   "pixels": 17437,
+   "share": 29.899,
+   "max": 36
+  },
+  {
+   "axis": "tint",
+   "option": "85%",
+   "against": "45%",
+   "pixels": 17663,
+   "share": 30.286,
+   "max": 72
+  },
+  {
+   "axis": "rim",
+   "option": "55%",
+   "against": "68%",
+   "pixels": 11232,
+   "share": 13.109,
+   "max": 203
+  },
+  {
+   "axis": "rim",
+   "option": "62%",
+   "against": "68%",
+   "pixels": 9278,
+   "share": 10.829,
+   "max": 201
+  },
+  {
+   "axis": "rim",
+   "option": "74%",
+   "against": "68%",
+   "pixels": 10523,
+   "share": 12.282,
+   "max": 207
+  },
+  {
+   "axis": "rim",
+   "option": "80%",
+   "against": "68%",
+   "pixels": 14195,
+   "share": 16.567,
+   "max": 202
+  },
+  {
+   "axis": "rim",
+   "option": "86%",
+   "against": "68%",
+   "pixels": 17890,
+   "share": 20.88,
+   "max": 203
+  },
+  {
+   "axis": "spokes",
+   "option": "3",
+   "against": "5",
+   "pixels": 8415,
+   "share": 9.821,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "4",
+   "against": "5",
+   "pixels": 8105,
+   "share": 9.46,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "6",
+   "against": "5",
+   "pixels": 8829,
+   "share": 10.305,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "7",
+   "against": "5",
+   "pixels": 9034,
+   "share": 10.544,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "8",
+   "against": "5",
+   "pixels": 9278,
+   "share": 10.829,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "10",
+   "against": "5",
+   "pixels": 9216,
+   "share": 10.756,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "12",
+   "against": "5",
+   "pixels": 9506,
+   "share": 11.095,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "15",
+   "against": "5",
+   "pixels": 10641,
+   "share": 12.419,
+   "max": 186
+  },
+  {
+   "axis": "spokes",
+   "option": "20",
+   "against": "5",
+   "pixels": 10851,
+   "share": 12.665,
+   "max": 186
+  },
+  {
+   "axis": "spoke",
+   "option": "Tapered",
+   "against": "Straight",
+   "pixels": 3920,
+   "share": 4.575,
+   "max": 186
+  },
+  {
+   "axis": "spoke",
+   "option": "Split in two",
+   "against": "Straight",
+   "pixels": 7776,
+   "share": 9.076,
+   "max": 186
+  },
+  {
+   "axis": "spoke",
+   "option": "Swept",
+   "against": "Straight",
+   "pixels": 8728,
+   "share": 10.187,
+   "max": 186
+  },
+  {
+   "axis": "spoke",
+   "option": "Solid disc",
+   "against": "Straight",
+   "pixels": 11627,
+   "share": 13.57,
+   "max": 185
+  },
+  {
+   "axis": "dish",
+   "option": "0%",
+   "against": "30%",
+   "pixels": 7976,
+   "share": 9.309,
+   "max": 201
+  },
+  {
+   "axis": "dish",
+   "option": "60%",
+   "against": "30%",
+   "pixels": 7295,
+   "share": 8.514,
+   "max": 201
+  },
+  {
+   "axis": "dish",
+   "option": "100%",
+   "against": "30%",
+   "pixels": 12206,
+   "share": 14.246,
+   "max": 201
+  },
+  {
+   "axis": "wfin",
+   "option": "Dark grey",
+   "against": "Silver",
+   "pixels": 13669,
+   "share": 15.954,
+   "max": 109
+  },
+  {
+   "axis": "wfin",
+   "option": "Black",
+   "against": "Silver",
+   "pixels": 13771,
+   "share": 16.073,
+   "max": 169
+  },
+  {
+   "axis": "wfin",
+   "option": "Body colour",
+   "against": "Silver",
+   "pixels": 13244,
+   "share": 15.458,
+   "max": 48
+  },
+  {
+   "axis": "wfin",
+   "option": "Machined face",
+   "against": "Silver",
+   "pixels": 12849,
+   "share": 14.996,
+   "max": 82
+  },
+  {
+   "axis": "wfin",
+   "option": "Bronze",
+   "against": "Silver",
+   "pixels": 13716,
+   "share": 16.008,
+   "max": 136
+  },
+  {
+   "axis": "hlw",
+   "option": "180 mm",
+   "against": "320 mm",
+   "pixels": 1237,
+   "share": 0.982,
+   "max": 215
+  },
+  {
+   "axis": "hlw",
+   "option": "240 mm",
+   "against": "320 mm",
+   "pixels": 1015,
+   "share": 0.806,
+   "max": 212
+  },
+  {
+   "axis": "hlw",
+   "option": "420 mm",
+   "against": "320 mm",
+   "pixels": 1299,
+   "share": 1.031,
+   "max": 225
+  },
+  {
+   "axis": "hlw",
+   "option": "520 mm",
+   "against": "320 mm",
+   "pixels": 1854,
+   "share": 1.471,
+   "max": 247
+  },
+  {
+   "axis": "hlw",
+   "option": "640 mm",
+   "against": "320 mm",
+   "pixels": 2375,
+   "share": 1.885,
+   "max": 246
+  },
+  {
+   "axis": "hlh",
+   "option": "40 mm",
+   "against": "110 mm",
+   "pixels": 1230,
+   "share": 0.976,
+   "max": 224
+  },
+  {
+   "axis": "hlh",
+   "option": "70 mm",
+   "against": "110 mm",
+   "pixels": 952,
+   "share": 0.756,
+   "max": 246
+  },
+  {
+   "axis": "hlh",
+   "option": "160 mm",
+   "against": "110 mm",
+   "pixels": 1295,
+   "share": 1.028,
+   "max": 244
+  },
+  {
+   "axis": "hlh",
+   "option": "220 mm",
+   "against": "110 mm",
+   "pixels": 2218,
+   "share": 1.76,
+   "max": 248
+  },
+  {
+   "axis": "hlh",
+   "option": "300 mm",
+   "against": "110 mm",
+   "pixels": 3224,
+   "share": 2.559,
+   "max": 246
+  },
+  {
+   "axis": "hlsides",
+   "option": "Two",
+   "against": "Four",
+   "pixels": 5606,
+   "share": 6.543,
+   "max": 236
+  },
+  {
+   "axis": "hlsides",
+   "option": "Three",
+   "against": "Four",
+   "pixels": 4827,
+   "share": 5.634,
+   "max": 234
+  },
+  {
+   "axis": "hlsides",
+   "option": "Five",
+   "against": "Four",
+   "pixels": 4662,
+   "share": 5.441,
+   "max": 236
+  },
+  {
+   "axis": "hlsides",
+   "option": "Six",
+   "against": "Four",
+   "pixels": 4253,
+   "share": 4.964,
+   "max": 234
+  },
+  {
+   "axis": "hlsides",
+   "option": "Eight",
+   "against": "Four",
+   "pixels": 3812,
+   "share": 4.449,
+   "max": 236
+  },
+  {
+   "axis": "hlsoft",
+   "option": "100%",
+   "against": "50%",
+   "pixels": 2350,
+   "share": 2.743,
+   "max": 235
+  },
+  {
+   "axis": "hlsoft",
+   "option": "75%",
+   "against": "50%",
+   "pixels": 2200,
+   "share": 2.568,
+   "max": 236
+  },
+  {
+   "axis": "hlsoft",
+   "option": "25%",
+   "against": "50%",
+   "pixels": 2125,
+   "share": 2.48,
+   "max": 234
+  },
+  {
+   "axis": "hlsoft",
+   "option": "5%",
+   "against": "50%",
+   "pixels": 2274,
+   "share": 2.654,
+   "max": 234
+  },
+  {
+   "axis": "hlslant",
+   "option": "Level",
+   "against": "Outer up 6°",
+   "pixels": 3481,
+   "share": 4.063,
+   "max": 244
+  },
+  {
+   "axis": "hlslant",
+   "option": "Outer up 14°",
+   "against": "Outer up 6°",
+   "pixels": 3328,
+   "share": 3.884,
+   "max": 244
+  },
+  {
+   "axis": "hlslant",
+   "option": "Outer up 24°",
+   "against": "Outer up 6°",
+   "pixels": 4816,
+   "share": 5.621,
+   "max": 252
+  },
+  {
+   "axis": "hlslant",
+   "option": "Outer down 8°",
+   "against": "Outer up 6°",
+   "pixels": 3803,
+   "share": 4.439,
+   "max": 252
+  },
+  {
+   "axis": "hlpos",
+   "option": "0%",
+   "against": "12%",
+   "pixels": 1453,
+   "share": 1.153,
+   "max": 244
+  },
+  {
+   "axis": "hlpos",
+   "option": "30%",
+   "against": "12%",
+   "pixels": 1775,
+   "share": 1.409,
+   "max": 244
+  },
+  {
+   "axis": "hlpos",
+   "option": "50%",
+   "against": "12%",
+   "pixels": 2551,
+   "share": 2.025,
+   "max": 181
+  },
+  {
+   "axis": "hlpos",
+   "option": "75%",
+   "against": "12%",
+   "pixels": 2687,
+   "share": 2.133,
+   "max": 137
+  },
+  {
+   "axis": "hlsplit",
+   "option": "Slim upper, main lamp below",
+   "against": "Single",
+   "pixels": 2273,
+   "share": 1.804,
+   "max": 182
+  },
+  {
+   "axis": "hlsplit",
+   "option": "Stacked pair",
+   "against": "Single",
+   "pixels": 1012,
+   "share": 0.803,
+   "max": 243
+  },
+  {
+   "axis": "hlsplit",
+   "option": "Twin side by side",
+   "against": "Single",
+   "pixels": 1165,
+   "share": 0.925,
+   "max": 218
+  },
+  {
+   "axis": "bar",
+   "option": "Between the lamps",
+   "against": "None",
+   "pixels": 938,
+   "share": 0.744,
+   "max": 250
+  },
+  {
+   "axis": "bar",
+   "option": "Across the whole face",
+   "against": "None",
+   "pixels": 1598,
+   "share": 1.268,
+   "max": 250
+  },
+  {
+   "axis": "socket",
+   "option": "0 mm",
+   "against": "20 mm",
+   "pixels": 2070,
+   "share": 2.416,
+   "max": 114
+  },
+  {
+   "axis": "socket",
+   "option": "50 mm",
+   "against": "20 mm",
+   "pixels": 2899,
+   "share": 3.384,
+   "max": 105
+  },
+  {
+   "axis": "socket",
+   "option": "90 mm",
+   "against": "20 mm",
+   "pixels": 5049,
+   "share": 5.893,
+   "max": 189
+  },
+  {
+   "axis": "socket",
+   "option": "140 mm",
+   "against": "20 mm",
+   "pixels": 6695,
+   "share": 7.814,
+   "max": 208
+  },
+  {
+   "axis": "brow",
+   "option": "15 mm",
+   "against": "0 mm",
+   "pixels": 2249,
+   "share": 2.625,
+   "max": 190
+  },
+  {
+   "axis": "brow",
+   "option": "35 mm",
+   "against": "0 mm",
+   "pixels": 4025,
+   "share": 4.698,
+   "max": 208
+  },
+  {
+   "axis": "brow",
+   "option": "60 mm",
+   "against": "0 mm",
+   "pixels": 4686,
+   "share": 5.469,
+   "max": 214
+  },
+  {
+   "axis": "aper",
+   "option": "100%",
+   "against": "85%",
+   "pixels": 2703,
+   "share": 3.155,
+   "max": 218
+  },
+  {
+   "axis": "aper",
+   "option": "65%",
+   "against": "85%",
+   "pixels": 4077,
+   "share": 4.758,
+   "max": 244
+  },
+  {
+   "axis": "aper",
+   "option": "45%",
+   "against": "85%",
+   "pixels": 5615,
+   "share": 6.553,
+   "max": 244
+  },
+  {
+   "axis": "grille",
+   "option": "Upright bars",
+   "against": "Horizontal bars",
+   "pixels": 1221,
+   "share": 0.969,
+   "max": 56
+  },
+  {
+   "axis": "grille",
+   "option": "Mesh",
+   "against": "Horizontal bars",
+   "pixels": 1197,
+   "share": 0.95,
+   "max": 56
+  },
+  {
+   "axis": "grille",
+   "option": "Dots",
+   "against": "Horizontal bars",
+   "pixels": 992,
+   "share": 0.787,
+   "max": 57
+  },
+  {
+   "axis": "grille",
+   "option": "Blank panel",
+   "against": "Horizontal bars",
+   "pixels": 2370,
+   "share": 1.881,
+   "max": 124
+  },
+  {
+   "axis": "grille",
+   "option": "None",
+   "against": "Horizontal bars",
+   "pixels": 2659,
+   "share": 2.11,
+   "max": 144
+  },
+  {
+   "axis": "grw",
+   "option": "25%",
+   "against": "45%",
+   "pixels": 1237,
+   "share": 0.982,
+   "max": 143
+  },
+  {
+   "axis": "grw",
+   "option": "65%",
+   "against": "45%",
+   "pixels": 970,
+   "share": 0.77,
+   "max": 142
+  },
+  {
+   "axis": "grw",
+   "option": "85%",
+   "against": "45%",
+   "pixels": 1556,
+   "share": 1.235,
+   "max": 140
+  },
+  {
+   "axis": "grh",
+   "option": "60 mm",
+   "against": "160 mm",
+   "pixels": 2504,
+   "share": 1.987,
+   "max": 144
+  },
+  {
+   "axis": "grh",
+   "option": "110 mm",
+   "against": "160 mm",
+   "pixels": 1929,
+   "share": 1.531,
+   "max": 144
+  },
+  {
+   "axis": "grh",
+   "option": "240 mm",
+   "against": "160 mm",
+   "pixels": 2846,
+   "share": 2.259,
+   "max": 146
+  },
+  {
+   "axis": "grh",
+   "option": "340 mm",
+   "against": "160 mm",
+   "pixels": 2940,
+   "share": 2.333,
+   "max": 147
+  },
+  {
+   "axis": "grh",
+   "option": "460 mm",
+   "against": "160 mm",
+   "pixels": 2940,
+   "share": 2.333,
+   "max": 147
+  },
+  {
+   "axis": "grsoft",
+   "option": "100%",
+   "against": "40%",
+   "pixels": 3070,
+   "share": 3.583,
+   "max": 148
+  },
+  {
+   "axis": "grsoft",
+   "option": "70%",
+   "against": "40%",
+   "pixels": 2642,
+   "share": 3.084,
+   "max": 148
+  },
+  {
+   "axis": "grsoft",
+   "option": "15%",
+   "against": "40%",
+   "pixels": 844,
+   "share": 0.985,
+   "max": 148
+  },
+  {
+   "axis": "grsoft",
+   "option": "3%",
+   "against": "40%",
+   "pixels": 1415,
+   "share": 1.651,
+   "max": 146
+  },
+  {
+   "axis": "grtaper",
+   "option": "Top wider 15%",
+   "against": "Even",
+   "pixels": 1449,
+   "share": 1.691,
+   "max": 147
+  },
+  {
+   "axis": "grtaper",
+   "option": "Top wider 30%",
+   "against": "Even",
+   "pixels": 2553,
+   "share": 2.98,
+   "max": 148
+  },
+  {
+   "axis": "grtaper",
+   "option": "Bottom wider 15%",
+   "against": "Even",
+   "pixels": 1462,
+   "share": 1.706,
+   "max": 147
+  },
+  {
+   "axis": "grtaper",
+   "option": "Bottom wider 30%",
+   "against": "Even",
+   "pixels": 2543,
+   "share": 2.968,
+   "max": 148
+  },
+  {
+   "axis": "grpos",
+   "option": "8%",
+   "against": "30%",
+   "pixels": 2542,
+   "share": 2.017,
+   "max": 147
+  },
+  {
+   "axis": "grpos",
+   "option": "55%",
+   "against": "30%",
+   "pixels": 2459,
+   "share": 1.952,
+   "max": 144
+  },
+  {
+   "axis": "grpos",
+   "option": "80%",
+   "against": "30%",
+   "pixels": 3258,
+   "share": 2.586,
+   "max": 144
+  },
+  {
+   "axis": "grsplit",
+   "option": "Two",
+   "against": "One",
+   "pixels": 455,
+   "share": 0.531,
+   "max": 147
+  },
+  {
+   "axis": "grsplit",
+   "option": "Three",
+   "against": "One",
+   "pixels": 1649,
+   "share": 1.925,
+   "max": 147
+  },
+  {
+   "axis": "lower",
+   "option": "None",
+   "against": "Wide slot",
+   "pixels": 3903,
+   "share": 3.098,
+   "max": 144
+  },
+  {
+   "axis": "lower",
+   "option": "Centre intake",
+   "against": "Wide slot",
+   "pixels": 4517,
+   "share": 3.585,
+   "max": 146
+  },
+  {
+   "axis": "lower",
+   "option": "Centre and side intakes",
+   "against": "Wide slot",
+   "pixels": 4892,
+   "share": 3.883,
+   "max": 145
+  },
+  {
+   "axis": "lower",
+   "option": "Full-width mouth",
+   "against": "Wide slot",
+   "pixels": 5654,
+   "share": 4.487,
+   "max": 145
+  },
+  {
+   "axis": "bcrease",
+   "option": "None",
+   "against": "Two soft lines",
+   "pixels": 39,
+   "share": 0.061,
+   "max": 17
+  },
+  {
+   "axis": "bcrease",
+   "option": "Centre crease",
+   "against": "Two soft lines",
+   "pixels": 92,
+   "share": 0.144,
+   "max": 17
+  },
+  {
+   "axis": "bcrease",
+   "option": "Raised centre",
+   "against": "Two soft lines",
+   "pixels": 1541,
+   "share": 2.405,
+   "max": 17
+  },
+  {
+   "axis": "bcrease",
+   "option": "Vents",
+   "against": "Two soft lines",
+   "pixels": 241,
+   "share": 0.376,
+   "max": 146
+  },
+  {
+   "axis": "tlw",
+   "option": "160 mm",
+   "against": "300 mm",
+   "pixels": 1088,
+   "share": 0.863,
+   "max": 204
+  },
+  {
+   "axis": "tlw",
+   "option": "450 mm",
+   "against": "300 mm",
+   "pixels": 1294,
+   "share": 1.027,
+   "max": 193
+  },
+  {
+   "axis": "tlw",
+   "option": "620 mm",
+   "against": "300 mm",
+   "pixels": 2239,
+   "share": 1.777,
+   "max": 209
+  },
+  {
+   "axis": "tlh",
+   "option": "50 mm",
+   "against": "120 mm",
+   "pixels": 3028,
+   "share": 2.403,
+   "max": 201
+  },
+  {
+   "axis": "tlh",
+   "option": "200 mm",
+   "against": "120 mm",
+   "pixels": 3593,
+   "share": 2.852,
+   "max": 208
+  },
+  {
+   "axis": "tlh",
+   "option": "320 mm",
+   "against": "120 mm",
+   "pixels": 5699,
+   "share": 4.523,
+   "max": 206
+  },
+  {
+   "axis": "tlsoft",
+   "option": "100%",
+   "against": "40%",
+   "pixels": 4234,
+   "share": 4.942,
+   "max": 231
+  },
+  {
+   "axis": "tlsoft",
+   "option": "70%",
+   "against": "40%",
+   "pixels": 3348,
+   "share": 3.908,
+   "max": 230
+  },
+  {
+   "axis": "tlsoft",
+   "option": "10%",
+   "against": "40%",
+   "pixels": 2381,
+   "share": 2.779,
+   "max": 230
+  },
+  {
+   "axis": "tlpos",
+   "option": "0%",
+   "against": "10%",
+   "pixels": 3119,
+   "share": 2.475,
+   "max": 207
+  },
+  {
+   "axis": "tlpos",
+   "option": "30%",
+   "against": "10%",
+   "pixels": 4611,
+   "share": 3.66,
+   "max": 206
+  },
+  {
+   "axis": "tlpos",
+   "option": "55%",
+   "against": "10%",
+   "pixels": 5502,
+   "share": 4.367,
+   "max": 206
+  },
+  {
+   "axis": "tbar",
+   "option": "Between the lamps",
+   "against": "None",
+   "pixels": 842,
+   "share": 0.668,
+   "max": 119
+  },
+  {
+   "axis": "tbar",
+   "option": "Full width",
+   "against": "None",
+   "pixels": 1410,
+   "share": 1.119,
+   "max": 218
+  },
+  {
+   "axis": "plater",
+   "option": "Low in the bumper",
+   "against": "On the tail",
+   "pixels": 2696,
+   "share": 2.14,
+   "max": 195
+  },
+  {
+   "axis": "plater",
+   "option": "On the tail, to one side",
+   "against": "On the tail",
+   "pixels": 1848,
+   "share": 1.467,
+   "max": 129
+  },
+  {
+   "axis": "outlets",
+   "option": "None",
+   "against": "2",
+   "pixels": 934,
+   "share": 1.802,
+   "max": 106
+  },
+  {
+   "axis": "outlets",
+   "option": "1",
+   "against": "2",
+   "pixels": 467,
+   "share": 0.901,
+   "max": 106
+  },
+  {
+   "axis": "outlets",
+   "option": "4",
+   "against": "2",
+   "pixels": 2547,
+   "share": 4.913,
+   "max": 180
+  },
+  {
+   "axis": "outshape",
+   "option": "Oval",
+   "against": "Round",
+   "pixels": 717,
+   "share": 1.383,
+   "max": 180
+  },
+  {
+   "axis": "outshape",
+   "option": "Rectangular",
+   "against": "Round",
+   "pixels": 991,
+   "share": 1.912,
+   "max": 180
+  },
+  {
+   "axis": "outshape",
+   "option": "Trapezoid",
+   "against": "Round",
+   "pixels": 988,
+   "share": 1.906,
+   "max": 180
+  },
+  {
+   "axis": "spoiler",
+   "option": "Lip",
+   "against": "None",
+   "pixels": 244,
+   "share": 0.285,
+   "max": 176
+  },
+  {
+   "axis": "spoiler",
+   "option": "Ducktail",
+   "against": "None",
+   "pixels": 584,
+   "share": 0.682,
+   "max": 176
+  },
+  {
+   "axis": "spoiler",
+   "option": "Wing on struts",
+   "against": "None",
+   "pixels": 844,
+   "share": 0.985,
+   "max": 216
+  },
+  {
+   "axis": "spoiler",
+   "option": "Roof spoiler",
+   "against": "None",
+   "pixels": 575,
+   "share": 0.671,
+   "max": 176
+  },
+  {
+   "axis": "hue",
+   "option": "0° red",
+   "against": "Neutral",
+   "pixels": 9328,
+   "share": 17.87,
+   "max": 60
+  },
+  {
+   "axis": "hue",
+   "option": "30° orange",
+   "against": "Neutral",
+   "pixels": 9328,
+   "share": 17.87,
+   "max": 60
+  },
+  {
+   "axis": "hue",
+   "option": "60° yellow",
+   "against": "Neutral",
+   "pixels": 9331,
+   "share": 17.875,
+   "max": 60
+  },
+  {
+   "axis": "hue",
+   "option": "90° lime",
+   "against": "Neutral",
+   "pixels": 9329,
+   "share": 17.872,
+   "max": 60
+  },
+  {
+   "axis": "hue",
+   "option": "120° green",
+   "against": "Neutral",
+   "pixels": 9329,
+   "share": 17.872,
+   "max": 60
+  },
+  {
+   "axis": "hue",
+   "option": "150° spring",
+   "against": "Neutral",
+   "pixels": 9318,
+   "share": 17.851,
+   "max": 57
+  },
+  {
+   "axis": "hue",
+   "option": "180° cyan",
+   "against": "Neutral",
+   "pixels": 9318,
+   "share": 17.851,
+   "max": 57
+  },
+  {
+   "axis": "hue",
+   "option": "210° azure",
+   "against": "Neutral",
+   "pixels": 9272,
+   "share": 17.762,
+   "max": 52
+  },
+  {
+   "axis": "hue",
+   "option": "240° blue",
+   "against": "Neutral",
+   "pixels": 9289,
+   "share": 17.795,
+   "max": 55
+  },
+  {
+   "axis": "hue",
+   "option": "270° violet",
+   "against": "Neutral",
+   "pixels": 9288,
+   "share": 17.793,
+   "max": 55
+  },
+  {
+   "axis": "hue",
+   "option": "300° magenta",
+   "against": "Neutral",
+   "pixels": 9321,
+   "share": 17.856,
+   "max": 60
+  },
+  {
+   "axis": "hue",
+   "option": "330° rose",
+   "against": "Neutral",
+   "pixels": 9321,
+   "share": 17.856,
+   "max": 60
+  },
+  {
+   "axis": "tone",
+   "option": "Deep",
+   "against": "Light",
+   "pixels": 9854,
+   "share": 18.877,
+   "max": 131
+  },
+  {
+   "axis": "tone",
+   "option": "Dark",
+   "against": "Light",
+   "pixels": 9724,
+   "share": 18.628,
+   "max": 94
+  },
+  {
+   "axis": "tone",
+   "option": "Mid",
+   "against": "Light",
+   "pixels": 9229,
+   "share": 17.68,
+   "max": 46
+  },
+  {
+   "axis": "tone",
+   "option": "Pale",
+   "against": "Light",
+   "pixels": 9238,
+   "share": 17.697,
+   "max": 48
+  },
+  {
+   "axis": "tone",
+   "option": "Near white",
+   "against": "Light",
+   "pixels": 9650,
+   "share": 18.487,
+   "max": 88
+  },
+  {
+   "axis": "sat",
+   "option": "Muted",
+   "against": "Rich",
+   "pixels": 8971,
+   "share": 17.186,
+   "max": 31
+  },
+  {
+   "axis": "sat",
+   "option": "Vivid",
+   "against": "Rich",
+   "pixels": 9107,
+   "share": 17.446,
+   "max": 36
+  },
+  {
+   "axis": "finish",
+   "option": "Metallic",
+   "against": "Solid",
+   "pixels": 11194,
+   "share": 13.065,
+   "max": 33
+  },
+  {
+   "axis": "finish",
+   "option": "Pearl",
+   "against": "Solid",
+   "pixels": 20016,
+   "share": 23.361,
+   "max": 24
+  },
+  {
+   "axis": "finish",
+   "option": "Matte",
+   "against": "Solid",
+   "pixels": 27570,
+   "share": 32.178,
+   "max": 25
+  },
+  {
+   "axis": "finish",
+   "option": "Satin",
+   "against": "Solid",
+   "pixels": 227,
+   "share": 0.265,
+   "max": 13
+  },
+  {
+   "axis": "roofc",
+   "option": "Black",
+   "against": "Body colour",
+   "pixels": 1346,
+   "share": 2.579,
+   "max": 131
+  },
+  {
+   "axis": "roofc",
+   "option": "White",
+   "against": "Body colour",
+   "pixels": 1275,
+   "share": 2.443,
+   "max": 98
+  },
+  {
+   "axis": "roofc",
+   "option": "Silver",
+   "against": "Body colour",
+   "pixels": 1042,
+   "share": 1.996,
+   "max": 56
+  },
+  {
+   "axis": "roofc",
+   "option": "Contrast tone",
+   "against": "Body colour",
+   "pixels": 1322,
+   "share": 2.533,
+   "max": 109
+  },
+  {
+   "axis": "stripes",
+   "option": "Twin centre stripes",
+   "against": "None",
+   "pixels": 3084,
+   "share": 4.813,
+   "max": 126
+  },
+  {
+   "axis": "stripes",
+   "option": "One offset stripe",
+   "against": "None",
+   "pixels": 1882,
+   "share": 2.937,
+   "max": 130
+  },
+  {
+   "axis": "sidestripe",
+   "option": "Low side stripe",
+   "against": "None",
+   "pixels": 742,
+   "share": 1.421,
+   "max": 91
+  },
+  {
+   "axis": "sidestripe",
+   "option": "Belt pinstripe",
+   "against": "None",
+   "pixels": 347,
+   "share": 0.665,
+   "max": 100
+  },
+  {
+   "axis": "clad",
+   "option": "Dark sills",
+   "against": "Body colour",
+   "pixels": 1141,
+   "share": 2.186,
+   "max": 83
+  },
+  {
+   "axis": "clad",
+   "option": "Dark sills and arches",
+   "against": "Body colour",
+   "pixels": 1463,
+   "share": 2.803,
+   "max": 124
+  },
+  {
+   "axis": "clad",
+   "option": "Contrast lower body",
+   "against": "Body colour",
+   "pixels": 3283,
+   "share": 6.289,
+   "max": 62
+  },
+  {
+   "axis": "shoulder",
+   "option": "30 mm",
+   "against": "80 mm",
+   "pixels": 5367,
+   "share": 9.203,
+   "max": 149
+  },
+  {
+   "axis": "shoulder",
+   "option": "150 mm",
+   "against": "80 mm",
+   "pixels": 7188,
+   "share": 12.325,
+   "max": 147
+  },
+  {
+   "axis": "shoulder",
+   "option": "240 mm",
+   "against": "80 mm",
+   "pixels": 9247,
+   "share": 15.856,
+   "max": 133
+  },
+  {
+   "axis": "shline",
+   "option": "Rising to the rear",
+   "against": "Straight",
+   "pixels": 736,
+   "share": 1.41,
+   "max": 125
+  },
+  {
+   "axis": "shline",
+   "option": "Arched",
+   "against": "Straight",
+   "pixels": 582,
+   "share": 1.115,
+   "max": 148
+  },
+  {
+   "axis": "shline",
+   "option": "Dropping to the rear",
+   "against": "Straight",
+   "pixels": 946,
+   "share": 1.812,
+   "max": 147
+  },
+  {
+   "axis": "shline",
+   "option": "Swelling over the rear wheel",
+   "against": "Straight",
+   "pixels": 382,
+   "share": 0.732,
+   "max": 140
+  },
+  {
+   "axis": "lines",
+   "option": "None",
+   "against": "One",
+   "pixels": 783,
+   "share": 1.343,
+   "max": 57
+  },
+  {
+   "axis": "lines",
+   "option": "Two",
+   "against": "One",
+   "pixels": 607,
+   "share": 1.041,
+   "max": 51
+  },
+  {
+   "axis": "sill",
+   "option": "Rising to the rear",
+   "against": "Straight",
+   "pixels": 659,
+   "share": 1.13,
+   "max": 99
+  },
+  {
+   "axis": "sill",
+   "option": "Scooped",
+   "against": "Straight",
+   "pixels": 658,
+   "share": 1.128,
+   "max": 79
+  },
+  {
+   "axis": "sill",
+   "option": "Stepped out",
+   "against": "Straight",
+   "pixels": 3154,
+   "share": 5.408,
+   "max": 102
+  },
+  {
+   "axis": "arch",
+   "option": "Flattened",
+   "against": "Round",
+   "pixels": 3278,
+   "share": 3.826,
+   "max": 138
+  },
+  {
+   "axis": "arch",
+   "option": "Squared",
+   "against": "Round",
+   "pixels": 4240,
+   "share": 4.949,
+   "max": 139
+  },
+  {
+   "axis": "arch",
+   "option": "Square",
+   "against": "Round",
+   "pixels": 4707,
+   "share": 5.494,
+   "max": 138
+  },
+  {
+   "axis": "flare",
+   "option": "20 mm",
+   "against": "0 mm",
+   "pixels": 4596,
+   "share": 5.364,
+   "max": 117
+  },
+  {
+   "axis": "flare",
+   "option": "50 mm",
+   "against": "0 mm",
+   "pixels": 6894,
+   "share": 8.046,
+   "max": 117
+  },
+  {
+   "axis": "flare",
+   "option": "90 mm",
+   "against": "0 mm",
+   "pixels": 9570,
+   "share": 11.169,
+   "max": 117
+  },
+  {
+   "axis": "hlin",
+   "option": "Two projectors",
+   "against": "One projector",
+   "pixels": 6185,
+   "share": 7.219,
+   "max": 164
+  },
+  {
+   "axis": "hlin",
+   "option": "Reflector bowl",
+   "against": "One projector",
+   "pixels": 6160,
+   "share": 7.19,
+   "max": 166
+  },
+  {
+   "axis": "hlin",
+   "option": "Grid of points",
+   "against": "One projector",
+   "pixels": 7492,
+   "share": 8.744,
+   "max": 237
+  },
+  {
+   "axis": "hlin",
+   "option": "Strip only",
+   "against": "One projector",
+   "pixels": 4035,
+   "share": 4.709,
+   "max": 196
+  },
+  {
+   "axis": "grden",
+   "option": "Coarse",
+   "against": "Medium",
+   "pixels": 18854,
+   "share": 22.005,
+   "max": 56
+  },
+  {
+   "axis": "grden",
+   "option": "Fine",
+   "against": "Medium",
+   "pixels": 17698,
+   "share": 20.656,
+   "max": 56
+  },
+  {
+   "axis": "grsur",
+   "option": "Bright",
+   "against": "None",
+   "pixels": 2743,
+   "share": 3.201,
+   "max": 210
+  },
+  {
+   "axis": "grsur",
+   "option": "Dark",
+   "against": "None",
+   "pixels": 1652,
+   "share": 1.928,
+   "max": 130
+  },
+  {
+   "axis": "grsur",
+   "option": "Body colour, thick",
+   "against": "None",
+   "pixels": 5604,
+   "share": 6.541,
+   "max": 159
+  },
+  {
+   "axis": "cuts",
+   "option": "Leaning",
+   "against": "Upright",
+   "pixels": 627,
+   "share": 1.075,
+   "max": 107
+  },
+  {
+   "axis": "cuts",
+   "option": "Following the arch",
+   "against": "Upright",
+   "pixels": 144,
+   "share": 0.247,
+   "max": 107
+  },
+  {
+   "axis": "hpos",
+   "option": "At the belt",
+   "against": "On the shoulder line",
+   "pixels": 987,
+   "share": 1.152,
+   "max": 170
+  },
+  {
+   "axis": "hpos",
+   "option": "Mid door",
+   "against": "On the shoulder line",
+   "pixels": 1268,
+   "share": 1.48,
+   "max": 150
+  },
+  {
+   "axis": "mirror",
+   "option": "At the pillar base",
+   "against": "On the door",
+   "pixels": 4875,
+   "share": 5.69,
+   "max": 176
+  },
+  {
+   "axis": "mirror",
+   "option": "Cameras on stalks",
+   "against": "On the door",
+   "pixels": 2378,
+   "share": 2.775,
+   "max": 140
+  },
+  {
+   "axis": "mirror",
+   "option": "None",
+   "against": "On the door",
+   "pixels": 1640,
+   "share": 1.914,
+   "max": 140
+  },
+  {
+   "axis": "trim",
+   "option": "Bright",
+   "against": "Dark",
+   "pixels": 3413,
+   "share": 3.983,
+   "max": 189
+  },
+  {
+   "axis": "trim",
+   "option": "Body colour",
+   "against": "Dark",
+   "pixels": 3376,
+   "share": 3.94,
+   "max": 126
+  },
+  {
+   "axis": "trim",
+   "option": "Satin",
+   "against": "Dark",
+   "pixels": 3385,
+   "share": 3.951,
+   "max": 138
+  },
+  {
+   "axis": "frame",
+   "option": "Frameless",
+   "against": "Framed",
+   "pixels": 2922,
+   "share": 3.41,
+   "max": 142
+  },
+  {
+   "axis": "filler",
+   "option": "Front wing",
+   "against": "Rear wing",
+   "pixels": 62,
+   "share": 0.119,
+   "max": 45
+  },
+  {
+   "axis": "filler",
+   "option": "Hidden",
+   "against": "Rear wing",
+   "pixels": 28,
+   "share": 0.054,
+   "max": 36
+  },
+  {
+   "axis": "badge",
+   "option": "None",
+   "against": "Roundel",
+   "pixels": 921,
+   "share": 1.075,
+   "max": 104
+  },
+  {
+   "axis": "badge",
+   "option": "Shield",
+   "against": "Roundel",
+   "pixels": 346,
+   "share": 0.404,
+   "max": 93
+  },
+  {
+   "axis": "badge",
+   "option": "Bar",
+   "against": "Roundel",
+   "pixels": 1256,
+   "share": 1.466,
+   "max": 104
+  },
+  {
+   "axis": "platef",
+   "option": "None",
+   "against": "Low, centre",
+   "pixels": 1172,
+   "share": 0.93,
+   "max": 225
+  },
+  {
+   "axis": "platef",
+   "option": "High, centre",
+   "against": "Low, centre",
+   "pixels": 2539,
+   "share": 2.015,
+   "max": 225
+  },
+  {
+   "axis": "platef",
+   "option": "To one side",
+   "against": "Low, centre",
+   "pixels": 2072,
+   "share": 1.644,
+   "max": 228
+  },
+  {
+   "axis": "antenna",
+   "option": "None",
+   "against": "Fin",
+   "pixels": 354,
+   "share": 0.413,
+   "max": 176
+  },
+  {
+   "axis": "antenna",
+   "option": "Mast",
+   "against": "Fin",
+   "pixels": 641,
+   "share": 0.748,
+   "max": 216
+  },
+  {
+   "axis": "tyre",
+   "option": "White band",
+   "against": "Plain",
+   "pixels": 10192,
+   "share": 11.895,
+   "max": 208
+  },
+  {
+   "axis": "tyre",
+   "option": "Coloured line",
+   "against": "Plain",
+   "pixels": 2845,
+   "share": 3.32,
+   "max": 185
+  },
+  {
+   "axis": "caliper",
+   "option": "Red",
+   "against": "Grey",
+   "pixels": 326,
+   "share": 0.38,
+   "max": 111
+  },
+  {
+   "axis": "caliper",
+   "option": "Yellow",
+   "against": "Grey",
+   "pixels": 327,
+   "share": 0.382,
+   "max": 115
+  },
+  {
+   "axis": "caliper",
+   "option": "Blue",
+   "against": "Grey",
+   "pixels": 326,
+   "share": 0.38,
+   "max": 98
+  },
+  {
+   "axis": "diffuser",
+   "option": "Diffuser fins",
+   "against": "Plain",
+   "pixels": 5707,
+   "share": 11.009,
+   "max": 102
+  },
+  {
+   "axis": "diffuser",
+   "option": "Skid plate",
+   "against": "Plain",
+   "pixels": 4565,
+   "share": 8.806,
+   "max": 72
+  },
+  {
+   "axis": "tlin",
+   "option": "Dots",
+   "against": "Light blade",
+   "pixels": 2679,
+   "share": 3.127,
+   "max": 181
+  },
+  {
+   "axis": "tlin",
+   "option": "Blocks",
+   "against": "Light blade",
+   "pixels": 6706,
+   "share": 7.827,
+   "max": 142
+  },
+  {
+   "axis": "tlin",
+   "option": "Glowing panel",
+   "against": "Light blade",
+   "pixels": 9373,
+   "share": 10.94,
+   "max": 99
+  },
+  {
+   "axis": "drl",
+   "option": "Outline",
+   "against": "Line along the top",
+   "pixels": 1360,
+   "share": 1.587,
+   "max": 244
+  },
+  {
+   "axis": "drl",
+   "option": "Hook",
+   "against": "Line along the top",
+   "pixels": 549,
+   "share": 0.641,
+   "max": 244
+  },
+  {
+   "axis": "drl",
+   "option": "Dots",
+   "against": "Line along the top",
+   "pixels": 2881,
+   "share": 3.363,
+   "max": 244
+  },
+  {
+   "axis": "drl",
+   "option": "None",
+   "against": "Line along the top",
+   "pixels": 1700,
+   "share": 1.984,
+   "max": 244
+  },
+  {
+   "axis": "tsig",
+   "option": "One line",
+   "against": "Outline",
+   "pixels": 7700,
+   "share": 8.987,
+   "max": 244
+  },
+  {
+   "axis": "tsig",
+   "option": "Upright blades",
+   "against": "Outline",
+   "pixels": 7972,
+   "share": 9.304,
+   "max": 244
+  },
+  {
+   "axis": "tsig",
+   "option": "Whole lamp",
+   "against": "Outline",
+   "pixels": 7561,
+   "share": 8.825,
+   "max": 244
+  },
+  {
+   "axis": "sculpt",
+   "option": "Soft",
+   "against": "Taut",
+   "pixels": 7260,
+   "share": 12.449,
+   "max": 17
+  },
+  {
+   "axis": "sculpt",
+   "option": "Hollowed",
+   "against": "Taut",
+   "pixels": 11496,
+   "share": 19.712,
+   "max": 32
+  },
+  {
+   "axis": "sculpt",
+   "option": "Flat",
+   "against": "Taut",
+   "pixels": 10339,
+   "share": 17.728,
+   "max": 17
+  },
+  {
+   "axis": "shade",
+   "option": "Changes panel by panel",
+   "against": "Fixed",
+   "pixels": 5277,
+   "share": 10.109,
+   "max": 45
+  },
+  {
+   "axis": "dooropen",
+   "option": "Scissor up",
+   "against": "Swing out",
+   "pixels": 249,
+   "share": 0.389,
+   "max": 89
+  },
+  {
+   "axis": "dooropen",
+   "option": "Gullwing",
+   "against": "Swing out",
+   "pixels": 391,
+   "share": 0.61,
+   "max": 89
+  },
+  {
+   "axis": "dooropen",
+   "option": "Rear-hinged",
+   "against": "Swing out",
+   "pixels": 203,
+   "share": 0.317,
+   "max": 88
+  },
+  {
+   "axis": "dooropen",
+   "option": "Sliding",
+   "against": "Swing out",
+   "pixels": 157,
+   "share": 0.245,
+   "max": 87
+  },
+  {
+   "axis": "roofop",
+   "option": "Sunroof",
+   "against": "Fixed",
+   "pixels": 2104,
+   "share": 3.283,
+   "max": 142
+  },
+  {
+   "axis": "roofop",
+   "option": "Glass roof",
+   "against": "Fixed",
+   "pixels": 5316,
+   "share": 8.296,
+   "max": 146
+  },
+  {
+   "axis": "roofop",
+   "option": "Soft top",
+   "against": "Fixed",
+   "pixels": 8345,
+   "share": 13.023,
+   "max": 117
+  },
+  {
+   "axis": "aero",
+   "option": "Rear wing rises",
+   "against": "None",
+   "pixels": 344,
+   "share": 0.401,
+   "max": 180
+  },
+  {
+   "axis": "aero",
+   "option": "Air brake",
+   "against": "None",
+   "pixels": 280,
+   "share": 0.327,
+   "max": 180
+  },
+  {
+   "axis": "glowp",
+   "option": "Lit face panel",
+   "against": "None",
+   "pixels": 84,
+   "share": 0.161,
+   "max": 135
+  },
+  {
+   "axis": "glowp",
+   "option": "Lit sills",
+   "against": "None",
+   "pixels": 425,
+   "share": 0.814,
+   "max": 117
+  },
+  {
+   "axis": "doors",
+   "option": "One a side",
+   "against": "Two a side",
+   "pixels": 496,
+   "share": 0.95,
+   "max": 145
+  },
+  {
+   "axis": "seats",
+   "option": "One row",
+   "against": "Two rows",
+   "pixels": 2492,
+   "share": 4.273,
+   "max": 64
+  },
+  {
+   "axis": "seats",
+   "option": "Three rows",
+   "against": "Two rows",
+   "pixels": 4071,
+   "share": 6.98,
+   "max": 64
+  },
+  {
+   "axis": "rails",
+   "option": "Flush rails",
+   "against": "None",
+   "pixels": 681,
+   "share": 1.168,
+   "max": 216
+  },
+  {
+   "axis": "rails",
+   "option": "Raised rails",
+   "against": "None",
+   "pixels": 808,
+   "share": 1.385,
+   "max": 217
+  },
+  {
+   "axis": "rails",
+   "option": "Rails and crossbars",
+   "against": "None",
+   "pixels": 925,
+   "share": 1.586,
+   "max": 225
+  },
+  {
+   "axis": "tow",
+   "option": "Tow bar",
+   "against": "None",
+   "pixels": 31,
+   "share": 0.059,
+   "max": 216
+  },
+  {
+   "axis": "tow",
+   "option": "Recovery hooks",
+   "against": "None",
+   "pixels": 18,
+   "share": 0.034,
+   "max": 191
+  },
+  {
+   "axis": "solar",
+   "option": "Solar cells",
+   "against": "None",
+   "pixels": 5354,
+   "share": 8.355,
+   "max": 135
+  },
+  {
+   "axis": "sensor",
+   "option": "On the roof",
+   "against": "None",
+   "pixels": 426,
+   "share": 0.338,
+   "max": 223
+  },
+  {
+   "axis": "sensor",
+   "option": "Behind the windscreen",
+   "against": "None",
+   "pixels": 508,
+   "share": 0.403,
+   "max": 106
+  },
+  {
+   "axis": "spare",
+   "option": "On the tail",
+   "against": "Out of sight",
+   "pixels": 4644,
+   "share": 5.42,
+   "max": 244
+  },
+  {
+   "axis": "handle",
+   "option": "Flush",
+   "against": "Proud pull",
+   "pixels": 588,
+   "share": 0.686,
+   "max": 126
+  },
+  {
+   "axis": "handle",
+   "option": "Flap",
+   "against": "Proud pull",
+   "pixels": 518,
+   "share": 0.605,
+   "max": 153
+  },
+  {
+   "axis": "handle",
+   "option": "None, touch pad",
+   "against": "Proud pull",
+   "pixels": 580,
+   "share": 0.677,
+   "max": 153
+  },
+  {
+   "axis": "doorth",
+   "option": "90 mm",
+   "against": "140 mm",
+   "pixels": 1587,
+   "share": 1.852,
+   "max": 180
+  },
+  {
+   "axis": "doorth",
+   "option": "200 mm",
+   "against": "140 mm",
+   "pixels": 1713,
+   "share": 1.999,
+   "max": 180
+  },
+  {
+   "axis": "doorth",
+   "option": "260 mm",
+   "against": "140 mm",
+   "pixels": 1756,
+   "share": 2.049,
+   "max": 180
+  },
+  {
+   "axis": "power",
+   "option": "Engine between the axles",
+   "against": "Engine in front",
+   "pixels": 7228,
+   "share": 11.28,
+   "max": 114
+  },
+  {
+   "axis": "power",
+   "option": "Engine at the rear",
+   "against": "Engine in front",
+   "pixels": 189,
+   "share": 0.295,
+   "max": 33
+  },
+  {
+   "axis": "power",
+   "option": "Electric, no engine",
+   "against": "Engine in front",
+   "pixels": 381,
+   "share": 0.595,
+   "max": 114
+  },
+  {
+   "axis": "seals",
+   "option": "One, a clack",
+   "against": "Two, a thud",
+   "pixels": 2097,
+   "share": 2.447,
+   "max": 156
+  },
+  {
+   "axis": "seals",
+   "option": "Three, a soft thump",
+   "against": "Two, a thud",
+   "pixels": 3500,
+   "share": 4.085,
+   "max": 156
+  }
+ ],
+ "random24": [
+  "1525830683254900696340102999174214814329270836612325278957287560653980186",
+  "839964426787528572202851961483505382268660148935857522439114513813912137",
+  "445801319480868864576163033715069743555611423078434350483238122301966796",
+  "200291115738209566546633707905357755047220041511552769291916391175302917",
+  "2985358831994495870835028632767577019795774240862630405277250668907701369",
+  "750661438577405061278989645142908213331678411046133290446907237637771348",
+  "3338586443542466719504299309949220570855224458378918014794487219830045144",
+  "2764943849586400391534258088183826764698090961529606398094399241753244697",
+  "999542948495243944998815570384914430961595838712169434421365933486287548",
+  "4549364771564351179272012534761483080674877545560952103261909051533393631",
+  "1022784863327112661976901922769052652205891505799712157179511160391182898",
+  "2010529218895706902874417844714123902774601356419319295838884603428995385",
+  "3921184948332807749939238972598435359933465202634462804058259132993459951",
+  "2553698820176845145276051991451428771196824998698690403157450808416455392",
+  "3745190801416097307546433860696959797514318753129436727682316503132264672",
+  "875651020324692168414175982634915920565164179654730266367581460694019908",
+  "4676064110375461850727662582740640616287418115156037624856287069315342643",
+  "2175461741411153493515061248214867518766555015111418856924554911675890257",
+  "4624745996500736732413776247605368722324029174270839662723890288476815805",
+  "2084021279901068117670525299911274646973411708150017528200412965091362668",
+  "2332045542480892982318846061124393497032106651452192069125912675439020951",
+  "1338036720637707899520739601676691575305075241976892386011036538537542125",
+  "847629831783234796058886332992774780839702360825714409451038666909966703",
+  "3063199361501918947590340264851431659933696877383163869295030876721046846"
+ ],
+ "sheets": [
+  {
+   "file": "axis-1-01.png",
+   "axes": [
+    "wb",
+    "fo",
+    "ro",
+    "height",
+    "width"
+   ]
+  },
+  {
+   "file": "axis-1-02.png",
+   "axes": [
+    "wheel",
+    "clear",
+    "archgap",
+    "track",
+    "tumble"
+   ]
+  },
+  {
+   "file": "axis-1-03.png",
+   "axes": [
+    "cowl",
+    "nose",
+    "nrake",
+    "bonnet",
+    "screen"
+   ]
+  },
+  {
+   "file": "axis-1-04.png",
+   "axes": [
+    "peak",
+    "crown",
+    "roofend",
+    "rdrop",
+    "fall"
+   ]
+  },
+  {
+   "file": "axis-1-05.png",
+   "axes": [
+    "tailh",
+    "trake",
+    "bed",
+    "plan",
+    "waist"
+   ]
+  },
+  {
+   "file": "axis-2-01.png",
+   "axes": [
+    "nround",
+    "tround",
+    "belt",
+    "brise",
+    "kick"
+   ]
+  },
+  {
+   "file": "axis-2-02.png",
+   "axes": [
+    "pillars",
+    "prake",
+    "rail",
+    "float",
+    "tint"
+   ]
+  },
+  {
+   "file": "axis-2-03.png",
+   "axes": [
+    "rim",
+    "spokes",
+    "spoke",
+    "dish",
+    "wfin"
+   ]
+  },
+  {
+   "file": "axis-2-04.png",
+   "axes": [
+    "hlw",
+    "hlh",
+    "hlsides",
+    "hlsoft",
+    "hlslant"
+   ]
+  },
+  {
+   "file": "axis-2-05.png",
+   "axes": [
+    "hlpos",
+    "hlsplit",
+    "bar",
+    "socket",
+    "brow"
+   ]
+  },
+  {
+   "file": "axis-2-06.png",
+   "axes": [
+    "aper",
+    "grille",
+    "grw",
+    "grh",
+    "grsoft"
+   ]
+  },
+  {
+   "file": "axis-2-07.png",
+   "axes": [
+    "grtaper",
+    "grpos",
+    "grsplit",
+    "lower",
+    "bcrease"
+   ]
+  },
+  {
+   "file": "axis-2-08.png",
+   "axes": [
+    "tlw",
+    "tlh",
+    "tlsoft",
+    "tlpos",
+    "tbar"
+   ]
+  },
+  {
+   "file": "axis-2-09.png",
+   "axes": [
+    "plater",
+    "outlets",
+    "outshape",
+    "spoiler",
+    "hue"
+   ]
+  },
+  {
+   "file": "axis-2-10.png",
+   "axes": [
+    "tone",
+    "sat",
+    "finish",
+    "roofc",
+    "stripes"
+   ]
+  },
+  {
+   "file": "axis-2-11.png",
+   "axes": [
+    "sidestripe",
+    "clad",
+    "shoulder",
+    "shline",
+    "lines"
+   ]
+  },
+  {
+   "file": "axis-2-12.png",
+   "axes": [
+    "sill",
+    "arch",
+    "flare"
+   ]
+  },
+  {
+   "file": "axis-3-01.png",
+   "axes": [
+    "hlin",
+    "grden",
+    "grsur",
+    "cuts",
+    "hpos"
+   ]
+  },
+  {
+   "file": "axis-3-02.png",
+   "axes": [
+    "mirror",
+    "trim",
+    "frame",
+    "filler",
+    "badge"
+   ]
+  },
+  {
+   "file": "axis-3-03.png",
+   "axes": [
+    "platef",
+    "antenna",
+    "tyre",
+    "caliper",
+    "diffuser"
+   ]
+  },
+  {
+   "file": "axis-3-04.png",
+   "axes": [
+    "tlin"
+   ]
+  },
+  {
+   "file": "axis-4-01.png",
+   "axes": [
+    "drl",
+    "tsig",
+    "sculpt",
+    "shade",
+    "dooropen"
+   ]
+  },
+  {
+   "file": "axis-4-02.png",
+   "axes": [
+    "roofop",
+    "aero",
+    "glowp"
+   ]
+  },
+  {
+   "file": "axis-5-01.png",
+   "axes": [
+    "doors",
+    "seats",
+    "rails",
+    "tow",
+    "solar"
+   ]
+  },
+  {
+   "file": "axis-5-02.png",
+   "axes": [
+    "sensor",
+    "spare"
+   ]
+  },
+  {
+   "file": "axis-6-01.png",
+   "axes": [
+    "handle",
+    "doorth"
+   ]
+  },
+  {
+   "file": "axis-7-01.png",
+   "axes": [
+    "power",
+    "seals"
+   ]
+  },
+  {
+   "file": "random-24-side.png"
+  },
+  {
+   "file": "random-24-front.png"
+  },
+  {
+   "file": "random-24-rear.png"
+  },
+  {
+   "file": "random-24-top.png"
+  }
+ ],
+ "consoleErrors": [],
+ "pass": true
+}

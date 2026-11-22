@@ -54,7 +54,7 @@ node checks/report.js               # REPORT.md
 
 ## Decisions
 
-- Folder: `form-space/eyeglasses/`. A later Spec 5 run would add `form-space/kit/` and move the engine, the page and shared drawing code there.
+- Folder: `form-space/eyeglasses/`. `form-space/kit/` now exists and the car is built on it (see `car/PROGRESS.md`). Eyeglasses have not been moved onto it: this folder still runs from its own copy of the engine, page and checks. Porting it is Spec 5 stage 2.
 - Version label for stored addresses: `eyeglasses-1.0` (`VERSION` in `space.js`). Adding or reordering axes changes what a number points to, so bump it then.
 - Axis ids meant to be shared across things later (Spec 5 stage 4): `hue`, `tone`, `sat`, `finish`, `soft` (corner softness), `sides`.
 - Quantities are listed default first in `space.js` (the engine wants the default first) but the page steps and shows them in ascending order.

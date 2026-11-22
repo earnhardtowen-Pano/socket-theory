@@ -1,0 +1,261 @@
+<title>/*__TITLE__*/</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a drawing board pinned to the top with the address under it;
+   the seven distances scroll beneath as a list of axes. Wide screens put
+   the board on the left and the list on the right. */
+:root {
+  --bg: #e8ecea;
+  --surface: #f7f9f8;
+  --paper: #f3f4f1;          /* the drawing sheet; stays light in both themes */
+  --paper-ink: #2b3432;
+  --ink: #17201e;
+  --muted: #586661;
+  --line: #cbd3cf;
+  --accent: #0b6b62;         /* the green a glare coating leaves */
+  --accent-ink: #ffffff;
+  --accent-soft: #d5e8e4;
+  --hold: #9a4d08;
+  --hold-soft: #f4e3cf;
+  --mark: #5b3fd0;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111514; --surface: #1a201f; --paper: #f3f4f1; --paper-ink: #2b3432; --ink: #e6ebe9; --muted: #9aa8a3;
+    --line: #2f3936; --accent: #5ccdbf; --accent-ink: #05211e; --accent-soft: #17332f;
+    --hold: #f0a557; --hold-soft: #3a2a17; --mark: #ab99ff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111514; --surface: #1a201f; --paper: #f3f4f1; --paper-ink: #2b3432; --ink: #e6ebe9; --muted: #9aa8a3;
+  --line: #2f3936; --accent: #5ccdbf; --accent-ink: #05211e; --accent-soft: #17332f;
+  --hold: #f0a557; --hold-soft: #3a2a17; --mark: #ab99ff; color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.4; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.app { max-width: 1180px; margin: 0 auto; padding-block: 12px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3, p { margin: 0; }
+button, select, textarea, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 6px 10px; min-height: 34px; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[disabled] { opacity: .4; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 10px; }
+.top h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.top .sub { color: var(--muted); font-size: 13px; }
+.top .sub b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+#about { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 70ch; }
+#about h2 { font-size: 14px; font-weight: 600; }
+#about ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.tag { font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; padding: 1px 4px; border-radius: 3px; border: 1px solid currentColor; }
+.tag.new { color: var(--mark); } .tag.ex { color: var(--hold); }
+
+.cols { display: grid; gap: 12px; }
+.board { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-bottom: 8px; display: grid; gap: 8px; min-width: 0; }
+.stage { position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; height: 180px; touch-action: pan-y; }
+.stage > .draw { display: block; width: 100%; height: calc(100% - 20px); }
+.stage > .draw svg { display: block; width: 100%; height: 100%; }
+.loupe { position: absolute; width: 132px; height: 132px; border-radius: 50%; overflow: hidden; border: 2px solid var(--paper-ink); background: var(--paper);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28); touch-action: none; cursor: grab; }
+.loupe:active { cursor: grabbing; }
+.loupe svg { display: block; width: 100%; height: 100%; pointer-events: none; }
+.scale { position: absolute; left: 8px; bottom: 6px; display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--paper-ink); pointer-events: none; }
+.scale .bar { display: block; height: 5px; border: 1px solid var(--paper-ink); border-top: 0; }
+.stamp { position: absolute; right: 8px; bottom: 6px; font-family: var(--mono); font-size: 10px; color: var(--paper-ink); pointer-events: none; }
+.auto-note { position: absolute; left: 8px; top: 6px; font-size: 11px; color: var(--paper-ink); background: rgba(243,244,241,.86); padding: 1px 6px; border-radius: 3px; }
+.switches { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg { display: flex; flex: 1 1 auto; min-width: 0; }
+.seg button { flex: 1 1 0; border-radius: 0; margin-left: -1px; padding: 5px 6px; min-height: 32px; font-size: 13px; white-space: nowrap; }
+.seg button:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; }
+.seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+.seg button[aria-pressed="true"] { position: relative; z-index: 1; font-weight: 500; }
+.addr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 6px; align-items: stretch; }
+.addr button { font-size: 18px; line-height: 1; padding: 0 12px; }
+.addr #go { font-size: 14px; }
+.num { display: flex; gap: 6px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 8px; min-width: 0; }
+.num span { font-size: 11px; color: var(--muted); padding-top: 2px; }
+.num textarea { flex: 1; min-width: 0; border: 0; background: transparent; resize: none; font-family: var(--mono); font-size: 12px; line-height: 1.35; height: 2.9em; padding: 0; word-break: break-all; font-variant-numeric: tabular-nums; outline: none; overflow: hidden; }
+.num:focus-within { border-color: var(--accent); }
+.msg { font-size: 12px; color: var(--hold); overflow-wrap: anywhere; min-width: 0; }
+.acts { display: flex; gap: 6px; }
+.acts button { flex: 1 1 0; min-width: 0; padding: 6px 4px; white-space: nowrap; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 10px; overflow-x: auto; max-width: 100%; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 8px 12px; color: var(--muted); white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 500; }
+.panel { display: grid; gap: 10px; min-width: 0; }
+.panel > p { color: var(--muted); max-width: 65ch; }
+
+details.dist { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); min-width: 0; }
+details.dist > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; padding: 9px 12px; }
+details.dist > summary::-webkit-details-marker { display: none; }
+details.dist > summary .n { font-family: var(--mono); font-size: 12px; color: var(--accent); width: 1.1em; }
+details.dist > summary .name { font-weight: 600; }
+details.dist > summary .at { color: var(--muted); font-size: 12px; flex: 1; min-width: 0; }
+details.dist > summary .count { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+details.dist > summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+details.dist[open] > summary::after { content: "–"; }
+.dist-tools { display: flex; gap: 6px; padding: 0 12px 8px; }
+.dist-tools button { font-size: 12px; min-height: 28px; padding: 3px 8px; }
+.ax { border-top: 1px solid var(--line); padding: 8px 12px 9px; display: grid; gap: 5px; min-width: 0; scroll-margin-top: 420px; }
+.ax-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.ax-name { font-weight: 500; flex: 1 1 96px; min-width: 0; }
+.ax-say { color: var(--muted); font-size: 12px; line-height: 1.3; }
+.stepper { display: flex; align-items: center; flex: 0 1 auto; min-width: 0; }
+.stepper button { min-height: 30px; width: 28px; flex: 0 0 auto; padding: 0; font-size: 16px; line-height: 1; }
+.stepper output { min-width: 3.2em; padding: 0 6px; font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+button.hold { font-size: 12px; min-height: 30px; padding: 3px 8px; flex: 0 0 auto; }
+button.hold[aria-pressed="true"] { background: var(--hold-soft); border-color: var(--hold); color: var(--hold); font-weight: 500; }
+.ax.na { opacity: .62; }
+.ax .why { font-size: 12px; color: var(--muted); }
+.strip { position: relative; display: flex; gap: 6px; overflow-x: auto; max-width: 100%; padding: 2px 2px 4px; scrollbar-width: thin; }
+.th { flex: 0 0 auto; padding: 0; min-height: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; position: relative; display: grid; }
+.th svg { display: block; }
+.th span { font-size: 10px; line-height: 1.35; padding: 0 3px; color: var(--paper-ink); background: rgba(255,255,255,.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+.th.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.th.new::after, .th.ex::after { content: ""; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--mark); }
+.th.ex::after { background: var(--hold); border-radius: 1px; }
+.more { flex: 0 0 auto; align-self: center; font-size: 11px; color: var(--muted); max-width: 120px; }
+.sound { font-size: 12px; min-height: 28px; padding: 3px 8px; justify-self: start; }
+
+.pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.pick label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); min-width: 0; }
+select { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px; min-height: 34px; width: 100%; min-width: 0; max-width: 100%; }
+.grid-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table.grid { border-collapse: collapse; }
+table.grid th { font-weight: 400; font-size: 10px; color: var(--muted); padding: 3px 4px; white-space: nowrap; text-align: center; position: sticky; background: var(--surface); }
+table.grid thead th { top: 0; } table.grid tbody th { left: 0; text-align: right; z-index: 1; }
+table.grid td { padding: 2px; }
+table.grid td .th span { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; background: var(--surface); }
+.chip.word { border-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.rowbtn { display: flex; flex-wrap: wrap; gap: 6px; }
+ol.agree { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--muted); max-width: 65ch; }
+.pile { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.kept { display: grid; gap: 2px; min-width: 0; }
+.kept .th { width: 100%; }
+.kept .th svg { width: 100%; height: auto; }
+.kept small { font-family: var(--mono); font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kept .rm { font-size: 11px; min-height: 26px; padding: 2px 6px; }
+.empty { border: 1px dashed var(--line); border-radius: var(--r); padding: 14px; color: var(--muted); }
+footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
+footer code { font-family: var(--mono); }
+
+@media (min-width: 900px) {
+  .cols { grid-template-columns: minmax(0, 46fr) minmax(0, 54fr); gap: 20px; align-items: start; }
+  .board { top: calc(env(safe-area-inset-top, 0px) + 12px); }
+  .ax { scroll-margin-top: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="app" id="app">
+  <header class="top">
+    <div>
+      <h1 id="thing-name"></h1>
+      <p class="sub">A form space of <b id="total-short"></b> versions. Each has its own number.</p>
+    </div>
+    <button id="about-btn" aria-expanded="false" aria-controls="about">About</button>
+  </header>
+
+  <section id="about" hidden>
+    <h2>What this is</h2>
+    <p id="about-what"></p>
+    <p id="about-odd"></p>
+    <ul id="about-notes"></ul>
+    <p>Total: <span id="total-full" style="font-family:var(--mono);overflow-wrap:anywhere"></span></p>
+  </section>
+
+  <div class="cols">
+    <div class="board" id="board">
+      <div class="stage" id="stage">
+        <div class="draw" id="draw"></div>
+        <div class="loupe" id="loupe" hidden role="img" aria-label="Loupe. Drag to move."></div>
+        <div class="auto-note" id="auto-note" hidden></div>
+        <div class="scale" id="scale"><span class="bar"></span><span class="lab"></span></div>
+        <div class="stamp" id="stamp" title="Lens width, bridge width, temple length"></div>
+      </div>
+      <div class="switches">
+        <div class="seg" role="group" aria-label="Distance">
+          <button data-dist="room" aria-pressed="false">Room</button>
+          <button data-dist="arm" aria-pressed="true">Arm's length</button>
+          <button data-dist="loupe" aria-pressed="false">Loupe</button>
+        </div>
+        <div class="seg" role="group" aria-label="View" id="views"></div>
+      </div>
+      <div class="addr">
+        <button id="prev" aria-label="Previous number">&#8249;</button>
+        <label class="num"><span>No.</span><textarea id="addr" rows="2" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="The number of this one. Type another to go to it."></textarea></label>
+        <button id="go" class="primary" hidden>Go</button>
+        <button id="next" aria-label="Next number">&#8250;</button>
+      </div>
+      <p class="msg" id="addr-msg" hidden></p>
+      <div class="acts">
+        <button id="anywhere" class="primary">Anywhere</button>
+        <button id="drift" aria-pressed="false">Drift</button>
+        <button id="keep">Keep</button>
+        <button id="reset">First</button>
+      </div>
+    </div>
+
+    <div class="side" style="min-width:0">
+      <div class="tabs" role="tablist" aria-label="Tools">
+        <button role="tab" data-tab="axes" aria-selected="true">Axes</button>
+        <button role="tab" data-tab="sheet" aria-selected="false">Sheet</button>
+        <button role="tab" data-tab="lang" aria-selected="false">Language</button>
+        <button role="tab" data-tab="keeps" aria-selected="false">Keeps <span id="keep-count"></span></button>
+      </div>
+
+      <section class="panel" id="tab-axes" role="tabpanel"></section>
+
+      <section class="panel" id="tab-sheet" role="tabpanel" hidden>
+        <p>Any two axes as a grid. The rest stay as they are. Tap a cell to go there.</p>
+        <div class="pick">
+          <label>Down<select id="sheet-a"></select></label>
+          <label>Across<select id="sheet-b"></select></label>
+        </div>
+        <div class="grid-wrap" id="sheet-grid"></div>
+      </section>
+
+      <section class="panel" id="tab-lang" role="tabpanel" hidden>
+        <p>A language is one value for each choice that carries character. Roll one and it is held, so Anywhere and Drift change only the rest.</p>
+        <div class="rowbtn">
+          <button id="lang-roll" class="primary">Roll a language</button>
+          <button id="lang-keep">Hold the language shown</button>
+          <button id="lang-free" disabled>Release</button>
+        </div>
+        <div class="chips" id="lang-words"></div>
+        <div class="chips" id="lang-held"></div>
+        <ol class="agree" id="lang-agree"></ol>
+      </section>
+
+      <section class="panel" id="tab-keeps" role="tabpanel" hidden>
+        <p id="keeps-what"></p>
+        <div class="rowbtn">
+          <button id="keep2" class="primary">Keep this one</button>
+          <button id="near" disabled>Near my keeps</button>
+        </div>
+        <div id="pile"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer>Space version <code id="ver"></code>. A number points to the same one only within one version.</footer>
+</div>
+
+<script>/*__ENGINE__*/</script>
+<script>/*__KIT__*/</script>
+<script>/*__SPACE__*/</script>
+<script>/*__DRAW__*/</script>
+<script>/*__UI__*/</script>

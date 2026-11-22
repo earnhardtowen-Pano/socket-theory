@@ -1,0 +1,60 @@
+{
+  "note": "A record kept by hand. The gate cannot fill this in.",
+  "fromNumbers": [
+    "Body types are not a list. Saloon, hatchback, estate, fastback, van and pickup all come from roof length, fall angle, tail height and cabin position, so every shape between them exists too: a roof that stops at 58% and falls at 66 degrees has no name and has an address.",
+    "The three numbers of Socket Theory are axes here: socket depth (how far lamps and grille sit back), brow ridge (how far the body overhangs each lamp) and aperture ratio (how much of the opening is lit). They are drawn in the front and rear views as shade, an overhanging lid and a smaller lit element. Whether a deep socket reads as a face is not something this build tests.",
+    "Parts taken from other fields in this pass, each as an option: panels that change shade, lit body panels, solar cells in the roof, cameras in place of mirrors, sensor pods, grids of light points. None has numbers or sources yet. That is Spec 4."
+  ],
+  "gateCaught": [
+    "First run: 11 options drew the same as their default. Nose roundness (all four): the rounding was capped by the first sample point along the bonnet. Side stripes (both): they were on an axis whose look was the top view, so they could not be seen there; they are now an axis of their own, looked at from the side. Door thickness and door seals (five options): the close crop pointed at the wrong side of the car.",
+    "Second run: tail roundness, two options identical. The corner was limited by the short tail face. Nose and tail corners are now true fillets sized from the lengths of the two edges that meet.",
+    "Nose and tail roundness were listed under Form and passed only faintly at thumbnail size (6 to 24 pixels). They were moved to Face, where a person notices them, and are judged on a close crop."
+  ],
+  "sheetCaught": [
+    "Wheel arches stopped short of the sill, leaving a spur of body in front of and behind each wheel. They now run down to the sill.",
+    "Headlamp projectors read as cartoon pupils. They are now drawn as a lens in a ring.",
+    "A large brow with a thin lamp covered the whole lamp, leaving a black bar. The brow now covers at most 38% of the lamp height.",
+    "A low grille ran over the lower opening and the plate. The grille now keeps to the space above the lower opening.",
+    "The centre intake was hidden behind the front plate. Enlarged.",
+    "Light bars were too thin to see at whole-car scale. Thickened.",
+    "Metallic flake and pearl were heavy enough to read as texture. Reduced.",
+    "Headlamp sides could not be told apart at 50% corner softness. The gate and the sheet now show them at 25%.",
+    "The scale bar and the size stamp sat on top of the drawing on the page. The drawing now stops above them.",
+    "The message for a mistyped number is a 73-digit number with no spaces and pushed the page wider than the screen. It now wraps."
+  ],
+  "looked": [
+    "First pass, before the fixes above: all 27 per-axis sheets, covering all 118 axes and every option, and the random sheets for side, front and rear views (24 addresses each).",
+    "Second pass, on the final drawing code: 2 per-axis sheets covering 10 axes (Nose roundness, Tail roundness, Belt height, Belt rise, Rear pillar kick, Headlamp position, Headlamp layout, Front light bar, Socket depth, Brow ridge), and the random top sheet, which had not been seen before.",
+    "Close-ups of 26 chosen settings: the default in four views, ten body types built from the numbers (saloon, estate, hatchback, coupe, pickup, van, mid-engine wedge, tall wagon, micro), and twelve face, lamp, paint and street settings.",
+    "Page screenshots at 390 px: opening state, an axis strip, Room, Sheet."
+  ],
+  "notLooked": [
+    "108 of the 118 axes were not looked at again after the last fixes. The fixes touched lamps, grille position, light bars, paint finish, and the nose and tail corners.",
+    "The random side, front and rear sheets were not looked at again after the fixes.",
+    "Options were looked at one axis at a time with the rest at default. Combinations were seen only in the 24 random addresses and the chosen settings.",
+    "Most Detail axes were seen as close crops on sheets, not through the page's loupe.",
+    "The low-detail drawings were seen only as strips in page screenshots.",
+    "Page screenshots not looked at: Anywhere, the Front, Rear and Top views, Loupe, the rule message, Language, Keeps, and both wide layouts."
+  ],
+  "notChecked": [
+    "The sounds (engine and door). The test confirms they run without an error. Nobody heard them, and nobody compared them with a real car.",
+    "A real phone. The page test uses a headless desktop browser set to 390 px with touch emulation.",
+    "Any browser other than Chromium.",
+    "The page with its fonts loaded. The test blocks them, so every screenshot shows fallback fonts.",
+    "Whether any version can be built, is legal on a road, what it costs, or whether it is good. Out of scope in the kit.",
+    "Eyeglasses were not moved onto the shared kit folder. They still run from their own copy of the engine and page, unchanged."
+  ],
+  "weak": [
+    "The views share one set of lengths, heights and widths, so wheelbase, height, width, lamp sizes and positions agree between them. The surfaces between those points do not: the front and rear views are a flat elevation with a simple shoulder and roof, and do not show the plan curve of the nose, the depth of the bonnet, or how the tail falls away.",
+    "The top view is a diagram. Glass, roof and bonnet are placed from the side-view lengths, with fixed shapes between them.",
+    "There is no three-quarter view, which is how cars are usually judged. Spec 6 stage 7 is where a real three-dimensional body would go.",
+    "Surface is drawn as bands of light and shade along the side. It is a sign for a surface, not a surface.",
+    "Socket depth is drawn as shade at the top of the opening. With no side-on section through the lamp, depth and brow can be confused.",
+    "Door opening, moving aero and changing shade are shown as dashed ghosts or as two states at once. Nothing moves.",
+    "The engine is shown as a dashed box in the top view. That is a drawing convention for something heard, and it is the weakest link between an axis and what a person notices.",
+    "Paint tone and hue default to a light neutral grey, so axes that add dark parts (cladding, dark pillars) read well and axes that add light parts read less well. The gate tests each option in one setting, not in all.",
+    "A random address looks crowded. Most axes list the plain option first, so a uniformly random car has most extras switched on at once: stripes, a wing, a spare wheel, a mast. Nothing is filtered, as the kit asks. Hold all on a distance, or a Language, narrows what Anywhere changes.",
+    "Some extreme combinations fold badly: a 2 m wheelbase with long overhangs and a 2.1 m height, or a steep fall from a short roof with a high tail. They draw without error and look wrong. They are in the space and are not hidden.",
+    "A tapered upright grille can resemble the grille of a real maker. Grille shape comes only from width, height, softness, taper and split. No maker's shape is stored, and badges are blank."
+  ]
+}

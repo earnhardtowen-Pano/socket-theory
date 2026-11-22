@@ -1,0 +1,2556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Car Form Space</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a drawing board pinned to the top with the address under it;
+   the seven distances scroll beneath as a list of axes. Wide screens put
+   the board on the left and the list on the right. */
+:root {
+  --bg: #e8ecea;
+  --surface: #f7f9f8;
+  --paper: #f3f4f1;          /* the drawing sheet; stays light in both themes */
+  --paper-ink: #2b3432;
+  --ink: #17201e;
+  --muted: #586661;
+  --line: #cbd3cf;
+  --accent: #0b6b62;         /* the green a glare coating leaves */
+  --accent-ink: #ffffff;
+  --accent-soft: #d5e8e4;
+  --hold: #9a4d08;
+  --hold-soft: #f4e3cf;
+  --mark: #5b3fd0;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111514; --surface: #1a201f; --paper: #f3f4f1; --paper-ink: #2b3432; --ink: #e6ebe9; --muted: #9aa8a3;
+    --line: #2f3936; --accent: #5ccdbf; --accent-ink: #05211e; --accent-soft: #17332f;
+    --hold: #f0a557; --hold-soft: #3a2a17; --mark: #ab99ff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111514; --surface: #1a201f; --paper: #f3f4f1; --paper-ink: #2b3432; --ink: #e6ebe9; --muted: #9aa8a3;
+  --line: #2f3936; --accent: #5ccdbf; --accent-ink: #05211e; --accent-soft: #17332f;
+  --hold: #f0a557; --hold-soft: #3a2a17; --mark: #ab99ff; color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.4; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.app { max-width: 1180px; margin: 0 auto; padding-block: 12px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3, p { margin: 0; }
+button, select, textarea, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 6px 10px; min-height: 34px; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[disabled] { opacity: .4; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 500; }
+button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 10px; }
+.top h1 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.top .sub { color: var(--muted); font-size: 13px; }
+.top .sub b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+#about { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 8px; max-width: 70ch; }
+#about h2 { font-size: 14px; font-weight: 600; }
+#about ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.tag { font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; padding: 1px 4px; border-radius: 3px; border: 1px solid currentColor; }
+.tag.new { color: var(--mark); } .tag.ex { color: var(--hold); }
+
+.cols { display: grid; gap: 12px; }
+.board { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-bottom: 8px; display: grid; gap: 8px; min-width: 0; }
+.stage { position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; height: 180px; touch-action: pan-y; }
+.stage > .draw { display: block; width: 100%; height: calc(100% - 20px); }
+.stage > .draw svg { display: block; width: 100%; height: 100%; }
+.loupe { position: absolute; width: 132px; height: 132px; border-radius: 50%; overflow: hidden; border: 2px solid var(--paper-ink); background: var(--paper);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28); touch-action: none; cursor: grab; }
+.loupe:active { cursor: grabbing; }
+.loupe svg { display: block; width: 100%; height: 100%; pointer-events: none; }
+.scale { position: absolute; left: 8px; bottom: 6px; display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--paper-ink); pointer-events: none; }
+.scale .bar { display: block; height: 5px; border: 1px solid var(--paper-ink); border-top: 0; }
+.stamp { position: absolute; right: 8px; bottom: 6px; font-family: var(--mono); font-size: 10px; color: var(--paper-ink); pointer-events: none; }
+.auto-note { position: absolute; left: 8px; top: 6px; font-size: 11px; color: var(--paper-ink); background: rgba(243,244,241,.86); padding: 1px 6px; border-radius: 3px; }
+.switches { display: flex; flex-wrap: wrap; gap: 8px; }
+.seg { display: flex; flex: 1 1 auto; min-width: 0; }
+.seg button { flex: 1 1 0; border-radius: 0; margin-left: -1px; padding: 5px 6px; min-height: 32px; font-size: 13px; white-space: nowrap; }
+.seg button:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; }
+.seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+.seg button[aria-pressed="true"] { position: relative; z-index: 1; font-weight: 500; }
+.addr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 6px; align-items: stretch; }
+.addr button { font-size: 18px; line-height: 1; padding: 0 12px; }
+.addr #go { font-size: 14px; }
+.num { display: flex; gap: 6px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 8px; min-width: 0; }
+.num span { font-size: 11px; color: var(--muted); padding-top: 2px; }
+.num textarea { flex: 1; min-width: 0; border: 0; background: transparent; resize: none; font-family: var(--mono); font-size: 12px; line-height: 1.35; height: 2.9em; padding: 0; word-break: break-all; font-variant-numeric: tabular-nums; outline: none; overflow: hidden; }
+.num:focus-within { border-color: var(--accent); }
+.msg { font-size: 12px; color: var(--hold); overflow-wrap: anywhere; min-width: 0; }
+.acts { display: flex; gap: 6px; }
+.acts button { flex: 1 1 0; min-width: 0; padding: 6px 4px; white-space: nowrap; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 10px; overflow-x: auto; max-width: 100%; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 8px 12px; color: var(--muted); white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 500; }
+.panel { display: grid; gap: 10px; min-width: 0; }
+.panel > p { color: var(--muted); max-width: 65ch; }
+
+details.dist { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); min-width: 0; }
+details.dist > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; padding: 9px 12px; }
+details.dist > summary::-webkit-details-marker { display: none; }
+details.dist > summary .n { font-family: var(--mono); font-size: 12px; color: var(--accent); width: 1.1em; }
+details.dist > summary .name { font-weight: 600; }
+details.dist > summary .at { color: var(--muted); font-size: 12px; flex: 1; min-width: 0; }
+details.dist > summary .count { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+details.dist > summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+details.dist[open] > summary::after { content: "–"; }
+.dist-tools { display: flex; gap: 6px; padding: 0 12px 8px; }
+.dist-tools button { font-size: 12px; min-height: 28px; padding: 3px 8px; }
+.ax { border-top: 1px solid var(--line); padding: 8px 12px 9px; display: grid; gap: 5px; min-width: 0; scroll-margin-top: 420px; }
+.ax-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.ax-name { font-weight: 500; flex: 1 1 96px; min-width: 0; }
+.ax-say { color: var(--muted); font-size: 12px; line-height: 1.3; }
+.stepper { display: flex; align-items: center; flex: 0 1 auto; min-width: 0; }
+.stepper button { min-height: 30px; width: 28px; flex: 0 0 auto; padding: 0; font-size: 16px; line-height: 1; }
+.stepper output { min-width: 3.2em; padding: 0 6px; font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+button.hold { font-size: 12px; min-height: 30px; padding: 3px 8px; flex: 0 0 auto; }
+button.hold[aria-pressed="true"] { background: var(--hold-soft); border-color: var(--hold); color: var(--hold); font-weight: 500; }
+.ax.na { opacity: .62; }
+.ax .why { font-size: 12px; color: var(--muted); }
+.strip { position: relative; display: flex; gap: 6px; overflow-x: auto; max-width: 100%; padding: 2px 2px 4px; scrollbar-width: thin; }
+.th { flex: 0 0 auto; padding: 0; min-height: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; position: relative; display: grid; }
+.th svg { display: block; }
+.th span { font-size: 10px; line-height: 1.35; padding: 0 3px; color: var(--paper-ink); background: rgba(255,255,255,.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-align: center; }
+.th.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.th.new::after, .th.ex::after { content: ""; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--mark); }
+.th.ex::after { background: var(--hold); border-radius: 1px; }
+.more { flex: 0 0 auto; align-self: center; font-size: 11px; color: var(--muted); max-width: 120px; }
+.sound { font-size: 12px; min-height: 28px; padding: 3px 8px; justify-self: start; }
+
+.pick { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.pick label { display: grid; gap: 2px; font-size: 12px; color: var(--muted); min-width: 0; }
+select { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px; min-height: 34px; width: 100%; min-width: 0; max-width: 100%; }
+.grid-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+table.grid { border-collapse: collapse; }
+table.grid th { font-weight: 400; font-size: 10px; color: var(--muted); padding: 3px 4px; white-space: nowrap; text-align: center; position: sticky; background: var(--surface); }
+table.grid thead th { top: 0; } table.grid tbody th { left: 0; text-align: right; z-index: 1; }
+table.grid td { padding: 2px; }
+table.grid td .th span { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; background: var(--surface); }
+.chip.word { border-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.rowbtn { display: flex; flex-wrap: wrap; gap: 6px; }
+ol.agree { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--muted); max-width: 65ch; }
+.pile { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.kept { display: grid; gap: 2px; min-width: 0; }
+.kept .th { width: 100%; }
+.kept .th svg { width: 100%; height: auto; }
+.kept small { font-family: var(--mono); font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kept .rm { font-size: 11px; min-height: 26px; padding: 2px 6px; }
+.empty { border: 1px dashed var(--line); border-radius: var(--r); padding: 14px; color: var(--muted); }
+footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
+footer code { font-family: var(--mono); }
+
+@media (min-width: 900px) {
+  .cols { grid-template-columns: minmax(0, 46fr) minmax(0, 54fr); gap: 20px; align-items: start; }
+  .board { top: calc(env(safe-area-inset-top, 0px) + 12px); }
+  .ax { scroll-margin-top: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div>
+      <h1 id="thing-name"></h1>
+      <p class="sub">A form space of <b id="total-short"></b> versions. Each has its own number.</p>
+    </div>
+    <button id="about-btn" aria-expanded="false" aria-controls="about">About</button>
+  </header>
+
+  <section id="about" hidden>
+    <h2>What this is</h2>
+    <p id="about-what"></p>
+    <p id="about-odd"></p>
+    <ul id="about-notes"></ul>
+    <p>Total: <span id="total-full" style="font-family:var(--mono);overflow-wrap:anywhere"></span></p>
+  </section>
+
+  <div class="cols">
+    <div class="board" id="board">
+      <div class="stage" id="stage">
+        <div class="draw" id="draw"></div>
+        <div class="loupe" id="loupe" hidden role="img" aria-label="Loupe. Drag to move."></div>
+        <div class="auto-note" id="auto-note" hidden></div>
+        <div class="scale" id="scale"><span class="bar"></span><span class="lab"></span></div>
+        <div class="stamp" id="stamp" title="Lens width, bridge width, temple length"></div>
+      </div>
+      <div class="switches">
+        <div class="seg" role="group" aria-label="Distance">
+          <button data-dist="room" aria-pressed="false">Room</button>
+          <button data-dist="arm" aria-pressed="true">Arm's length</button>
+          <button data-dist="loupe" aria-pressed="false">Loupe</button>
+        </div>
+        <div class="seg" role="group" aria-label="View" id="views"></div>
+      </div>
+      <div class="addr">
+        <button id="prev" aria-label="Previous number">&#8249;</button>
+        <label class="num"><span>No.</span><textarea id="addr" rows="2" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="The number of this one. Type another to go to it."></textarea></label>
+        <button id="go" class="primary" hidden>Go</button>
+        <button id="next" aria-label="Next number">&#8250;</button>
+      </div>
+      <p class="msg" id="addr-msg" hidden></p>
+      <div class="acts">
+        <button id="anywhere" class="primary">Anywhere</button>
+        <button id="drift" aria-pressed="false">Drift</button>
+        <button id="keep">Keep</button>
+        <button id="reset">First</button>
+      </div>
+    </div>
+
+    <div class="side" style="min-width:0">
+      <div class="tabs" role="tablist" aria-label="Tools">
+        <button role="tab" data-tab="axes" aria-selected="true">Axes</button>
+        <button role="tab" data-tab="sheet" aria-selected="false">Sheet</button>
+        <button role="tab" data-tab="lang" aria-selected="false">Language</button>
+        <button role="tab" data-tab="keeps" aria-selected="false">Keeps <span id="keep-count"></span></button>
+      </div>
+
+      <section class="panel" id="tab-axes" role="tabpanel"></section>
+
+      <section class="panel" id="tab-sheet" role="tabpanel" hidden>
+        <p>Any two axes as a grid. The rest stay as they are. Tap a cell to go there.</p>
+        <div class="pick">
+          <label>Down<select id="sheet-a"></select></label>
+          <label>Across<select id="sheet-b"></select></label>
+        </div>
+        <div class="grid-wrap" id="sheet-grid"></div>
+      </section>
+
+      <section class="panel" id="tab-lang" role="tabpanel" hidden>
+        <p>A language is one value for each choice that carries character. Roll one and it is held, so Anywhere and Drift change only the rest.</p>
+        <div class="rowbtn">
+          <button id="lang-roll" class="primary">Roll a language</button>
+          <button id="lang-keep">Hold the language shown</button>
+          <button id="lang-free" disabled>Release</button>
+        </div>
+        <div class="chips" id="lang-words"></div>
+        <div class="chips" id="lang-held"></div>
+        <ol class="agree" id="lang-agree"></ol>
+      </section>
+
+      <section class="panel" id="tab-keeps" role="tabpanel" hidden>
+        <p id="keeps-what"></p>
+        <div class="rowbtn">
+          <button id="keep2" class="primary">Keep this one</button>
+          <button id="near" disabled>Near my keeps</button>
+        </div>
+        <div id="pile"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer>Space version <code id="ver"></code>. A number points to the same one only within one version.</footer>
+</div>
+
+<script>/* The address engine. Appendix A of the Form Space Build Kit, unchanged.
+ * kit/engine-test.js compares the text between the two markers with the
+ * kit's own text (kit/appendix-a.js), token for token.
+ *
+ * buildSpace(AXES) -> { total, units, allowed, normalize, rank, unrank }
+ * testSpace(AXES, SPACE) -> { roundTripBad, normalizeBad, edgesOk }
+ */
+(function (root) {
+  /*ENGINE-BEGIN*/
+  function buildSpace(AX) {
+
+    AX.forEach(a => { a.all = a.o.map((_, i) => i); });
+
+    // which axes control others
+    const ctrl = new Set();
+    AX.forEach(a => (a.on || []).forEach(c => ctrl.add(c)));
+
+    // join axes linked by rules into groups
+    const par = {};
+    AX.forEach(a => { par[a.id] = a.id; });
+    const find = x => (par[x] === x ? x : (par[x] = find(par[x])));
+    AX.forEach(a => (a.on || []).forEach(c => {
+          par[find(c)] = find(a.id);
+    }));
+
+    const allowed = (a, v) => {
+      if (!a.when) return a.all;
+      const r = a.when(v);
+      return (r && r.length) ? r : a.all;
+    };
+
+    const units = [];
+    const seen = new Set();
+    AX.forEach(a => {
+        if (!a.on && !ctrl.has(a.id)) {
+          units.push({ free: a, radix: BigInt(a.o.length) });
+          return;
+        }
+        const r = find(a.id);
+        if (seen.has(r)) return;
+        seen.add(r);
+        const mem = AX.filter(
+          m => (m.on || ctrl.has(m.id)) && find(m.id) === r
+        );
+        const cs = mem.filter(m => ctrl.has(m.id));
+        const ord = [];
+        const done = new Set();
+        while (ord.length < cs.length) {
+          let progressed = false;
+          for (const c of cs) {
+            if (done.has(c.id)) continue;
+            if ((c.on || []).every(d => done.has(d))) {
+              ord.push(c);
+              done.add(c.id);
+              progressed = true;
+            }
+          }
+          if (!progressed) throw new Error('rules form a loop');
+        }
+        const deps = mem.filter(m => !ctrl.has(m.id));
+        const combos = [];
+        const offs = [];
+        const key = {};
+        const v = {};
+        let tot = 0n;
+        (function rec(i) {
+            if (i === ord.length) {
+              let b = 1n;
+              for (const d of deps) b *= BigInt(allowed(d, v).length);
+              key[ord.map(c => v[c.id]).join(',')] = combos.length;
+              combos.push(ord.map(c => v[c.id]));
+              offs.push(tot);
+              tot += b;
+              return;
+            }
+            const c = ord[i];
+            for (const o of allowed(c, v)) {
+              v[c.id] = o;
+              rec(i + 1);
+            }
+            delete v[c.id];
+        })(0);
+        units.push({ ord, deps, combos, offs, key, radix: tot });
+    });
+
+    let total = 1n;
+    units.forEach(u => { total *= u.radix; });
+
+    // any set of picks -> the nearest valid set
+    function normalize(p) {
+      const v = {};
+      for (const u of units) {
+        if (u.free) {
+          const n = u.free.o.length;
+          const x = p[u.free.id] | 0;
+          v[u.free.id] = (x >= 0 && x < n) ? x : 0;
+          continue;
+
+        }
+        for (const c of u.ord.concat(u.deps)) {
+          const al = allowed(c, v);
+          v[c.id] = al.includes(p[c.id]) ? p[c.id] : al[0];
+        }
+      }
+      return v;
+    }
+
+    // valid picks -> address
+    function rank(v) {
+      let n = 0n;
+      for (const u of units) {
+        let d;
+        if (u.free) {
+          d = BigInt(v[u.free.id]);
+        } else {
+          const ci = u.key[u.ord.map(c => v[c.id]).join(',')];
+          let inner = 0n;
+          for (const x of u.deps) {
+            const al = allowed(x, v);
+            inner = inner * BigInt(al.length);
+            inner += BigInt(al.indexOf(v[x.id]));
+          }
+          d = u.offs[ci] + inner;
+        }
+        n = n * u.radix + d;
+      }
+      return n;
+    }
+
+    // address -> picks
+    function unrank(n) {
+      const v = {};
+      for (let i = units.length - 1; i >= 0; i--) {
+        const u = units[i];
+        const d = n % u.radix;
+        n /= u.radix;
+        if (u.free) {
+          v[u.free.id] = Number(d);
+          continue;
+        }
+        let lo = 0;
+
+        let hi = u.offs.length - 1;
+        while (lo < hi) {
+          const m = (lo + hi + 1) >> 1;
+          if (u.offs[m] <= d) lo = m;
+          else hi = m - 1;
+        }
+        u.ord.forEach((c, j) => { v[c.id] = u.combos[lo][j]; });
+        let inner = d - u.offs[lo];
+        for (let j = u.deps.length - 1; j >= 0; j--) {
+          const x = u.deps[j];
+          const al = allowed(x, v);
+          const r = BigInt(al.length);
+          v[x.id] = al[Number(inner % r)];
+          inner /= r;
+        }
+      }
+      return v;
+    }
+
+    return { total, units, allowed, normalize, rank, unrank };
+  }
+
+  // The three tests.
+  // Expect roundTripBad 0, normalizeBad 0, edgesOk true.
+  function testSpace(AX, S, N = 20000) {
+    const rnd = () => {
+      let n = 0n;
+      for (let i = 0; i < 12; i++) {
+        n = (n << 32n) + BigInt(Math.floor(Math.random() * 2 ** 32));
+      }
+      return n % S.total;
+    };
+    let a = 0;
+    let b = 0;
+    for (let i = 0; i < N; i++) {
+      const n = rnd();
+      const v = S.unrank(n);
+      if (S.rank(v) !== n) a++;
+      const w = S.normalize(v);
+      for (const x of AX) if (w[x.id] !== v[x.id]) a++;
+    }
+    for (let i = 0; i < N; i++) {
+      const p = {};
+
+      for (const x of AX) {
+        p[x.id] = Math.floor(Math.random() * x.o.length);
+      }
+      const v = S.normalize(p);
+      const u = S.unrank(S.rank(v));
+      for (const x of AX) if (u[x.id] !== v[x.id]) b++;
+    }
+    const last = S.total - 1n;
+    const edges = S.rank(S.unrank(0n)) === 0n &&
+    S.rank(S.unrank(last)) === last;
+    return { roundTripBad: a, normalizeBad: b, edgesOk: edges };
+  }
+  /*ENGINE-END*/
+  const api = { buildSpace, testSpace };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  root.FS_ENGINE = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>/* Drawing helpers shared by every thing built on the kit.
+ * Colour, a fixed random stream, path strings, outlines built from numbers.
+ */
+(function (root) {
+  'use strict';
+  const TAU = Math.PI * 2, RAD = Math.PI / 180;
+  const PAPER = '#f3f4f1';
+  const r1 = x => Math.round(x * 10) / 10;
+  const r2 = x => Math.round(x * 100) / 100;
+  const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+  // ------------------------------------------------------------ colour
+  function rgb(h) {
+    h = String(h).replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];   // short codes such as #abc
+    const n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const hex = (r, g, b) => '#' + [r, g, b].map(x => clamp(Math.round(x), 0, 255).toString(16).padStart(2, '0')).join('');
+  function mix(a, b, t) {
+    const A = rgb(a), B = rgb(b);
+    return hex(lerp(A[0], B[0], t), lerp(A[1], B[1], t), lerp(A[2], B[2], t));
+  }
+  function hsl(h, s, l) {
+    h = ((h % 360) + 360) % 360; s = clamp(s, 0, 1); l = clamp(l, 0, 1);
+    const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+    const t = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    return hex((t[0] + m) * 255, (t[1] + m) * 255, (t[2] + m) * 255);
+  }
+  const lum = c => { const q = rgb(c); return (0.299 * q[0] + 0.587 * q[1] + 0.114 * q[2]) / 255; };
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // -------------------------------------------------------------- paths
+  // Points are [x, y]. fmt sets the rounding: r1 for millimetres at car
+  // scale, r2 for small things.
+  const makePath = fmt => {
+    const pt = p => fmt(p[0]) + ',' + fmt(p[1]);
+    const poly = (pts, close) => (pts.length ? 'M' + pts.map(pt).join('L') + (close === false ? '' : 'Z') : '');
+    return { pt, poly };
+  };
+  const mirrorX = pts => pts.map(p => [-p[0], p[1]]);
+  const rev = pts => pts.slice().reverse();
+  function bbox(pts) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+    return { x0, y0, x1, y1 };
+  }
+  const ngon = (c, r, n, rot) => {
+    const p = [];
+    for (let i = 0; i < n; i++) p.push([c[0] + r * Math.cos((rot || 0) + TAU * i / n), c[1] + r * Math.sin((rot || 0) + TAU * i / n)]);
+    return p;
+  };
+
+  // A line through corner points, each corner cut back by its own length and
+  // rounded. verts: [x, y, cut]. Returns sampled points.
+  function roundCorners(verts, closed, steps) {
+    const n = verts.length, out = [], k = steps || 6;
+    for (let i = 0; i < n; i++) {
+      const b = verts[i], cut = b[2] || 0;
+      const hasPrev = closed || i > 0, hasNext = closed || i < n - 1;
+      if (!cut || !hasPrev || !hasNext) { out.push([b[0], b[1]]); continue; }
+      const a = verts[(i + n - 1) % n], c = verts[(i + 1) % n];
+      const d1 = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, d2 = Math.hypot(c[0] - b[0], c[1] - b[1]) || 1;
+      const t = Math.min(cut, d1 * 0.46, d2 * 0.46);
+      const p1 = [b[0] + (a[0] - b[0]) / d1 * t, b[1] + (a[1] - b[1]) / d1 * t];
+      const p2 = [b[0] + (c[0] - b[0]) / d2 * t, b[1] + (c[1] - b[1]) / d2 * t];
+      for (let j = 0; j <= k; j++) {
+        const u = j / k, q = 1 - u;
+        out.push([q * q * p1[0] + 2 * q * u * b[0] + u * u * p2[0], q * q * p1[1] + 2 * q * u * b[1] + u * u * p2[1]]);
+      }
+    }
+    return out;
+  }
+
+  // An outline from numbers: a number of sides, then corner softness from
+  // 0 (sharp) to 1 (round). Returns N points in the unit box, y up, with a
+  // flat side on top. Two sides gives a pointed oval.
+  const OUT = new Map();
+  function softOutline(sides, soft, N) {
+    const key = sides + '|' + soft + '|' + N;
+    const hit = OUT.get(key);
+    if (hit) return hit;
+    const U = new Array(N);
+    if (sides === 2) {
+      const m = (1 - soft) * 1.25;
+      for (let i = 0; i < N; i++) { const th = TAU * i / N, s = Math.sin(th); U[i] = [Math.cos(th), s * Math.pow(Math.abs(s), m)]; }
+    } else {
+      const seg = TAU / sides, v0 = Math.PI / 2 + Math.PI / sides;
+      let rr = new Array(N);
+      for (let i = 0; i < N; i++) {
+        const ph = (((TAU * i / N - v0) % seg) + seg) % seg;
+        rr[i] = Math.cos(Math.PI / sides) / Math.cos(ph - Math.PI / sides);
+      }
+      const w = Math.round(Math.pow(soft, 1.3) * N / (2 * sides));
+      for (let pass = 0; pass < 2 && w > 0; pass++) {
+        const nx = new Array(N);
+        for (let i = 0; i < N; i++) { let s = 0; for (let j = -w; j <= w; j++) s += rr[(i + j + N) % N]; nx[i] = s / (2 * w + 1); }
+        rr = nx;
+      }
+      for (let i = 0; i < N; i++) { const th = TAU * i / N; U[i] = [rr[i] * Math.cos(th), rr[i] * Math.sin(th)]; }
+    }
+    const b = bbox(U), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, hw = (b.x1 - b.x0) / 2, hh = (b.y1 - b.y0) / 2;
+    const pts = U.map(p => [(p[0] - cx) / hw, (p[1] - cy) / hh]);
+    if (OUT.size > 400) OUT.clear();
+    OUT.set(key, pts);
+    return pts;
+  }
+
+  const api = { TAU, RAD, PAPER, r1, r2, clamp, lerp, sstep, rgb, hex, mix, hsl, lum, rng, makePath, mirrorX, rev, bbox, ngon, roundCorners, softOutline };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  root.FS_KIT = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>/* Car form space: axes and rules. The address engine is kit/engine.js.
+ *
+ * Every axis sits under the distance at which a person notices it.
+ * The order of AXES is the order of the digits in an address, Form first.
+ *
+ * Axis fields
+ *   id, name   stable id and plain name
+ *   d          distance, 1 Form .. 7 Sound
+ *   say        one line on what it is
+ *   o          option labels, the most ordinary first (the default)
+ *   n          the number behind each option, when the axis is a quantity
+ *   k          a stable key for each option, when the axis is a list of names
+ *   on, when   the rule: which axes it depends on, and the options allowed
+ *   why        the reason for the rule, in one line
+ *   nw         options not in current practice (as far as memory serves)
+ *   ex         options outside the ordinary range, kept and marked extreme
+ *   lang       true when the axis carries character (used by Language)
+ *   look       where a small drawing should look to show this axis
+ *   help       other choices the gate changes so this axis can be judged
+ *   sound      true when the page can play this axis
+ */
+(function (root) {
+  'use strict';
+  const ENGINE = (typeof module !== 'undefined' && module.exports && typeof require === 'function')
+    ? require('../kit/engine.js') : root.FS_ENGINE;
+
+  const VERSION = 'car-1.0';
+
+  const DIST = [
+    { n: 1, name: 'Form', at: 'across the street' },
+    { n: 2, name: 'Face', at: "at arm's length" },
+    { n: 3, name: 'Detail', at: 'at two inches' },
+    { n: 4, name: 'Light and motion', at: 'as light and parts move' },
+    { n: 5, name: 'Use', at: 'in use' },
+    { n: 6, name: 'Touch', at: 'in the hand' },
+    { n: 7, name: 'Sound', at: 'by ear' }
+  ];
+
+  // Option keys of the axes that rules read. Rules use these indexes.
+  const POWER = { front: 0, mid: 1, rear: 2, electric: 3 };
+  const GRILLE = { hbars: 0, vbars: 1, mesh: 2, dots: 3, blank: 4, none: 5 };
+  const ROOFOP = { fixed: 0, sunroof: 1, glass: 2, soft: 3 };
+  const HANDLE = { pull: 0, flush: 1, flap: 2, none: 3 };
+
+  const NA = [0];
+  const HEIGHTS = [1450, 1150, 1250, 1350, 1550, 1650, 1780, 1900, 1050, 2100];
+  const WHEELS = [660, 580, 620, 700, 740, 800, 520, 880];
+  const mm = x => x + ' mm';
+  const deg = x => x + '°';
+  const pct = x => Math.round(x * 100) + '%';
+  const signed = x => (x === 0 ? 'Level' : x > 0 ? '+' + x + ' mm' : '−' + (-x) + ' mm');
+  const SIDES = { 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 8: 'Eight' };
+  const HUES = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+  const HUE_NAMES = ['red', 'orange', 'yellow', 'lime', 'green', 'spring', 'cyan', 'azure', 'blue', 'violet', 'magenta', 'rose'];
+  const hueLabels = first => [first].concat(HUES.map((h, i) => h + '° ' + HUE_NAMES[i]));
+
+  const needGrille = why => ({ on: ['grille'], when: v => (v.grille === GRILLE.none ? NA : null), why: why || 'No grille, nothing to shape.' });
+
+  const Q = (id, name, d, say, vals, fmt, extra) =>
+    Object.assign({ id, name, d, say, n: vals, o: vals.map(fmt) }, extra || {});
+  const K = (id, name, d, say, pairs, extra) =>
+    Object.assign({ id, name, d, say, k: pairs.map(p => p[0]), o: pairs.map(p => p[1]) }, extra || {});
+  const SIDE = { v: 'side' }, FRONT = { v: 'front' }, REAR = { v: 'rear' }, TOP = { v: 'top' };
+  const at = (v, a, w, aspect) => ({ v, at: a, w, aspect });
+
+  const AXES = [
+    // ------------------------------------------------------------ 1. FORM
+    Q('wb', 'Wheelbase', 1, 'Distance between the axles.',
+      [2700, 2300, 2450, 2550, 2850, 3000, 3200, 2000, 3600], mm, { ex: [7, 8], look: SIDE }),
+    Q('fo', 'Front overhang', 1, 'Length ahead of the front axle.',
+      [850, 600, 720, 980, 1100, 450], mm, { ex: [5], look: SIDE }),
+    Q('ro', 'Rear overhang', 1, 'Length behind the rear axle.',
+      [950, 600, 750, 1100, 1300, 450], mm, { ex: [5], look: SIDE }),
+    Q('height', 'Height', 1, 'Roof peak above the ground.',
+      HEIGHTS, mm, { ex: [8, 9], look: SIDE }),
+    Q('width', 'Width', 1, 'Body width.',
+      [1820, 1600, 1700, 1900, 1980, 2050, 1480], mm, { ex: [6], look: FRONT }),
+    Q('wheel', 'Wheel size', 1, 'Wheel with tyre, across.',
+      WHEELS, mm,
+      {
+        ex: [6, 7], on: ['height'],
+        // nearest to the ordinary size first, so that is what a forbidden choice falls back to
+        when: v => WHEELS.map((w, i) => i).filter(i => WHEELS[i] <= 0.52 * HEIGHTS[v.height]).sort((p, q) => Math.abs(WHEELS[p] - 660) - Math.abs(WHEELS[q] - 660)),
+        why: 'A wheel taller than about half the body cannot fit under it.', look: SIDE
+      }),
+    Q('clear', 'Ground clearance', 1, 'Height of the sill above the ground.',
+      [150, 100, 125, 180, 210, 250, 70, 320], mm, { ex: [6, 7], look: SIDE }),
+    Q('archgap', 'Arch gap', 1, 'Space between the tyre and the wheel arch.',
+      [50, 25, 80, 120], mm, { look: SIDE }),
+    Q('track', 'Wheel inset', 1, 'How far the wheels sit inside the body side, seen from the front.',
+      [40, 0, 80, 130, -30], x => (x === 0 ? 'Flush' : x > 0 ? x + ' mm in' : (-x) + ' mm out'), { look: FRONT }),
+    Q('tumble', 'Tumblehome', 1, 'How far the cabin leans in toward the roof, seen from the front.',
+      [180, 60, 120, 260, 340], mm, { look: FRONT }),
+    Q('cowl', 'Cabin position', 1, 'How far the base of the windscreen sits behind the front axle.',
+      [300, -250, 0, 150, 450, 650], x => (x === 0 ? 'On the axle' : x > 0 ? x + ' mm behind' : (-x) + ' mm ahead'),
+      {
+        on: ['power'], when: v => (v.power === POWER.mid ? [1, 2, 3] : null),
+        why: 'A motor between the axles moves the cabin forward.', look: SIDE
+      }),
+    Q('nose', 'Nose height', 1, 'Height of the front edge of the bonnet, against the base of the windscreen.',
+      [0.78, 0.55, 0.66, 0.88, 0.97], pct, { look: SIDE }),
+    Q('nrake', 'Nose rake', 1, 'How far the front face leans.',
+      [12, 0, 25, 40, 55, -8], x => (x === 0 ? 'Upright' : x > 0 ? x + '° back' : (-x) + '° forward'), { look: SIDE }),
+    Q('bonnet', 'Bonnet bow', 1, 'How much the bonnet arcs between nose and windscreen.',
+      [0.3, 0, 0.6, 1], pct, { look: SIDE }),
+    Q('screen', 'Windscreen angle', 1, 'Angle of the windscreen from the horizontal.',
+      [32, 22, 27, 38, 46, 56, 68, 82], deg, { look: SIDE }),
+    Q('peak', 'Roof peak position', 1, 'Where along the roof its highest point sits.',
+      [0.4, 0.2, 0.6, 0.8], pct, { look: SIDE, help: { crown: 3 } }),
+    Q('crown', 'Roof bow', 1, 'How much the roof arcs.',
+      [40, 0, 80, 140], mm, { look: SIDE }),
+    Q('roofend', 'Roof length', 1, 'Where the roof stops, as a share of the way from the top of the windscreen to the tail.',
+      [0.72, 0.45, 0.58, 0.84, 0.93, 1], pct, { look: SIDE }),
+    Q('rdrop', 'Roof drop', 1, 'How far the roof has fallen from its peak by the time it stops.',
+      [50, 0, 110, 190, 280], mm, { look: SIDE }),
+    Q('fall', 'Fall angle', 1, 'Angle at which the back falls away from the end of the roof.',
+      [30, 14, 20, 40, 52, 66, 80, 90], deg, { look: SIDE }),
+    Q('tailh', 'Tail height', 1, 'Height of the top of the tail against the belt line.',
+      [0, -120, -60, 70, 150], signed, { look: SIDE }),
+    Q('trake', 'Tail rake', 1, 'How the tail face leans.',
+      [8, 0, 18, 30, -10], x => (x === 0 ? 'Upright' : x > 0 ? x + '° in at the top' : (-x) + '° out at the top'), { look: SIDE }),
+    K('bed', 'Load bed', 1, 'A closed tail, or an open bed behind a separate cabin.',
+      [['closed', 'Closed'], ['open', 'Open bed']],
+      {
+        on: ['roofend', 'fall'], when: v => ((v.roofend === 1 || v.roofend === 2) && v.fall >= 5 ? null : NA),
+        why: 'A pickup has an open bed and a separate cabin: the roof must stop early and the back of the cabin drop steeply.',
+        look: SIDE
+      }),
+    Q('plan', 'Corner roundness', 1, 'How rounded the four corners are, seen from above.',
+      [0.5, 0.15, 0.85], pct, { look: TOP }),
+    Q('waist', 'Waist', 1, 'How far the body pinches in between the wheels, seen from above.',
+      [0, 40, 90], mm, { look: TOP }),
+
+    // ------------------------------------------------------------ 2. FACE
+    Q('nround', 'Nose roundness', 2, 'How rounded the corner between the front face and the bonnet is.',
+      [0.5, 0.12, 0.3, 0.75, 1], pct, { lang: true, look: at('side', 'nose', 1700) }),
+    Q('tround', 'Tail roundness', 2, 'How rounded the top corner of the tail is.',
+      [0.4, 0.1, 0.7, 1], pct, { lang: true, look: at('side', 'tail', 1900) }),
+    Q('belt', 'Belt height', 2, 'Height of the bottom of the side glass, as a share of body height.',
+      [0.62, 0.52, 0.57, 0.67, 0.72], pct, { look: SIDE }),
+    Q('brise', 'Belt rise', 2, 'How far the belt line rises toward the rear.',
+      [40, 0, 90, 150, -40], signed, { look: SIDE }),
+    Q('kick', 'Rear pillar kick', 2, 'A kick in the belt line at the last pillar.',
+      [0, 60, 130, -60], signed, { look: at('side', 'glass', 2600, 0.45) }),
+    Q('pillars', 'Pillars', 2, 'Pillars seen from the side.',
+      [3, 2, 4], x => ({ 2: 'Two, no centre pillar', 3: 'Three', 4: 'Four' })[x], { look: at('side', 'glass', 2600, 0.45) }),
+    Q('prake', 'Rear pillar rake', 2, 'Whether the back edge of the side glass stands upright or leans with the back.',
+      [0.5, 0, 1], x => ({ 0: 'Upright', 0.5: 'Half way', 1: 'Parallel to the back' })[x], { look: at('side', 'glass', 2600, 0.45) }),
+    Q('rail', 'Roof rail depth', 2, 'Depth of roof above the side glass.',
+      [90, 50, 140, 210], mm, { look: at('side', 'glass', 2600, 0.45) }),
+    K('float', 'Roof and pillars', 2, 'Whether the roof joins the body or floats on dark pillars.',
+      [['joined', 'Joined'], ['float', 'Floating, dark rear pillar'], ['wrap', 'All pillars dark'], ['visor', 'Dark front pillar']],
+      { lang: true, look: at('side', 'glass', 2600, 0.45) }),
+    Q('tint', 'Glass tint', 2, 'How dark the glass is.',
+      [0.45, 0.25, 0.65, 0.85], pct, { look: at('side', 'glass', 2600, 0.45) }),
+    Q('rim', 'Rim size', 2, 'Rim against the whole wheel.',
+      [0.68, 0.55, 0.62, 0.74, 0.8, 0.86], pct, { look: at('side', 'wheelF', 1000) }),
+    Q('spokes', 'Spoke count', 2, 'Spokes on each wheel.',
+      [5, 3, 4, 6, 7, 8, 10, 12, 15, 20], String, { look: at('side', 'wheelF', 1000) }),
+    K('spoke', 'Spoke shape', 2, 'The shape of each spoke.',
+      [['straight', 'Straight'], ['taper', 'Tapered'], ['split', 'Split in two'], ['turbine', 'Swept'], ['disc', 'Solid disc']],
+      { lang: true, look: at('side', 'wheelF', 1000) }),
+    Q('dish', 'Wheel dish', 2, 'How deep the wheel face sits inside its rim.',
+      [0.3, 0, 0.6, 1], pct, { look: at('side', 'wheelF', 1000) }),
+    K('wfin', 'Wheel finish', 2, 'Colour and finish of the wheels.',
+      [['silver', 'Silver'], ['dark', 'Dark grey'], ['black', 'Black'], ['body', 'Body colour'], ['cut', 'Machined face'], ['bronze', 'Bronze']],
+      { lang: true, look: at('side', 'wheelF', 1000) }),
+    Q('hlw', 'Headlamp width', 2, 'Width of one headlamp.',
+      [320, 180, 240, 420, 520, 640], mm, { look: FRONT }),
+    Q('hlh', 'Headlamp height', 2, 'Height of one headlamp.',
+      [110, 40, 70, 160, 220, 300], mm, { look: FRONT }),
+    Q('hlsides', 'Headlamp sides', 2, 'Sides of the lamp outline before its corners are softened.',
+      [4, 2, 3, 5, 6, 8], x => SIDES[x], { lang: true, look: at('front', 'lamp', 900), help: { hlh: 4, hlsoft: 3 } }),
+    Q('hlsoft', 'Headlamp corner softness', 2, 'How far the lamp corners are rounded.',
+      [0.5, 1, 0.75, 0.25, 0.05], pct, { lang: true, look: at('front', 'lamp', 900), help: { hlh: 3 } }),
+    Q('hlslant', 'Headlamp slant', 2, 'The outer end of the lamp raised or lowered.',
+      [6, 0, 14, 24, -8], x => (x === 0 ? 'Level' : x > 0 ? 'Outer up ' + x + '°' : 'Outer down ' + (-x) + '°'),
+      { lang: true, look: at('front', 'lamp', 900) }),
+    Q('hlpos', 'Headlamp position', 2, 'Where the lamps sit between the bonnet edge and the bumper.',
+      [0.12, 0, 0.3, 0.5, 0.75], pct, { look: FRONT }),
+    K('hlsplit', 'Headlamp layout', 2, 'One lamp a side, or split.',
+      [['single', 'Single'], ['split', 'Slim upper, main lamp below'], ['stack', 'Stacked pair'], ['twin', 'Twin side by side']],
+      { lang: true, look: FRONT }),
+    K('bar', 'Front light bar', 2, 'A lit bar across the face.',
+      [['none', 'None'], ['between', 'Between the lamps'], ['full', 'Across the whole face']], { look: FRONT }),
+    Q('socket', 'Socket depth', 2, 'How far lamps and grille are set back into the body.',
+      [20, 0, 50, 90, 140], mm, { lang: true, look: at('front', 'lamp', 900), help: { hlh: 3 } }),
+    Q('brow', 'Brow ridge', 2, 'How far the body overhangs the top of each lamp.',
+      [0, 15, 35, 60], mm, { lang: true, look: at('front', 'lamp', 900), help: { hlh: 3 } }),
+    Q('aper', 'Aperture ratio', 2, 'How much of each lamp opening the lit element fills.',
+      [0.85, 1, 0.65, 0.45], pct, { lang: true, look: at('front', 'lamp', 900), help: { hlh: 3 } }),
+    K('grille', 'Grille', 2, 'The pattern in the grille, or none.',
+      [['hbars', 'Horizontal bars'], ['vbars', 'Upright bars'], ['mesh', 'Mesh'], ['dots', 'Dots'], ['blank', 'Blank panel'], ['none', 'None']],
+      { lang: true, look: FRONT }),
+    Q('grw', 'Grille width', 2, 'Grille width against body width.',
+      [0.45, 0.25, 0.65, 0.85], pct, Object.assign({ look: FRONT }, needGrille())),
+    Q('grh', 'Grille height', 2, 'Height of the grille.',
+      [160, 60, 110, 240, 340, 460], mm, Object.assign({ look: FRONT }, needGrille())),
+    Q('grsoft', 'Grille corner softness', 2, 'How far the grille corners are rounded.',
+      [0.4, 1, 0.7, 0.15, 0.03], pct, Object.assign({ lang: true, look: at('front', 'grille', 1300), help: { grh: 3 } }, needGrille())),
+    Q('grtaper', 'Grille taper', 2, 'Wider at the top or at the bottom.',
+      [0, 0.15, 0.3, -0.15, -0.3], x => (x === 0 ? 'Even' : x > 0 ? 'Top wider ' + pct(x) : 'Bottom wider ' + pct(-x)),
+      Object.assign({ lang: true, look: at('front', 'grille', 1300), help: { grh: 3 } }, needGrille())),
+    Q('grpos', 'Grille position', 2, 'Where the grille sits between the bonnet edge and the bumper.',
+      [0.3, 0.08, 0.55, 0.8], pct, Object.assign({ look: FRONT }, needGrille())),
+    Q('grsplit', 'Grille parts', 2, 'One opening, or split.',
+      [1, 2, 3], x => ['', 'One', 'Two', 'Three'][x], Object.assign({ look: at('front', 'grille', 1300) }, needGrille())),
+    K('lower', 'Lower opening', 2, 'Openings low in the front bumper.',
+      [['slot', 'Wide slot'], ['none', 'None'], ['centre', 'Centre intake'], ['three', 'Centre and side intakes'], ['mouth', 'Full-width mouth']],
+      {
+        on: ['power', 'grille'],
+        when: v => (v.power === POWER.front && v.grille >= GRILLE.blank ? [0, 2, 3, 4] : null),
+        why: 'No radiator means the grille can go. An engine in front needs air: with no grille the lower opening must stay.',
+        look: FRONT
+      }),
+    K('bcrease', 'Bonnet lines', 2, 'Lines pressed into the bonnet.',
+      [['two', 'Two soft lines'], ['none', 'None'], ['centre', 'Centre crease'], ['bulge', 'Raised centre'], ['vents', 'Vents']],
+      { look: TOP }),
+    Q('tlw', 'Tail lamp width', 2, 'Width of one tail lamp.',
+      [300, 160, 450, 620], mm, { look: REAR }),
+    Q('tlh', 'Tail lamp height', 2, 'Height of one tail lamp.',
+      [120, 50, 200, 320], mm, { look: REAR }),
+    Q('tlsoft', 'Tail lamp corner softness', 2, 'How far the tail lamp corners are rounded.',
+      [0.4, 1, 0.7, 0.1], pct, { lang: true, look: at('rear', 'lamp', 900), help: { tlh: 2 } }),
+    Q('tlpos', 'Tail lamp position', 2, 'How far below the top of the tail the lamps sit.',
+      [0.1, 0, 0.3, 0.55], pct, { look: REAR }),
+    K('tbar', 'Rear light bar', 2, 'A lit bar across the tail.',
+      [['none', 'None'], ['between', 'Between the lamps'], ['full', 'Full width']], { look: REAR }),
+    K('plater', 'Rear plate', 2, 'Where the rear number plate sits.',
+      [['tail', 'On the tail'], ['bumper', 'Low in the bumper'], ['offset', 'On the tail, to one side']], { look: REAR }),
+    Q('outlets', 'Exhaust outlets', 2, 'Exhaust outlets under the tail.',
+      [2, 0, 1, 4], x => (x ? String(x) : 'None'),
+      {
+        on: ['power'], when: v => (v.power === POWER.electric ? [1] : null),
+        why: 'No engine, no exhaust.', look: at('rear', 'bumper', 1500, 0.4)
+      }),
+    K('outshape', 'Outlet shape', 2, 'The shape of each outlet.',
+      [['round', 'Round'], ['oval', 'Oval'], ['rect', 'Rectangular'], ['trap', 'Trapezoid']],
+      {
+        on: ['outlets'], when: v => (v.outlets === 1 ? NA : null),
+        why: 'No outlets, no shape.', look: at('rear', 'bumper', 1500, 0.4)
+      }),
+    K('spoiler', 'Spoiler', 2, 'A lip or wing at the tail.',
+      [['none', 'None'], ['lip', 'Lip'], ['duck', 'Ducktail'], ['wing', 'Wing on struts'], ['roof', 'Roof spoiler']], { look: at('side', 'tail', 1900) }),
+    Q('hue', 'Paint hue', 2, 'Hue of the paint, in steps of 30°.',
+      [-1].concat(HUES), (x, i) => hueLabels('Neutral')[i], { lang: true, look: SIDE }),
+    Q('tone', 'Paint tone', 2, 'Lightness of the paint.',
+      [0.6, 0.1, 0.24, 0.42, 0.78, 0.93], x => ({ 0.1: 'Deep', 0.24: 'Dark', 0.42: 'Mid', 0.6: 'Light', 0.78: 'Pale', 0.93: 'Near white' })[x],
+      { lang: true, look: SIDE }),
+    Q('sat', 'Colour strength', 2, 'How strong the hue is.',
+      [0.55, 0.25, 0.9], x => ({ 0.55: 'Rich', 0.25: 'Muted', 0.9: 'Vivid' })[x],
+      { lang: true, on: ['hue'], when: v => (v.hue === 0 ? NA : null), why: 'A neutral paint has no hue to strengthen.', look: SIDE }),
+    K('finish', 'Paint finish', 2, 'The finish of the paint.',
+      [['solid', 'Solid'], ['metallic', 'Metallic'], ['pearl', 'Pearl'], ['matte', 'Matte'], ['satin', 'Satin']],
+      { lang: true, look: at('side', 'door', 1800) }),
+    K('roofc', 'Roof colour', 2, 'A second colour on the roof and pillars.',
+      [['body', 'Body colour'], ['black', 'Black'], ['white', 'White'], ['silver', 'Silver'], ['contrast', 'Contrast tone']],
+      {
+        lang: true, on: ['roofop'], when: v => (v.roofop === ROOFOP.soft ? NA : null),
+        why: 'A soft top is cloth, with its own colour.', look: SIDE
+      }),
+    K('stripes', 'Stripes over the top', 2, 'Stripes running nose to tail over bonnet and roof.',
+      [['none', 'None'], ['twin', 'Twin centre stripes'], ['offset', 'One offset stripe']],
+      { look: TOP }),
+    K('sidestripe', 'Side stripes', 2, 'Stripes along the side.',
+      [['none', 'None'], ['low', 'Low side stripe'], ['pin', 'Belt pinstripe']],
+      { look: SIDE }),
+    K('clad', 'Lower cladding', 2, 'Dark plastic along the sills and arches.',
+      [['body', 'Body colour'], ['sill', 'Dark sills'], ['arches', 'Dark sills and arches'], ['contrast', 'Contrast lower body']],
+      { lang: true, look: SIDE }),
+    Q('shoulder', 'Shoulder line height', 2, 'How far below the belt the main line runs.',
+      [80, 30, 150, 240], mm, { look: at('side', 'door', 2600, 0.45) }),
+    K('shline', 'Shoulder line path', 2, 'The path of the main line along the side.',
+      [['straight', 'Straight'], ['rising', 'Rising to the rear'], ['arched', 'Arched'], ['dropping', 'Dropping to the rear'], ['haunch', 'Swelling over the rear wheel']],
+      { lang: true, look: SIDE }),
+    Q('lines', 'Lines along the doors', 2, 'How many pressed lines run along the side.',
+      [1, 0, 2], x => ['None', 'One', 'Two'][x], { lang: true, look: at('side', 'door', 2600, 0.45) }),
+    K('sill', 'Sill line', 2, 'The line along the bottom of the doors.',
+      [['straight', 'Straight'], ['rising', 'Rising to the rear'], ['scoop', 'Scooped'], ['step', 'Stepped out']],
+      { look: at('side', 'door', 2600, 0.45) }),
+    Q('arch', 'Arch shape', 2, 'Wheel arch from round to square.',
+      [0, 0.35, 0.7, 1], x => ({ 0: 'Round', 0.35: 'Flattened', 0.7: 'Squared', 1: 'Square' })[x], { lang: true, look: at('side', 'wheelF', 1300) }),
+    Q('flare', 'Arch flare', 2, 'How far the arches stand out from the body side.',
+      [0, 20, 50, 90], mm, { look: at('side', 'wheelF', 1300) }),
+
+    // ---------------------------------------------------------- 3. DETAIL
+    K('hlin', 'Headlamp internals', 3, 'What sits inside the lamp.',
+      [['proj', 'One projector'], ['twin', 'Two projectors'], ['bowl', 'Reflector bowl'], ['matrix', 'Grid of points'], ['strip', 'Strip only']],
+      { look: at('front', 'lamp', 600), help: { hlh: 3 } }),
+    Q('grden', 'Grille texture', 3, 'How fine the grille pattern is.',
+      [1, 0.5, 2], x => ({ 1: 'Medium', 0.5: 'Coarse', 2: 'Fine' })[x],
+      {
+        on: ['grille'], when: v => (v.grille <= GRILLE.dots ? null : NA),
+        why: 'A blank panel has no pattern to make finer.', look: at('front', 'grille', 900), help: { grh: 3 }
+      }),
+    K('grsur', 'Grille surround', 3, 'The frame round the grille.',
+      [['none', 'None'], ['bright', 'Bright'], ['dark', 'Dark'], ['body', 'Body colour, thick']],
+      Object.assign({ look: at('front', 'grille', 1300), help: { grh: 3 } }, needGrille('No grille, no surround.'))),
+    K('cuts', 'Door cut lines', 3, 'How the gaps between doors run.',
+      [['vert', 'Upright'], ['lean', 'Leaning'], ['arch', 'Following the arch']], { look: at('side', 'door', 2600, 0.45) }),
+    K('hpos', 'Handle position', 3, 'Where the door handles sit.',
+      [['shoulder', 'On the shoulder line'], ['belt', 'At the belt'], ['mid', 'Mid door']],
+      {
+        on: ['handle'], when: v => (v.handle === HANDLE.none ? NA : null),
+        why: 'No handles, no position.', look: at('side', 'door', 1800)
+      }),
+    K('mirror', 'Mirrors', 3, 'Mirrors, or cameras in their place.',
+      [['door', 'On the door'], ['pillar', 'At the pillar base'], ['camera', 'Cameras on stalks'], ['none', 'None']],
+      { nw: [3], look: at('side', 'mirror', 900) }),
+    K('trim', 'Bright work', 3, 'Finish of the window surround and small trim.',
+      [['dark', 'Dark'], ['bright', 'Bright'], ['body', 'Body colour'], ['satin', 'Satin']], { lang: true, look: at('side', 'glass', 1800) }),
+    K('frame', 'Window frames', 3, 'Whether the door glass sits in a frame.',
+      [['framed', 'Framed'], ['frameless', 'Frameless']], { look: at('side', 'glass', 1800) }),
+    K('filler', 'Fuel or charge door', 3, 'Where the filler door sits.',
+      [['rear', 'Rear wing'], ['front', 'Front wing'], ['none', 'Hidden']], { look: SIDE }),
+    K('badge', 'Badge, left blank', 3, 'A blank badge shape. No real badge is ever drawn.',
+      [['round', 'Roundel'], ['none', 'None'], ['shield', 'Shield'], ['bar', 'Bar']], { look: at('front', 'grille', 900) }),
+    K('platef', 'Front plate', 3, 'Where the front number plate sits.',
+      [['low', 'Low, centre'], ['none', 'None'], ['high', 'High, centre'], ['offset', 'To one side']], { look: FRONT }),
+    K('antenna', 'Antenna', 3, 'The antenna on the roof.',
+      [['fin', 'Fin'], ['none', 'None'], ['mast', 'Mast']], { look: at('side', 'roofR', 1500) }),
+    K('tyre', 'Tyre wall', 3, 'Marks on the tyre wall.',
+      [['plain', 'Plain'], ['white', 'White band'], ['line', 'Coloured line']], { look: at('side', 'wheelF', 1000) }),
+    K('caliper', 'Brake calipers', 3, 'Colour of the calipers behind the spokes.',
+      [['grey', 'Grey'], ['red', 'Red'], ['yellow', 'Yellow'], ['blue', 'Blue']], { look: at('side', 'wheelF', 800) }),
+    K('diffuser', 'Rear lower panel', 3, 'The panel under the rear bumper.',
+      [['plain', 'Plain'], ['fins', 'Diffuser fins'], ['skid', 'Skid plate']], { look: at('rear', 'bumper', 1500, 0.4) }),
+    K('tlin', 'Tail lamp internals', 3, 'What sits inside the tail lamp.',
+      [['blade', 'Light blade'], ['dots', 'Dots'], ['blocks', 'Blocks'], ['panel', 'Glowing panel']],
+      { look: at('rear', 'lamp', 600), help: { tlh: 2 } }),
+
+    // ------------------------------------------------ 4. LIGHT AND MOTION
+    K('drl', 'Front light signature', 4, 'The shape that lights by day.',
+      [['top', 'Line along the top'], ['ring', 'Outline'], ['hook', 'Hook'], ['dots', 'Dots'], ['none', 'None']],
+      { lang: true, look: at('front', 'lamp', 900), help: { hlh: 3 } }),
+    K('tsig', 'Rear light signature', 4, 'The shape the tail lamp lights.',
+      [['outline', 'Outline'], ['line', 'One line'], ['blades', 'Upright blades'], ['fill', 'Whole lamp']],
+      { lang: true, look: at('rear', 'lamp', 900), help: { tlh: 2 } }),
+    K('sculpt', 'Surface', 4, 'How reflections run along the side.',
+      [['taut', 'Taut'], ['soft', 'Soft'], ['hollow', 'Hollowed'], ['flat', 'Flat']], { lang: true, look: at('side', 'door', 2600, 0.45) }),
+    K('shade', 'Changing shade', 4, 'Bodywork that changes shade. Shown with panels in two states.',
+      [['fixed', 'Fixed'], ['panels', 'Changes panel by panel']], { nw: [1], look: SIDE }),
+    K('dooropen', 'Door opening', 4, 'How the doors open. Shown dashed, from above and from the front.',
+      [['swing', 'Swing out'], ['scissor', 'Scissor up'], ['gull', 'Gullwing'], ['coach', 'Rear-hinged'], ['slide', 'Sliding']],
+      {
+        on: ['roofop'], when: v => (v.roofop === ROOFOP.soft ? [0, 1, 3, 4] : null),
+        why: 'A gullwing door hinges on a fixed roof.', look: TOP
+      }),
+    K('roofop', 'Roof opening', 4, 'How the roof opens.',
+      [['fixed', 'Fixed'], ['sunroof', 'Sunroof'], ['glass', 'Glass roof'], ['soft', 'Soft top']], { look: TOP }),
+    K('aero', 'Moving aero', 4, 'Aero parts that move. Shown dashed in their raised position.',
+      [['none', 'None'], ['wing', 'Rear wing rises'], ['brake', 'Air brake']], { look: at('side', 'tail', 1900) }),
+    K('glowp', 'Glowing panels', 4, 'Body panels that light up.',
+      [['none', 'None'], ['face', 'Lit face panel'], ['sills', 'Lit sills']], { nw: [1, 2], look: SIDE }),
+
+    // ------------------------------------------------------------- 5. USE
+    Q('doors', 'Side doors', 5, 'Doors on each side.',
+      [2, 1], x => (x === 2 ? 'Two a side' : 'One a side'), { look: SIDE }),
+    Q('seats', 'Seat rows', 5, 'Rows of seats, seen through the glass.',
+      [2, 1, 3], x => ['', 'One row', 'Two rows', 'Three rows'][x], { look: at('side', 'glass', 2600, 0.45), help: { tint: 1 } }),
+    K('rails', 'Roof rails', 5, 'Rails on the roof for carrying loads.',
+      [['none', 'None'], ['flush', 'Flush rails'], ['raised', 'Raised rails'], ['bars', 'Rails and crossbars']],
+      {
+        on: ['roofop'], when: v => (v.roofop === ROOFOP.soft ? NA : null),
+        why: 'A soft top carries no rails.', look: at('side', 'glass', 2600, 0.45)
+      }),
+    K('tow', 'Towing', 5, 'What the car carries for towing.',
+      [['none', 'None'], ['bar', 'Tow bar'], ['hooks', 'Recovery hooks']], { look: SIDE }),
+    K('solar', 'Solar roof', 5, 'Solar cells in the roof.',
+      [['none', 'None'], ['cells', 'Solar cells']],
+      {
+        nw: [1], on: ['roofop'], when: v => (v.roofop === ROOFOP.fixed ? null : NA),
+        why: 'Solar cells need a fixed, closed roof panel.', look: TOP
+      }),
+    K('sensor', 'Sensor pod', 5, 'A pod of driving sensors.',
+      [['none', 'None'], ['roof', 'On the roof'], ['screen', 'Behind the windscreen']], { look: FRONT }),
+    K('spare', 'Spare wheel', 5, 'Where the spare wheel is carried.',
+      [['none', 'Out of sight'], ['tail', 'On the tail']], { look: at('side', 'tail', 1900) }),
+
+    // ----------------------------------------------------------- 6. TOUCH
+    K('handle', 'Door handles', 6, 'What the hand meets on the door.',
+      [['pull', 'Proud pull'], ['flush', 'Flush'], ['flap', 'Flap'], ['none', 'None, touch pad']], { look: at('side', 'door', 1300) }),
+    Q('doorth', 'Door thickness', 6, 'Thickness of the door, seen from above with the door open.',
+      [140, 90, 200, 260], mm, { look: at('top', 'door', 1900) }),
+
+    // ----------------------------------------------------------- 7. SOUND
+    K('power', 'Power', 7, 'Where the engine is, or none. Heard before it is seen.',
+      [['front', 'Engine in front'], ['mid', 'Engine between the axles'], ['rear', 'Engine at the rear'], ['electric', 'Electric, no engine']],
+      { sound: true, look: TOP }),
+    Q('seals', 'Door seals', 7, 'The sound of a door shutting, shown as the seals that make it.',
+      [2, 1, 3], x => ['', 'One, a clack', 'Two, a thud', 'Three, a soft thump'][x], { sound: true, look: at('top', 'door', 1100) })
+  ];
+
+  [['power', POWER], ['grille', GRILLE], ['roofop', ROOFOP], ['handle', HANDLE]].forEach(([id, tab]) => {
+    const a = AXES.find(x => x.id === id);
+    Object.keys(tab).forEach(key => {
+      if (a.k[tab[key]] !== key) throw new Error('index table out of step with axis ' + id);
+    });
+  });
+
+  const SPACE = ENGINE.buildSpace(AXES);
+  const BY = {};
+  AXES.forEach((a, i) => { a.i = i; BY[a.id] = a; });
+
+  // ---------------------------------------------------------- language
+  // A language picks one value for each axis that carries character, under
+  // these agreements. pick(list) returns one item at random.
+  const LANGUAGE = {
+    agreements: [
+      'One corner softness runs from front to back: lamps, grille, tail lamps, arches, nose and tail move together.',
+      'Sharp graphics take taut surfaces and a pressed line. Soft graphics take soft surfaces.',
+      'Front and rear light signatures match.',
+      'Deep sockets take a brow and a smaller lit element. Flush lamps take neither.',
+      'One trim finish runs through wheels, bright work and cladding.'
+    ],
+    describe(v) {
+      const n = id => BY[id].n[v[id]], lab = id => BY[id].o[v[id]];
+      const edge = n('hlsoft') >= 0.75 ? 'Soft' : n('hlsoft') >= 0.25 ? 'Even' : 'Sharp';
+      const sock = n('socket') >= 90 ? 'Deep sockets' : n('socket') >= 20 ? 'Shallow sockets' : 'Flush';
+      const h = n('hue'), temp = h < 0 ? 'Neutral' : (h >= 90 && h <= 270) ? 'Cool' : 'Warm';
+      return [edge, sock, temp, lab('tone'), lab('finish'), lab('sculpt')];
+    },
+    roll(pick, v) {
+      const p = {};
+      const N = (id, vals) => { const i = BY[id].n.indexOf(pick(vals)); if (i >= 0) p[id] = i; };
+      const Kk = (id, keys) => { const i = BY[id].k.indexOf(pick(keys)); if (i >= 0) p[id] = i; };
+      const edge = pick(['soft', 'even', 'sharp']), depth = pick(['flush', 'shallow', 'deep']);
+      const temp = pick(['warm', 'cool', 'neutral', 'neutral']), dark = Math.random() < 0.5;
+      // 1. one corner softness front to back
+      N('hlsoft', { soft: [1, 0.75], even: [0.5, 0.25], sharp: [0.25, 0.05] }[edge]);
+      N('grsoft', { soft: [1, 0.7], even: [0.4, 0.15], sharp: [0.15, 0.03] }[edge]);
+      N('tlsoft', { soft: [1, 0.7], even: [0.4], sharp: [0.1] }[edge]);
+      N('arch', { soft: [0], even: [0, 0.35], sharp: [0.7, 1] }[edge]);
+      N('nround', { soft: [0.75, 1], even: [0.3, 0.5], sharp: [0.12, 0.3] }[edge]);
+      N('tround', { soft: [0.7, 1], even: [0.4], sharp: [0.1] }[edge]);
+      N('hlsides', { soft: [4, 2], even: [4, 4, 6], sharp: [4, 3, 5, 6, 8] }[edge]);
+      N('hlslant', BY.hlslant.n); N('grtaper', BY.grtaper.n);
+      Kk('hlsplit', BY.hlsplit.k); Kk('grille', BY.grille.k); Kk('spoke', BY.spoke.k);
+      // 2. sharp graphics take taut surfaces and a pressed line
+      Kk('sculpt', { soft: ['soft', 'hollow'], even: ['taut', 'soft'], sharp: ['taut', 'flat'] }[edge]);
+      N('lines', { soft: [0, 1], even: [1], sharp: [1, 2] }[edge]);
+      Kk('shline', BY.shline.k);
+      // 3. front and rear signatures match
+      const sig = pick([['top', 'line'], ['ring', 'outline'], ['hook', 'blades'], ['dots', 'fill']]);
+      Kk('drl', [sig[0]]); Kk('tsig', [sig[1]]);
+      // 4. deep sockets take a brow and a smaller lit element
+      N('socket', { flush: [0], shallow: [20, 50], deep: [90, 140] }[depth]);
+      N('brow', { flush: [0], shallow: [0, 15], deep: [35, 60] }[depth]);
+      N('aper', { flush: [1], shallow: [0.85], deep: [0.65, 0.45] }[depth]);
+      // 5. one trim finish throughout
+      Kk('trim', dark ? ['dark'] : ['bright', 'satin']);
+      Kk('wfin', dark ? ['dark', 'black'] : ['silver', 'cut', 'bronze']);
+      Kk('clad', dark ? ['sill', 'arches', 'body'] : ['body', 'contrast']);
+      Kk('float', dark ? ['float', 'wrap', 'visor'] : ['joined', 'float']);
+      // colour
+      N('hue', { warm: [0, 30, 60, 330], cool: [150, 180, 210, 240, 270], neutral: [-1] }[temp]);
+      N('tone', BY.tone.n); N('sat', BY.sat.n); Kk('finish', BY.finish.k);
+      Kk('roofc', ['body', 'body', 'black', 'white', 'contrast']);
+      return p;
+    }
+  };
+
+  const THING = {
+    id: 'car', title: 'Car Form Space', name: 'Cars', one: 'car', many: 'cars',
+    views: [['side', 'Side'], ['front', 'Front'], ['rear', 'Rear'], ['top', 'Top']],
+    main: 'side', room: 'street', tall: ['front', 'rear'],
+    thumbs: {
+      side: { o: { view: 'side' }, w: 118, h: 45 }, top: { o: { view: 'top' }, w: 118, h: 48 },
+      front: { o: { view: 'front' }, w: 74, h: 64 }, rear: { o: { view: 'rear' }, w: 74, h: 64 },
+      street: { o: { view: 'street' }, w: 118, h: 50 }
+    },
+    sheet: ['roofend', 'fall'],
+    notes: [
+      'Room shows the car on the street beside a figure 1.75 m tall.',
+      'Lamps are drawn lit. Dashed lines show parts that move: an open door, a raised wing.',
+      'Badges are blank shapes. No real badge or maker’s grille is drawn.'
+    ],
+    test: { step: 'wb', pick: ['spokes', 6, '10'], other: 'width', back: 'fo', rule: ['grille', 5, 'grw'], hold: 'wb', lang: 'hlsoft' }
+  };
+
+  const api = { VERSION, DIST, AXES, BY, SPACE, THING, LANGUAGE, buildSpace: ENGINE.buildSpace, testSpace: ENGINE.testSpace };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  root.FS_SPACE = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>/* Car form space: drawing.
+ *
+ * draw(v, opts) turns a set of choices into an SVG, in millimetres.
+ *   opts.view   'side' (main), 'front', 'rear', 'top', 'street'
+ *   opts.lod    true for a low-detail thumbnail
+ *   opts.idp    id prefix, unique for every SVG on a page
+ *   opts.at, opts.w, opts.aspect   crop round a named anchor, w mm wide
+ *
+ * The body is held as fixed points: lengths along the car (x), heights (y,
+ * up from the ground) and half-widths (z). The side view uses x and y, the
+ * front and rear views z and y, the top view x and z, so the views agree.
+ * Named options each have one entry in a table keyed by option.
+ */
+(function (root) {
+  'use strict';
+  const node = typeof module !== 'undefined' && module.exports && typeof require === 'function';
+  const S = node ? require('./space.js') : root.FS_SPACE;
+  const K = node ? require('../kit/draw-util.js') : root.FS_KIT;
+  const { TAU, RAD, PAPER, r2, clamp, lerp, sstep, mix, hsl, lum, rng, roundCorners, softOutline, ngon, rev } = K;
+  const AXES = S.AXES;
+
+  // Geometry is worked out with y up; these turn it into SVG, y down.
+  const f = x => Math.round(x);
+  const pt = p => f(p[0]) + ',' + f(-p[1]);
+  const poly = (pts, close) => (pts.length ? 'M' + pts.map(pt).join('L') + (close === false ? '' : 'Z') : '');
+  const circ = (c, r, attrs) => `<circle cx="${f(c[0])}" cy="${f(-c[1])}" r="${r2(r)}"${attrs ? ' ' + attrs : ''}/>`;
+  // rect from its lower-left corner (x, y), w wide and h tall
+  const rect = (x, y, w, h, attrs, rx) => `<rect x="${f(x)}" y="${f(-(y + h))}" width="${f(w)}" height="${f(h)}"${rx ? ` rx="${f(rx)}"` : ''}${attrs ? ' ' + attrs : ''}/>`;
+  const line = (pts, stroke, w, extra) => `<path d="${poly(pts, false)}" fill="none" stroke="${stroke}" stroke-width="${r2(w)}"${extra ? ' ' + extra : ''}/>`;
+  const path = (d, attrs) => `<path d="${d}"${attrs ? ' ' + attrs : ''}/>`;
+  const GHOST = 'fill="none" stroke="#3f454c" stroke-width="9" stroke-dasharray="46 30"';
+
+  function params(v) {
+    const P = {};
+    for (const a of AXES) { const i = v[a.id] | 0; P[a.id] = a.n ? a.n[i] : a.k[i]; }
+    return P;
+  }
+
+  // ------------------------------------------------------------ colours
+  const FIN = { solid: [1, 1], metallic: [1.35, 1.1], pearl: [1.2, 1], matte: [0.2, 0.55], satin: [0.6, 0.8] };
+  function colours(P) {
+    const neutral = P.hue < 0, h0 = neutral ? 215 : P.hue, s0 = neutral ? 0.035 : P.sat * (P.finish === 'matte' ? 0.8 : 1);
+    let C = hsl(h0, s0, clamp(P.tone, 0.06, 0.95));
+    if (P.finish === 'metallic') C = mix(C, '#ffffff', 0.07);
+    const ROOF = { body: C, black: '#17181a', white: '#f1f0ec', silver: '#b9bdc2', contrast: hsl(h0, s0, P.tone < 0.5 ? P.tone + 0.42 : P.tone - 0.42) };
+    const TRIM = { dark: '#1b1c1f', bright: '#d5d8dc', body: C, satin: '#9ea3a9' };
+    const WHEEL = { silver: '#c3c7cc', dark: '#565a5f', black: '#202124', body: C, cut: '#e1e4e7', bronze: '#9a6f45' };
+    const roofIsCloth = P.roofop === 'soft';
+    return {
+      C, edge: mix(C, '#000', 0.55), roof: roofIsCloth ? '#2b2d31' : ROOF[P.roofc], twoTone: roofIsCloth || P.roofc !== 'body',
+      trim: TRIM[P.trim], wheel: WHEEL[P.wfin], plastic: '#26272a',
+      stripe: lum(C) > 0.55 ? '#1b1c1f' : '#f1f0ec',
+      glass: mix('#a9bcc7', '#0c1015', P.tint), lower: hsl(h0, s0, P.tone < 0.5 ? P.tone + 0.3 : P.tone - 0.3),
+      fin: FIN[P.finish]
+    };
+  }
+
+  // ----------------------------------------------------------- geometry
+  // The fixed points of the body, in three dimensions.
+  function geometry(P) {
+    const L = P.fo + P.wb + P.ro, H = P.height, W = P.width, hw = W / 2;
+    const Rw = P.wheel / 2, xa = P.fo, xb = P.fo + P.wb, Ra = Rw + P.archgap, archTop = Rw + Ra, clear = P.clear;
+    const beltF = clamp(P.belt * H, archTop + 70, H - 250);
+    const beltR = clamp(beltF + P.brise, archTop + 70, H - 200);
+    const yC = beltF + 10, yb1 = clear + 50, yb2 = clear + 90;
+    const yN = clamp(P.nose * yC, yb1 + 200, yC - 12);
+    const yLow = yb1 + 0.3 * (yN - yb1);
+    const run = (yN - yLow) * Math.tan(P.nrake * RAD), xl = run >= 0 ? 0 : -run, xu = run >= 0 ? run : 0;
+    const xC = clamp(xa + P.cowl, xu + 300, xa + 0.3 * P.wb);
+    const sA = P.screen * RAD;
+    const yHd = H - P.crown * (0.35 + P.peak * 0.8);
+    const xHd = Math.min(xC + (yHd - yC) / Math.tan(sA), xC + 0.45 * (L - xC));
+    const yRh = clamp(H - P.rdrop - P.crown * (1 - P.peak) * 0.5, beltR + 190, H);
+    const xRh = Math.max(xHd + 260, xHd + P.roofend * (L - 60 - xHd));
+    const tF = P.fall >= 89.5 ? 1e6 : Math.tan(P.fall * RAD), tT = Math.tan(P.trake * RAD);
+    const yD = clamp(beltR + P.tailh, archTop + 50, yRh - 110);     // top of the tail
+    const yTb = yb2 + 0.32 * (yD - yb2);
+    const xBot = tT >= 0 ? L : L + (yD - yTb) * tT;
+    const xFace = y => xBot - (y - yTb) * tT;                        // the tail face at height y
+    const xAtD = xRh + (yRh - yD) / tF;                              // where the falling back reaches tail height
+    const deck = xAtD < xFace(yD) - 150;
+    let tailTop;
+    if (deck) tailTop = [xFace(yD), yD - Math.min(40, (xFace(yD) - xAtD) * 0.03)];
+    else {
+      const xi = (xBot - (yRh - yTb) * tT - xRh * tF * tT) / (1 - tF * tT), yi = yRh - (xi - xRh) * tF;
+      tailTop = isFinite(xi) && yi > yD + 5 && xi > xRh + 1 && xi <= L + 1 ? [xi, yi] : [xFace(yD), yD];
+    }
+    const roofY = t => (t <= P.peak
+      ? H - (H - yHd) * Math.pow((P.peak - t) / P.peak, 2)
+      : H - (H - yRh) * Math.pow((t - P.peak) / (1 - P.peak), 2));
+
+    // the side profile, front to back over the top: corner points, each with its rounding
+    const V = [[xl + 130, yb1, 50], [xl, yLow, 150]];
+    const bow = P.bonnet * 0.1 * (xC - xu);
+    const bon = t => [lerp(xu, xC, t), lerp(yN, yC, t) + bow * 4 * t * (1 - t)];
+    const faceLen = Math.hypot(xu - xl, yN - yLow), bonLen = Math.hypot(xC - xu, yC - yN);
+    const cutN = 25 + P.nround * Math.min(0.72 * faceLen, 0.5 * bonLen, 520), tb = cutN / bonLen;
+    const pf = [xu - (xu - xl) / faceLen * cutN, yN - (yN - yLow) / faceLen * cutN], pb = bon(tb);
+    for (let k = 0; k <= 8; k++) { const u = k / 8, q = 1 - u; V.push([q * q * pf[0] + 2 * q * u * xu + u * u * pb[0], q * q * pf[1] + 2 * q * u * yN + u * u * pb[1], 0]); }
+    for (let k = 1; k <= 5; k++) { const t = lerp(tb, 1, k / 6); const p = bon(t); V.push([p[0], p[1], 0]); }
+    V.push([xC, yC, 60], [xHd, yHd, 170]);
+    for (let k = 1; k <= 7; k++) { const t = k / 8; V.push([lerp(xHd, xRh, t), roofY(t), 0]); }
+    V.push([xRh, yRh, 190]);
+    if (deck) V.push([xAtD, yD, 110]);
+    // the top corner of the tail, filleted by its own roundness
+    const prevT = deck ? [xAtD, yD] : [xRh, yRh], lowC = [xFace(yTb), yTb];
+    const faceT = Math.hypot(lowC[0] - tailTop[0], lowC[1] - tailTop[1]) || 1, backT = Math.hypot(tailTop[0] - prevT[0], tailTop[1] - prevT[1]) || 1;
+    const cutT = 25 + P.tround * Math.min(0.7 * faceT, 0.5 * backT, 560);
+    const pA = [tailTop[0] + (prevT[0] - tailTop[0]) / backT * cutT, tailTop[1] + (prevT[1] - tailTop[1]) / backT * cutT];
+    const pB = [tailTop[0] + (lowC[0] - tailTop[0]) / faceT * cutT, tailTop[1] + (lowC[1] - tailTop[1]) / faceT * cutT];
+    for (let k = 0; k <= 8; k++) { const u = k / 8, q = 1 - u; V.push([q * q * pA[0] + 2 * q * u * tailTop[0] + u * u * pB[0], q * q * pA[1] + 2 * q * u * tailTop[1] + u * u * pB[1], 0]); }
+    V.push([lowC[0], lowC[1], Math.min(150, faceT * 0.22)], [lowC[0] - 130, yb2, 50]);
+    const prof = roundCorners(V, false, 6);
+    // height of the top of the body at x
+    const topY = x => {
+      let best = -1;
+      for (let i = 0; i < prof.length - 1; i++) {
+        const a = prof[i], b = prof[i + 1];
+        if (b[0] > a[0] && x >= a[0] && x <= b[0]) { const y = a[1] + (x - a[0]) / (b[0] - a[0]) * (b[1] - a[1]); if (y > best) best = y; }
+      }
+      return best < 0 ? (x < xu ? yN : tailTop[1]) : best;
+    };
+
+    // wheel arches: round to square
+    const nA = 2 + 2.8 * P.arch;
+    const archPts = (cx, yRear, yFront) => {
+      const pts = [[cx + Ra, Math.min(yRear, Rw)]], N = 36;
+      for (let i = 0; i <= N; i++) {
+        const t = Math.PI * i / N, c = Math.cos(t), s = Math.sin(t);
+        const r = Ra / Math.pow(Math.pow(Math.abs(c), nA) + Math.pow(Math.abs(s), nA), 1 / nA);
+        const p = [cx + r * c, Rw + r * s], base = c > 0 ? yRear : yFront;
+        pts.push(p[1] >= base ? p : [p[0], base]);
+      }
+      pts.push([cx - Ra, Math.min(yFront, Rw)]);
+      return pts;
+    };
+    const archR = archPts(xb, yb2, clear), archF = archPts(xa, clear, yb1);
+    const body = prof.concat(archR, archF);
+
+    // glass: the daylight opening between belt and roof
+    const dA = clamp(150 / Math.sin(sA), 150, 330);
+    const xf0 = xC + (beltF - yC) / Math.tan(sA) + dA;                // front of the side glass at the belt
+    let xSB;                                                         // where the back crosses the belt
+    if (deck) xSB = beltR <= yD ? xAtD : xRh + (yRh - beltR) / tF;
+    else if (tailTop[1] >= beltR) xSB = xFace(beltR) - 20;
+    else xSB = xRh + (tailTop[0] - xRh) * (yRh - beltR) / Math.max(1, yRh - tailTop[1]);
+    const sF = Math.min(1, Math.max(0.3, Math.sin(Math.min(P.fall, 90) * RAD)));
+    const cpH = clamp((P.pillars === 4 ? 110 : 150) / sF, 110, 420);
+    let xr0 = Math.max(xSB - cpH, xf0 + 420);                         // back of the side glass at the belt
+    if (P.roofop === 'soft') xr0 = lerp(xf0, xr0, 0.8);
+    const kickAt = t => P.kick * sstep(0.8, 1, t);
+    const belt = x => { const t = clamp((x - xf0) / (xr0 - xf0), 0, 1); return beltF + (beltR - beltF) * t + kickAt(t); };
+    const phi = lerp(90, Math.min(P.fall, 90), P.prake) * RAD, tPhi = phi > 1.553 ? 1e6 : Math.tan(phi);
+    const frontLine = x => beltF + (x - xf0) * Math.tan(sA);
+    const rearLine = x => belt(xr0) + (xr0 - x) * tPhi;
+    const gTop = x => Math.min(topY(x) - P.rail, frontLine(x), rearLine(x));
+    const step = 30, up = [], dn = [];
+    for (let x = xf0; x <= xr0 + 0.5; x += step) { const t = gTop(x), b = belt(x); if (t > b + 25) { up.push([x, t]); dn.push([x, b]); } }
+    if (up.length < 2) { up.push([xf0, beltF + 30], [xf0 + 60, beltF + 30]); dn.push([xf0, beltF], [xf0 + 60, beltF]); }
+    const dlo = up.concat(rev(dn));
+    const xg0 = dn[0][0], xg1 = dn[dn.length - 1][0];
+
+    // doors
+    const two = P.doors === 2;
+    const xD0 = Math.max(xa + Ra * 1.05 + 80, Math.min(xC - 40, xf0 - 200));
+    const xDend = Math.min(xb - Ra * 0.5, xg1 + 60);
+    const xD1 = two ? lerp(xD0, xDend, 0.52) : Math.min(xD0 + 1350, xb - Ra - 60, xDend);
+    const xD2 = two ? xDend : xD1;
+    const xPB = two ? xD1 : lerp(xg0, xg1, 0.62);                      // centre pillar
+    const xPC = lerp(xg0, xg1, 0.82);
+    const ySill = x => {
+      const t = clamp((x - xa) / (xb - xa), 0, 1), b = clear + 150;
+      return { straight: b, rising: b + 120 * t, scoop: b + 85 * Math.sin(Math.PI * t), step: b - 20 }[P.sill];
+    };
+
+    // half-widths
+    const hwS = hw - 25, hwR = Math.max(hw - P.tumble - 40, 330);
+    const rcF = (0.14 + 0.5 * P.plan) * hw, rcR = (0.1 + 0.42 * P.plan) * hw;
+    const planW = x => {
+      let w = hw;
+      if (x < rcF) w = hw - rcF + Math.sqrt(Math.max(0, rcF * rcF - (rcF - x) * (rcF - x)));
+      if (x > L - rcR) w = hw - rcR + Math.sqrt(Math.max(0, rcR * rcR - (x - (L - rcR)) * (x - (L - rcR))));
+      if (x > xa && x < xb) w -= P.waist * Math.pow(Math.sin(Math.PI * (x - xa) / (xb - xa)), 2);
+      return w + P.flare * 0.6 * (Math.exp(-Math.pow((x - xa) / Ra, 2)) + Math.exp(-Math.pow((x - xb) / Ra, 2)));
+    };
+    const tw = clamp(P.wheel * 0.36 - 10, 165, 345);                  // tyre width
+
+    return {
+      L, H, W, hw, Rw, Ra, xa, xb, archTop, clear, beltF, beltR, yC, yb1, yb2, yN, yLow, xl, xu, xC, sA, yHd, xHd, yRh, xRh,
+      yD, yTb, xFace, xAtD, deck, tailTop, prof, topY, body, archR, archF, xf0, xr0, xSB, belt, gTop, dlo, xg0, xg1, frontLine, rearLine,
+      two, xD0, xD1, xD2, xPB, xPC, ySill, hwS, hwR, planW, tw, tF, bed: P.bed === 'open' && deck,
+      col: colours(P)
+    };
+  }
+
+  // ------------------------------------------------------------ shading
+  function paintDefs(id, P, G, defs, y0, y1) {
+    const fin = G.col.fin;
+    defs.push(`<linearGradient id="${id}sh" gradientUnits="userSpaceOnUse" x1="0" y1="${f(-y1)}" x2="0" y2="${f(-y0)}">` +
+      `<stop offset="0" stop-color="#fff" stop-opacity="${r2(0.2 * fin[0])}"/><stop offset=".34" stop-color="#fff" stop-opacity="0"/>` +
+      `<stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="${r2(0.3 * fin[1])}"/></linearGradient>`);
+    if (P.finish === 'metallic') {
+      const rnd = rng(77);
+      let s = '';
+      for (let i = 0; i < 16; i++) s += `<circle cx="${f(rnd() * 70)}" cy="${f(rnd() * 70)}" r="${r2(2 + rnd() * 3)}" fill="#fff" fill-opacity="${r2(0.14 + rnd() * 0.2)}"/>`;
+      defs.push(`<pattern id="${id}mt" patternUnits="userSpaceOnUse" width="70" height="70">${s}</pattern>`);
+    }
+    if (P.finish === 'pearl') {
+      const h = P.hue < 0 ? 200 : P.hue;
+      defs.push(`<linearGradient id="${id}pl" gradientUnits="userSpaceOnUse" x1="0" y1="${f(-y1)}" x2="900" y2="${f(-y0)}">` +
+        `<stop offset="0" stop-color="${hsl(h + 50, 0.7, 0.75)}" stop-opacity=".28"/><stop offset=".5" stop-color="${hsl(h - 40, 0.7, 0.7)}" stop-opacity=".08"/><stop offset="1" stop-color="${hsl(h + 90, 0.6, 0.6)}" stop-opacity=".22"/></linearGradient>`);
+    }
+    // paint over a shape already in <defs>
+    return (ref, base) => {
+      const use = a => `<use href="#${ref}" ${a}/>`;
+      return use(`fill="${base || G.col.C}" stroke="${G.col.edge}" stroke-width="12" stroke-linejoin="round"`) +
+        (P.finish === 'metallic' ? use(`fill="url(#${id}mt)"`) : '') + (P.finish === 'pearl' ? use(`fill="url(#${id}pl)"`) : '') + use(`fill="url(#${id}sh)"`);
+    };
+  }
+
+  // ------------------------------------------------------------- wheels
+  // Spokes, from the hub to the inside of the rim. Each returns a path.
+  const spokeEach = (c, n, fn) => { let d = ''; for (let i = 0; i < n; i++) d += fn(Math.PI / 2 + TAU * i / n); return d; };
+  const pol = (c, r, a) => [c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)];
+  const side = (p, a, w) => [p[0] - Math.sin(a) * w, p[1] + Math.cos(a) * w];
+  const SPOKE = {
+    straight: (c, n, hub, rs, w) => spokeEach(c, n, a => poly([side(pol(c, hub, a), a, w), side(pol(c, rs, a), a, w), side(pol(c, rs, a), a, -w), side(pol(c, hub, a), a, -w)])),
+    taper: (c, n, hub, rs, w) => spokeEach(c, n, a => poly([side(pol(c, hub, a), a, w * 1.7), side(pol(c, rs, a), a, w * 0.4), side(pol(c, rs, a), a, -w * 0.4), side(pol(c, hub, a), a, -w * 1.7)])),
+    split: (c, n, hub, rs, w) => spokeEach(c, n, a => [-1, 1].map(s => { const b = a + s * Math.PI / n * 0.44; return poly([side(pol(c, hub, a), a, w * 0.5), side(pol(c, rs, b), b, w * 0.5), side(pol(c, rs, b), b, -w * 0.5), side(pol(c, hub, a), a, -w * 0.5)]); }).join('')),
+    turbine: (c, n, hub, rs, w) => spokeEach(c, n, a => { const b = a + 0.55, m = a + 0.2; return poly([side(pol(c, hub, a), a, w), side(pol(c, (hub + rs) / 2, m), m, w), side(pol(c, rs, b), b, w * 0.7), side(pol(c, rs, b), b, -w * 0.7), side(pol(c, (hub + rs) / 2, m), m, -w), side(pol(c, hub, a), a, -w)]); }),
+    disc: (c, n, hub, rs) => poly(ngon(c, rs, 40, 0)) + spokeEach(c, n, a => poly(ngon(pol(c, rs * 0.74, a), clamp(Math.PI * rs * 0.74 / n * 0.5, 9, rs * 0.17), 12, 0)))
+  };
+  const CALIPER = { grey: '#8b8f94', red: '#c8281f', yellow: '#e4b21b', blue: '#2458c6' };
+  function wheel(cx, P, G, id, lod) {
+    const Rw = G.Rw, rimR = Rw * P.rim, c = [cx, Rw], face = G.col.wheel;
+    let s = circ(c, Rw, 'fill="#191a1c"') + circ(c, Rw - 14, 'fill="none" stroke="#2e2f33" stroke-width="12"');
+    if (P.tyre === 'white') s += circ(c, (Rw + rimR) / 2 + 4, `fill="none" stroke="#e9e7e0" stroke-width="${f((Rw - rimR) * 0.4)}"`);
+    if (P.tyre === 'line') s += circ(c, rimR + (Rw - rimR) * 0.32, 'fill="none" stroke="#d2362b" stroke-width="11"');
+    s += circ(c, rimR, 'fill="#0f1012"');
+    if (!lod) {
+      s += circ(c, rimR * 0.64, 'fill="#74787d"') + circ(c, rimR * 0.3, 'fill="#101113"');
+      const cal = [];
+      for (let k = 0; k <= 8; k++) cal.push(pol(c, rimR * 0.7, 2.6 + k * 0.1));
+      for (let k = 8; k >= 0; k--) cal.push(pol(c, rimR * 0.4, 2.6 + k * 0.1));
+      s += path(poly(cal), `fill="${CALIPER[P.caliper]}"`);
+    }
+    const lip = rimR * (0.05 + 0.1 * P.dish), rs = rimR - lip, hub = rimR * (0.21 - 0.07 * P.dish), n = P.spokes;
+    const w = clamp(Math.PI * rs / n * 0.4, 12, rimR * 0.2);
+    s += path(SPOKE[P.spoke](c, n, hub, rs, w), `fill="${face}" fill-rule="evenodd" stroke="${mix(face, '#000', 0.5)}" stroke-width="${P.wfin === 'cut' ? 9 : 5}" stroke-linejoin="round"`);
+    if (P.dish > 0) s += circ(c, rs, `fill="url(#${id}dg)" fill-opacity="${r2(P.dish)}"`);
+    s += circ(c, rimR - lip / 2, `fill="none" stroke="${mix(face, '#fff', 0.3)}" stroke-width="${f(lip)}"`) + circ(c, rimR, 'fill="none" stroke="#000" stroke-opacity=".5" stroke-width="5"');
+    s += circ(c, hub, `fill="${mix(face, '#000', 0.2)}" stroke="#000" stroke-opacity=".4" stroke-width="4"`) + (lod ? '' : circ(c, hub * 0.5, 'fill="#cfd2d6"'));
+    return s;
+  }
+  const dishDef = id => `<radialGradient id="${id}dg"><stop offset="0" stop-color="#000" stop-opacity=".62"/><stop offset=".7" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>`;
+
+  // =============================================================== SIDE
+  const SHLINE = {   // shoulder line: offset from its base height, t from nose to tail, x along the car
+    straight: () => 0,
+    rising: t => lerp(-70, 60, t),
+    arched: t => 60 * Math.sin(Math.PI * t) - 25,
+    dropping: t => lerp(50, -95, t),
+    haunch: (t, x, G) => 75 * Math.exp(-Math.pow((x - G.xb) / 430, 2))
+  };
+  const HANDLE = {   // door handles: x is the centre, y the centre height
+    pull: (x, y, c) => rect(x - 80, y - 16, 160, 32, `fill="${c.trim}" stroke="#000" stroke-opacity=".5" stroke-width="5"`, 15) + rect(x - 70, y - 30, 140, 12, 'fill="#000" fill-opacity=".28"', 6),
+    flush: (x, y, c) => rect(x - 80, y - 14, 160, 28, `fill="${c.C}" stroke="#000" stroke-opacity=".55" stroke-width="5"`, 13),
+    flap: (x, y, c) => rect(x - 60, y - 24, 120, 48, 'fill="#101113"', 9) + rect(x - 52, y - 4, 104, 22, `fill="${c.C}" stroke="#000" stroke-opacity=".4" stroke-width="4"`, 7),
+    none: (x, y) => circ([x, y], 11, 'fill="#101113"')
+  };
+  const MIRROR = {   // side view: p is the base point at the front of the side glass
+    door: (p, c) => path(`M${f(p[0] + 60)},${f(-(p[1] - 30))}l-30,-45 l-130,-20 q-60,10 -50,70 l20,45 l150,0Z`, `fill="${c.C}" stroke="${c.edge}" stroke-width="9" stroke-linejoin="round"`),
+    pillar: (p, c) => path(`M${f(p[0] - 20)},${f(-(p[1] + 20))}l-60,-10 l-140,-40 q-55,25 -40,85 l40,45 l130,-10Z`, `fill="${c.C}" stroke="${c.edge}" stroke-width="9" stroke-linejoin="round"`),
+    camera: (p, c) => path(`M${f(p[0] + 20)},${f(-(p[1] - 10))}l-150,-35`, 'stroke="#1b1c1f" stroke-width="16" stroke-linecap="round"') + rect(p[0] - 215, p[1] + 5, 100, 46, 'fill="#1b1c1f"', 20) + circ([p[0] - 195, p[1] + 28], 9, 'fill="#5d7fb3"'),
+    none: () => ''
+  };
+
+  function viewSide(P, G, o) {
+    const id = o.idp, lod = o.lod, c = G.col, defs = [], out = [];
+    const { L, H, Rw, Ra, xa, xb, clear, beltF, yD } = G;
+    const paint = paintDefs(id, P, G, defs, clear, H);
+    defs.push(dishDef(id));
+    defs.push(`<path id="${id}b" d="${poly(G.body)}"/>`, `<clipPath id="${id}bc"><use href="#${id}b"/></clipPath>`);
+    defs.push(`<path id="${id}g" d="${poly(G.dlo)}"/>`, `<clipPath id="${id}gc"><use href="#${id}g"/></clipPath>`);
+    const inBody = s => `<g clip-path="url(#${id}bc)">${s}</g>`;
+    const fa = c.fin[0];
+
+    // ground shadow, wheel wells, wheels
+    out.push(`<ellipse cx="${f(L / 2)}" cy="6" rx="${f(L * 0.52)}" ry="34" fill="#000" fill-opacity=".13"/>`);
+    out.push(path(poly(G.archR) + poly(G.archF), 'fill="#101113"'));
+    if (P.spare === 'tail') {
+      const y0 = Math.max(yD - Rw * 2 - 40, G.yb2 + 60);
+      out.push(rect(G.xFace(y0 + Rw) + 10, y0, G.tw * 0.92, Rw * 2, 'fill="#191a1c" stroke="#000" stroke-width="6"', 60) + rect(G.xFace(y0 + Rw) - 10, y0 + Rw - 60, 40, 120, `fill="${c.plastic}"`));
+    }
+    if (P.tow === 'bar') out.push(path(`M${f(G.xFace(G.yTb) - 60)},${f(-(G.yb2 + 10))}l150,0 l0,-50`, 'fill="none" stroke="#1b1c1f" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"') + circ([G.xFace(G.yTb) + 90, G.yb2 + 75], 24, 'fill="#8b8f94"'));
+    out.push(wheel(xa, P, G, id, lod), wheel(xb, P, G, id, lod));
+
+    // body
+    out.push(paint(id + 'b'));
+
+    // second colour on roof and pillars
+    const xWb = G.xC + (beltF - G.yC) / Math.tan(G.sA);
+    if (c.twoTone) {
+      const reg = [[xWb - 4, beltF]];
+      for (let x = G.xf0; x <= G.xr0; x += 60) reg.push([x, G.belt(x)]);
+      reg.push([G.xr0, G.belt(G.xr0)], [G.xSB, G.belt(G.xr0)], [G.xRh, G.yRh], [G.xRh, H + 400], [G.xHd, H + 400], [G.xHd, G.yHd], [G.xC, G.yC]);
+      out.push(inBody(path(poly(reg), `fill="${c.roof}"`) + path(poly(reg), `fill="url(#${id}sh)"`)));
+      if (P.roofop === 'soft' && !lod) {
+        const seams = [];
+        for (let k = 1; k <= 3; k++) { const x = lerp(G.xHd, G.xRh, k / 4); seams.push(line([[x, G.topY(x)], [x - 30, G.topY(x) - 150]], '#000', 6, 'stroke-opacity=".4"')); }
+        out.push(inBody(seams.join('')));
+      }
+    }
+    // dark pillars
+    const dark = '#141518';
+    if (P.float === 'visor' || P.float === 'wrap') {
+      const yTop = G.yHd - P.rail;
+      out.push(inBody(path(poly([[xWb, beltF], [G.xHd, G.yHd], [G.xf0 + (yTop - beltF) / Math.tan(G.sA), yTop], [G.xf0, beltF]]), `fill="${dark}"`)));
+    }
+    if (P.float === 'float' || P.float === 'wrap') {
+      const a = [], b = [];
+      for (let x = G.xg1 - 500; x <= G.xSB + 40; x += 30) {
+        const lo = Math.max(G.belt(Math.min(x, G.xr0)), x <= G.xr0 ? G.rearLine(x) : -1e9), hi = G.topY(x) - P.rail * 0.9;
+        if (hi > lo + 10) { a.push([x, hi]); b.push([x, lo]); }
+      }
+      if (a.length > 1) out.push(inBody(path(poly(a.concat(rev(b))), `fill="${dark}"`)));
+    }
+
+    // glass, seats behind it, pillars across it
+    let seats = '';
+    if (!lod) {
+      const rows = { 1: [0.62], 2: [0.36, 0.8], 3: [0.27, 0.56, 0.86] }[P.seats];
+      for (const t of rows) { const x = lerp(G.xg0, G.xg1, t), y = G.belt(x); seats += rect(x - 85, y + 40, 170, 230, 'fill="#0b0c0e" fill-opacity=".75"', 60) + rect(x - 130, y - 200, 260, 290, 'fill="#0b0c0e" fill-opacity=".6"', 70); }
+    }
+    let pil = '';
+    const pc = P.float === 'wrap' ? dark : c.twoTone ? c.roof : c.C;
+    if (P.pillars >= 3 && P.roofop !== 'soft') pil += rect(G.xPB - 38, beltF - 200, 76, H, `fill="${pc}"`);
+    if (P.pillars === 4 && P.roofop !== 'soft') pil += rect(G.xPC - 42, beltF - 200, 84, H, `fill="${pc}"`);
+    else if (P.pillars === 2 || P.roofop === 'soft') pil += rect(G.xPB - 5, beltF - 200, 10, H, 'fill="#000" fill-opacity=".5"');
+    out.push(`<use href="#${id}g" fill="${c.glass}"/><g clip-path="url(#${id}gc)">${seats}<use href="#${id}g" fill="${c.glass}" fill-opacity="${r2(0.35 + P.tint * 0.6)}"/>` +
+      path(poly([[G.xg0 - 100, H + 300], [G.xg0 + 500, H + 300], [G.xg0 + 150, beltF - 100], [G.xg0 - 450, beltF - 100]]), 'fill="#fff" fill-opacity=".1"') + pil + '</g>');
+    if (P.frame === 'framed') out.push(`<use href="#${id}g" fill="none" stroke="${c.trim}" stroke-width="16" stroke-linejoin="round"/><use href="#${id}g" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="4"/>`);
+    else out.push(`<use href="#${id}g" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="5"/>`);
+    // windscreen and rear screen, seen edge-on as slivers
+    const yS = G.yHd - 30, sl = 60 / Math.sin(G.sA);
+    out.push(inBody(path(poly([[xWb + 8, beltF + 12], [G.xHd - 10, yS + 20], [G.xHd - 10 + sl, yS], [xWb + 8 + sl, beltF]]), `fill="${c.glass}" fill-opacity=".85"`)));
+    if (!G.bed && G.xSB - G.xRh > 120) {
+      const yb = Math.max(G.beltR, G.deck ? yD : G.tailTop[1]) + 20, xb0 = G.xRh + (G.yRh - yb) / Math.max(0.2, G.tF > 100 ? 100 : G.tF);
+      out.push(inBody(path(poly([[G.xRh + 30, G.yRh - 45], [Math.min(xb0, G.xSB + 60), yb], [Math.min(xb0, G.xSB + 60) - 75, yb], [G.xRh - 40, G.yRh - 55]]), `fill="${c.glass}" fill-opacity=".85"`)));
+    }
+
+    // lower body: cladding, contrast, sill, stripes, glow
+    const sillPts = [];
+    for (let x = xa - Ra; x <= xb + Ra; x += 50) sillPts.push([x, G.ySill(x)]);
+    const below = pts => pts.concat([[pts[pts.length - 1][0], -50], [pts[0][0], -50]]);
+    let low = '';
+    if (P.clad === 'contrast') {
+      const cl = [];
+      for (let x = -100; x <= L + 100; x += 80) cl.push([x, G.ySill(x) + (beltF - clear) * 0.28]);
+      low += path(poly(below(cl)), `fill="${c.lower}"`);
+    }
+    if (P.clad === 'sill' || P.clad === 'arches') {
+      low += path(poly(below(sillPts)), `fill="${c.plastic}"`) + rect(-200, 0, G.xl + 420, G.yb1 + 110, `fill="${c.plastic}"`) + rect(G.xFace(G.yTb) - 330, 0, 600, G.yb2 + 100, `fill="${c.plastic}"`);
+    }
+    if (P.sill === 'step') low += rect(xa + Ra + 30, clear + 20, xb - xa - 2 * Ra - 60, 75, `fill="${c.plastic}" stroke="#000" stroke-width="5"`, 20) + rect(xa + Ra + 60, clear + 78, xb - xa - 2 * Ra - 120, 10, 'fill="#fff" fill-opacity=".3"');
+    if (P.sidestripe === 'low') low += rect(xa + Ra + 40, clear + 190, xb - xa - 2 * Ra - 80, 70, `fill="${c.stripe}"`) + rect(xa + Ra + 40, clear + 285, xb - xa - 2 * Ra - 80, 16, `fill="${c.stripe}"`);
+    if (P.glowp === 'sills') low += line(sillPts.filter(p => p[0] > xa + Ra && p[0] < xb - Ra).map(p => [p[0], clear + 40]), '#8ff1ff', 60, 'stroke-opacity=".3"') + line(sillPts.filter(p => p[0] > xa + Ra && p[0] < xb - Ra).map(p => [p[0], clear + 40]), '#e9feff', 18);
+    out.push(inBody(low));
+
+    // surfaces: reflections along the side
+    const shBase = x => G.belt(clamp(x, G.xf0, G.xr0)) - P.shoulder;
+    const xs0 = G.xu + 260, xs1 = G.tailTop[0] - 200;
+    const shY = x => shBase(x) + SHLINE[P.shline]((x - xs0) / (xs1 - xs0), x, G);
+    const curve = fn => { const p = []; for (let x = xs0; x <= xs1; x += 70) p.push([x, fn(x)]); return p; };
+    const bandBetween = (f1, f2) => { const a = curve(f1), b = curve(f2); return poly(a.concat(rev(b))); };
+    const SCULPT = {
+      taut: () => path(bandBetween(x => shY(x) - 20, x => shY(x) - 105), `fill="#fff" fill-opacity="${r2(0.17 * fa)}"`) + path(bandBetween(x => clear + 330, x => clear + 150), `fill="#000" fill-opacity="${r2(0.1 * c.fin[1])}"`),
+      soft: () => path(bandBetween(x => shY(x) - 40, x => shY(x) - 230 - 60 * Math.sin(Math.PI * (x - xs0) / (xs1 - xs0))), `fill="#fff" fill-opacity="${r2(0.1 * fa)}"`),
+      hollow: () => path(bandBetween(x => shY(x) - 15, x => shY(x) - 80), `fill="#fff" fill-opacity="${r2(0.18 * fa)}"`) +
+        path(bandBetween(x => clear + 420 + 130 * Math.sin(Math.PI * clamp((x - xa) / (xb - xa), 0, 1)), x => clear + 200), `fill="#000" fill-opacity="${r2(0.17 * c.fin[1])}"`) +
+        path(bandBetween(x => clear + 215, x => clear + 165), `fill="#fff" fill-opacity="${r2(0.14 * fa)}"`),
+      flat: () => ''
+    };
+    let surf = SCULPT[P.sculpt]();
+    const clearOfArch = p => Math.hypot(p[0] - xa, p[1] - Rw) > Ra + 40 && Math.hypot(p[0] - xb, p[1] - Rw) > Ra + 40;
+    const crease = fn => {
+      const pts = curve(fn);
+      let s = '', run = [];
+      const flush = () => { if (run.length > 1) s += line(run, '#000', 7, 'stroke-opacity=".38"') + line(run.map(p => [p[0], p[1] + 9]), '#fff', 7, `stroke-opacity="${r2(0.3 * fa + 0.08)}"`); run = []; };
+      for (const p of pts) { if (clearOfArch(p)) run.push(p); else flush(); }
+      flush();
+      return s;
+    };
+    if (P.lines >= 1) surf += crease(shY);
+    if (P.lines >= 2) surf += crease(x => G.ySill(x) + (shBase(x) - G.ySill(x)) * 0.3 + 40 * (x - xs0) / (xs1 - xs0));
+    if (P.shade === 'panels') {
+      const cutsX = [-200, G.xD0, G.xD1, G.xD2, L + 300], al = [0.2, 0, 0.26, 0.08];
+      surf += cutsX.slice(0, -1).map((x, i) => (cutsX[i + 1] - x > 5 ? rect(x, 0, cutsX[i + 1] - x, beltF + 400, `fill="${i % 2 ? '#fff' : '#000'}" fill-opacity="${al[i]}"`) : '')).join('');
+    }
+    if (P.sidestripe === 'pin') surf += line(curve(x => shBase(x) + P.shoulder - 45), c.stripe, 14);
+    out.push(inBody(surf));
+
+    // open bed
+    if (G.bed) {
+      const x0 = G.xAtD + 60, x1 = G.tailTop[0];
+      out.push(inBody(rect(x0 - 30, clear, 22, yD, 'fill="#000" fill-opacity=".7"') + rect(x0, yD - 36, x1 - x0 + 50, 60, `fill="${c.plastic}"`) + rect(x1 - 150, G.yb2, 8, yD, 'fill="#000" fill-opacity=".5"') +
+        (lod ? '' : [0.25, 0.5, 0.75].map(t => rect(lerp(x0, x1, t) - 4, yD - 120, 8, 40, 'fill="#000" fill-opacity=".45"')).join(''))));
+    }
+
+    // arch lips and flares
+    const lipCol = P.clad === 'arches' ? c.plastic : mix(c.C, '#000', 0.18);
+    if (P.flare > 0 || P.clad === 'arches') {
+      const wLip = 26 + P.flare * 0.9;
+      out.push(inBody([G.archF, G.archR].map(a => line(a, lipCol, wLip * 2, 'stroke-linejoin="round"') + (P.flare > 0 ? line(a.map(p => { const cx = p[0] < (xa + xb) / 2 ? xa : xb, d = Math.hypot(p[0] - cx, p[1] - Rw) || 1; return [p[0] + (p[0] - cx) / d * wLip, p[1] + (p[1] - Rw) / d * wLip]; }), '#fff', 7, `stroke-opacity="${r2(0.22 * fa + 0.1)}"`) : '')).join('')));
+    }
+    out.push(line(G.archF, '#000', 7, 'stroke-opacity=".5"') + line(G.archR, '#000', 7, 'stroke-opacity=".5"'));
+
+    // doors: cut lines, handles
+    const cutLine = (x, k, rear) => {
+      const y0 = G.ySill(x) - 40, y1 = G.belt(clamp(x, G.xf0, G.xr0));
+      const CUT = {
+        vert: () => [[x, y0], [x, y1]],
+        lean: () => [[x - 50, y0], [x + 40, y1]],
+        arch: () => (rear ? [[x - 190, y0], [x - 150, y0 + 190], [x - 20, lerp(y0, y1, 0.62)], [x, y1]] : [[x, y0], [x, y1]])
+      };
+      return line(CUT[P.cuts](), '#000', 6, 'stroke-opacity=".62" stroke-linejoin="round"');
+    };
+    let doors = cutLine(G.xD0, 0, false);
+    if (G.two) doors += cutLine(G.xD1, 1, false);
+    doors += cutLine(G.xD2, 2, true);
+    doors += line([[G.xD0, G.ySill(G.xD0) - 40], [G.xD2 - (P.cuts === 'arch' ? 190 : 0), G.ySill(G.xD2) - 40]], '#000', 6, 'stroke-opacity=".5"');
+    const hy = x => ({ shoulder: shY(x) - 20, belt: G.belt(clamp(x, G.xf0, G.xr0)) - 70, mid: (G.belt(clamp(x, G.xf0, G.xr0)) + G.ySill(x)) / 2 + 40 })[P.hpos];
+    const hx = [G.xD1 - 190];
+    if (G.two) hx.push(P.dooropen === 'coach' ? G.xD1 + 190 : G.xD2 - 200);
+    doors += hx.map(x => HANDLE[P.handle](x, hy(x), c)).join('');
+    if (P.dooropen === 'slide') doors += rect(G.xD2 - 30, hy(G.xD2) - 130, 520, 18, 'fill="#000" fill-opacity=".55"', 9);
+    out.push(doors);
+
+    // filler door, mirror
+    const FILLER = { rear: [Math.min(xb + Ra * 0.75, L - 260), G.archTop + (G.beltR - G.archTop) * 0.55], front: [Math.max(xa - Ra * 0.2, G.xu + 300), G.archTop + (beltF - G.archTop) * 0.6], none: null };
+    if (FILLER[P.filler]) out.push(circ(FILLER[P.filler], 78, 'fill="none" stroke="#000" stroke-opacity=".6" stroke-width="6"'));
+    const mBase = P.mirror === 'pillar' ? [G.xf0 - 30, beltF + 40] : [G.xf0 + 150, beltF];
+    out.push(MIRROR[P.mirror](mBase, c));
+
+    // lamps wrapping round the corners
+    const hlY = G.yN - 25 - P.hlpos * Math.max(0, G.yN - G.yb1 - P.hlh - 110), hlLen = clamp(P.hlw * 0.4 + 50, 90, 340);
+    const noseX = y => G.xl + (G.xu - G.xl) * clamp((y - G.yLow) / Math.max(1, G.yN - G.yLow), 0, 1);
+    const hh = P.hlsplit === 'split' ? Math.max(24, P.hlh * 0.24) : P.hlh;
+    let lamps = rect(noseX(hlY - hh / 2) + 14, hlY - hh, hlLen, hh, 'fill="#e6eef5" stroke="#000" stroke-opacity=".6" stroke-width="5"', Math.min(hh, hlLen) * 0.5 * P.hlsoft) +
+      (P.drl !== 'none' ? rect(noseX(hlY - hh / 2) + 22, hlY - Math.min(hh, 22) - 4, hlLen - 16, Math.min(hh * 0.5, 18), 'fill="#ffffff"', 8) : '');
+    if (P.hlsplit === 'split') lamps += rect(noseX(G.yLow + 60) + 14, G.yb1 + 0.42 * (G.yN - G.yb1), hlLen * 0.6, 70, 'fill="#cfdbe6" stroke="#000" stroke-opacity=".6" stroke-width="5"', 22);
+    if (P.bar !== 'none') lamps += rect(noseX(hlY) + 6, hlY - 20, 70, 16, 'fill="#ffffff"', 6);
+    if (P.glowp === 'face') lamps += rect(G.xl - 60, G.yLow + 20, 190, Math.max(70, G.yN - G.yLow - 90), 'fill="#8ff1ff" fill-opacity=".3"', 40) + rect(G.xl - 6, G.yLow + 40, 70, Math.max(50, G.yN - G.yLow - 130), 'fill="#e9feff" fill-opacity=".9"', 24);
+    const tlY = yD - 20 - P.tlpos * Math.max(0, yD - G.yb2 - P.tlh - 120), tlLen = clamp(P.tlw * 0.4 + 40, 80, 300);
+    lamps += rect(G.xFace(tlY - P.tlh / 2) - tlLen - 12, tlY - P.tlh, tlLen, P.tlh, 'fill="#8a1418" stroke="#000" stroke-opacity=".6" stroke-width="5"', Math.min(P.tlh, tlLen) * 0.5 * P.tlsoft) +
+      rect(G.xFace(tlY - P.tlh / 2) - tlLen - 2, tlY - P.tlh * 0.62, tlLen - 20, Math.max(10, P.tlh * 0.22), 'fill="#ff4a3d"', 6);
+    if (P.tbar !== 'none') lamps += rect(G.xFace(tlY) - 80, tlY - 22, 70, 16, 'fill="#ff4a3d"', 6);
+    out.push(inBody(lamps));
+
+    // roof furniture, spoilers, moving aero
+    const top = [];
+    if (P.rails !== 'none') {
+      const a = G.xHd + 160, b = G.xRh - 120, lift = P.rails === 'flush' ? 14 : 52;
+      const rl = [];
+      for (let x = a; x <= b; x += 80) rl.push([x, G.topY(x) + lift]);
+      if (rl.length > 1) {
+        top.push(line(rl, '#1b1c1f', 20, 'stroke-linecap="round"'));
+        if (P.rails !== 'flush') top.push([0, 0.5, 1].map(t => { const x = lerp(a, b, t); return line([[x, G.topY(x)], [x, G.topY(x) + lift]], '#1b1c1f', 22); }).join(''));
+        if (P.rails === 'bars') top.push([0.22, 0.78].map(t => { const x = lerp(a, b, t); return rect(x - 45, G.topY(x) + lift + 6, 90, 34, 'fill="#3a3c40" stroke="#000" stroke-width="4"', 14); }).join(''));
+      }
+    }
+    const xAnt = Math.max(G.xRh - 260, G.xHd + 200);
+    const ANT = { fin: () => path(poly([[xAnt - 90, G.topY(xAnt - 90) - 4], [xAnt + 50, G.topY(xAnt + 50) + 48], [xAnt + 80, G.topY(xAnt + 80) - 4]]), `fill="${c.twoTone ? c.roof : c.C}" stroke="${c.edge}" stroke-width="7" stroke-linejoin="round"`), none: () => '', mast: () => line([[xAnt, G.topY(xAnt)], [xAnt + 190, G.topY(xAnt) + 380]], '#1b1c1f', 9, 'stroke-linecap="round"') };
+    top.push(ANT[P.antenna]());
+    if (P.sensor === 'roof') top.push(rect(G.xHd + 60, G.topY(G.xHd + 180) - 6, 260, 78, 'fill="#1b1c1f" stroke="#000" stroke-width="5"', 34));
+    if (P.solar === 'cells' || P.roofop === 'glass' || P.roofop === 'sunroof') {
+      const a = G.xHd + 120, b = P.roofop === 'sunroof' ? lerp(G.xHd, G.xRh, 0.5) : G.xRh - 140, rl = [];
+      for (let x = a; x <= b; x += 60) rl.push([x, G.topY(x) + 3]);
+      if (rl.length > 1) top.push(line(rl, P.solar === 'cells' ? '#1c2f5e' : '#0d1116', 16));
+    }
+    const tt = G.tailTop;
+    const SPOILER = {
+      none: () => '',
+      lip: () => path(poly([[tt[0] - 190, G.topY(tt[0] - 190)], [tt[0] + 10, tt[1] + 42], [tt[0] + 14, tt[1] - 6]]), `fill="${c.C}" stroke="${c.edge}" stroke-width="8" stroke-linejoin="round"`),
+      duck: () => path(poly([[tt[0] - 330, G.topY(tt[0] - 330)], [tt[0] - 60, tt[1] + 70], [tt[0] + 50, tt[1] + 125], [tt[0] + 30, tt[1] - 10]]), `fill="${c.C}" stroke="${c.edge}" stroke-width="8" stroke-linejoin="round"`),
+      wing: () => { const x = tt[0] - 180, y = Math.max(tt[1], G.topY(x)); return line([[x - 60, y - 10], [x - 20, y + 190]], '#1b1c1f', 26) + path(poly([[x - 190, y + 195], [x + 150, y + 215], [x + 160, y + 250], [x - 170, y + 235]]), `fill="${c.C}" stroke="${c.edge}" stroke-width="8" stroke-linejoin="round"`); },
+      roof: () => path(poly([[G.xRh - 120, G.topY(G.xRh - 120)], [G.xRh + 210, G.yRh + 14], [G.xRh + 215, G.yRh - 26], [G.xRh + 20, G.yRh - 40]]), `fill="${c.twoTone ? c.roof : c.C}" stroke="${c.edge}" stroke-width="8" stroke-linejoin="round"`)
+    };
+    top.push(SPOILER[P.spoiler]());
+    const AERO = {
+      none: () => '',
+      wing: () => { const x = tt[0] - 170, y = Math.max(tt[1], G.topY(x)); return path(poly([[x - 200, y + 300], [x + 150, y + 330], [x + 160, y + 370], [x - 180, y + 345]]) + poly([[x - 40, y], [x - 10, y + 300]], false), GHOST); },
+      brake: () => { const x = tt[0] - 260, y = Math.max(tt[1], G.topY(x)); return path(poly([[x, y], [x + 250, y + 330], [x + 290, y + 300], [x + 60, y]]), GHOST); }
+    };
+    top.push(AERO[P.aero]());
+    if (P.tow === 'hooks') top.push(circ([G.xl + 40, G.yb1 + 40], 30, 'fill="none" stroke="#c8281f" stroke-width="16"'));
+    if (P.dooropen === 'slide') top.push(path(poly([[G.xD1 + 620, G.ySill(G.xD1) - 20], [G.xD2 + 620, G.ySill(G.xD2) - 20], [G.xD2 + 620, G.belt(G.xr0)], [G.xD1 + 620, G.belt(G.xD1)]]), GHOST));
+    out.push(top.join(''));
+
+    // street: a figure 1.75 m tall for scale
+    let x1 = Math.max(5950, L + 500 + (P.spare === 'tail' ? 250 : 0));
+    if (o.street) {
+      const fx = L + 760, sk = '#b9b3a8';
+      out.push(`<line x1="-350" y1="0" x2="${f(fx + 600)}" y2="0" stroke="#8d8f8c" stroke-width="8"/>` +
+        circ([fx, 1640], 110, `fill="${sk}"`) + path(`M${f(fx - 190)},-1480 q190,-90 380,0 l40,640 l-80,0 l-30,-420 l-10,520 l30,740 l-110,0 l-50,-700 l-50,700 l-110,0 l30,-740 l-10,-520 l-30,420 l-80,0Z`, `fill="${sk}"`));
+      x1 = fx + 620;
+    }
+    const y1 = Math.max(2230, H + 420);
+    return {
+      defs: defs.join(''), body: out.join(''), box: [-350, -y1, x1 + 350, y1 + 300],
+      anchors: {
+        wheelF: [xa, -Rw], wheelR: [xb, -Rw], door: [(G.xD0 + G.xD2) / 2, -(beltF + clear) / 2 - 80], nose: [G.xu + 300, -G.yN + 150],
+        tail: [L - 420, -yD - 60], glass: [(G.xg0 + G.xg1) / 2, -(beltF + H) / 2], mirror: [G.xf0 - 20, -beltF - 10], roofR: [G.xRh - 250, -G.yRh - 120]
+      }
+    };
+  }
+
+  // ------------------------------------------------- lamps, front and rear
+  // One lamp opening on the right-hand side, centre (cz, cy). The opening is
+  // the socket; the lit element sits inside it, set back and under a brow.
+  function outlineAt(cz, cy, w, h, sides, soft, slant, taper, N) {
+    const tS = Math.tan((slant || 0) * RAD);
+    return softOutline(sides, soft, N).map(p => { const z = p[0] * w / 2 * (1 + (taper || 0) * p[1]); return [cz + z, cy + p[1] * h / 2 + tS * z]; });
+  }
+  const SIGNAL = {   // lit shapes drawn along an outline E (points from the outer end, over the top, to the inner end and back)
+    top: (E, w, col) => line(E.slice(0, Math.floor(E.length / 2) + 1), col, w, 'stroke-linecap="round" stroke-linejoin="round"'),
+    ring: (E, w, col) => path(poly(E), `fill="none" stroke="${col}" stroke-width="${r2(w)}" stroke-linejoin="round"`),
+    outline: (E, w, col) => path(poly(E), `fill="none" stroke="${col}" stroke-width="${r2(w)}" stroke-linejoin="round"`),
+    hook: (E, w, col) => line(E.slice(Math.floor(E.length * 0.82)).concat(E.slice(0, Math.floor(E.length / 2) + 1)), col, w, 'stroke-linecap="round" stroke-linejoin="round"'),
+    dots: (E, w, col, c, sw, sh) => [-0.36, -0.18, 0, 0.18, 0.36].map(t => circ([c[0] + t * sw, c[1]], Math.max(w * 0.55, Math.min(sh * 0.16, sw * 0.06)), `fill="${col}"`)).join(''),
+    line: (E, w, col, c, sw) => line([[c[0] - sw * 0.42, c[1]], [c[0] + sw * 0.42, c[1]]], col, w * 1.2, 'stroke-linecap="round"'),
+    blades: (E, w, col, c, sw, sh) => [-0.3, -0.1, 0.1, 0.3].map(t => line([[c[0] + t * sw, c[1] - sh * 0.34], [c[0] + t * sw, c[1] + sh * 0.34]], col, w, 'stroke-linecap="round"')).join(''),
+    fill: (E, w, col) => path(poly(E), `fill="${col}"`),
+    none: () => ''
+  };
+  // a projector lens: glass in a ring, with one glint
+  const LENS = (c, r) => circ(c, r, 'fill="#8fa3b3" stroke="#51616d" stroke-width="7"') + circ(c, r * 0.62, 'fill="#b9c9d6" stroke="#f4f8fb" stroke-width="4"') + circ([c[0] - r * 0.25, c[1] + r * 0.25], r * 0.2, 'fill="#fff" fill-opacity=".85"');
+  const HLIN = {   // inside a headlamp: c centre, w and h of the lit element
+    proj: (c, w, h) => LENS(c, Math.min(h * 0.34, w * 0.2)),
+    twin: (c, w, h) => [-0.22, 0.22].map(t => LENS([c[0] + t * w, c[1]], Math.min(h * 0.3, w * 0.15))).join(''),
+    bowl: (c, w, h) => `<ellipse cx="${f(c[0])}" cy="${f(-c[1])}" rx="${f(w * 0.36)}" ry="${f(h * 0.36)}" fill="#f7fafc" stroke="#9fb0bd" stroke-width="5"/>` + ngon(c, Math.min(w, h) * 0.3, 10, 0).map(p => line([c, p], '#9fb0bd', 3)).join('') + circ(c, Math.min(w, h) * 0.07, 'fill="#fde9a8"'),
+    matrix: (c, w, h) => { let s = ''; const nx = Math.max(3, Math.round(w / 46)), ny = Math.max(1, Math.round(h / 46)); for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) s += rect(c[0] - w * 0.4 + i * w * 0.8 / nx + 3, c[1] - h * 0.36 + j * h * 0.72 / ny + 3, w * 0.8 / nx - 6, h * 0.72 / ny - 6, 'fill="#31404d" stroke="#f4f8fb" stroke-width="3"', 3); return s; },
+    strip: (c, w, h) => rect(c[0] - w * 0.4, c[1] - Math.min(h * 0.12, 10), w * 0.8, Math.min(h * 0.24, 20), 'fill="#31404d"', 6)
+  };
+  const TLIN = {
+    blade: (c, w, h) => rect(c[0] - w * 0.38, c[1] - h * 0.3, w * 0.76, h * 0.12, 'fill="#ff7a6e" fill-opacity=".7"', 4),
+    dots: (c, w, h) => { let s = ''; const nx = Math.max(3, Math.round(w / 50)), ny = Math.max(1, Math.round(h / 50)); for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) s += circ([c[0] - w * 0.36 + (i + 0.5) * w * 0.72 / nx, c[1] - h * 0.32 + (j + 0.5) * h * 0.64 / ny], 7, 'fill="#ff7a6e"'); return s; },
+    blocks: (c, w, h) => [-0.26, 0, 0.26].map(t => rect(c[0] + t * w - w * 0.1, c[1] - h * 0.3, w * 0.2, h * 0.6, 'fill="#b01e1e" stroke="#3b0709" stroke-width="4"', 4)).join(''),
+    panel: (c, w, h) => rect(c[0] - w * 0.4, c[1] - h * 0.34, w * 0.8, h * 0.68, 'fill="#ff5a4d" fill-opacity=".55"', Math.min(w, h) * 0.12)
+  };
+  function lampUnit(id, n, P, G, defs, cz, cy, w, h, kind, lod) {
+    const head = kind === 'head', N = lod ? 28 : 56;
+    const sides = head ? P.hlsides : 4, soft = head ? P.hlsoft : P.tlsoft, slant = head ? P.hlslant : 0;
+    const O = outlineAt(cz, cy, w, h, sides, soft, slant, 0, N);
+    const ap = P.aper, drop = Math.min(P.brow * 0.4 + P.socket * 0.08, h * 0.2);
+    const E = outlineAt(cz, cy - drop * (1 - ap + 0.2), w * (0.25 + 0.75 * ap), h * (0.3 + 0.7 * ap), sides, soft, slant, 0, N);
+    const ec = [cz, cy - drop * (1 - ap + 0.2)], ew = w * (0.25 + 0.75 * ap), eh = h * (0.3 + 0.7 * ap);
+    const cl = id + 'k' + n;
+    defs.push(`<clipPath id="${cl}"><path d="${poly(O)}"/></clipPath>`);
+    const lens = head ? '#c6d3de' : '#4a0d10', lit = head ? '#ffffff' : '#ff4336', halo = head ? '#bfe3ff' : '#ff7a6e';
+    let s = path(poly(O), 'fill="#0b0c0e"') + `<g clip-path="url(#${cl})">` + path(poly(E), `fill="${lens}"`);
+    if (!lod) s += (head ? HLIN[P.hlin] : TLIN[P.tlin])(ec, ew, eh);
+    const sw = clamp(eh * 0.15, 7, 26), sig = head ? P.drl : P.tsig;
+    s += `<g stroke-opacity=".3" fill-opacity=".3">${SIGNAL[sig](E, sw * 2.6, halo, ec, ew, eh)}</g>` + SIGNAL[sig](E, sw, lit, ec, ew, eh);
+    // the socket: shade from above, deeper with depth; then the brow
+    const top = cy + h / 2 + Math.abs(Math.tan(slant * RAD)) * w / 2;
+    if (P.socket > 0) s += rect(cz - w, top - h * (0.3 + P.socket / 240) - 10, 2 * w, h * (0.3 + P.socket / 240) + 10, `fill="url(#${id}sg)" fill-opacity="${r2(Math.min(0.8, 0.25 + P.socket / 180))}"`);
+    if (P.brow > 0) {
+      const bh = Math.min(P.brow * 1.5, h * 0.38), Ob = O.map(p => [p[0], p[1] - bh]);
+      defs.push(`<mask id="${cl}m" maskUnits="userSpaceOnUse" x="${f(cz - w)}" y="${f(-(top + 40))}" width="${f(2 * w)}" height="${f(h * 2 + 80)}"><rect x="${f(cz - w)}" y="${f(-(top + 40))}" width="${f(2 * w)}" height="${f(h * 2 + 80)}" fill="#fff"/><path d="${poly(Ob)}" fill="#000"/></mask>`);
+      s += `<g mask="url(#${cl}m)">` + path(poly(O), `fill="${G.col.C}"`) + path(poly(O), 'fill="#000" fill-opacity=".12"') + '</g>' +
+        line(Ob.slice(0, Math.floor(N / 2) + 1), '#000', Math.min(22, 8 + P.brow * 0.25), 'stroke-opacity=".5"');
+    }
+    return s + '</g>' + path(poly(O), 'fill="none" stroke="#000" stroke-opacity=".7" stroke-width="6" stroke-linejoin="round"');
+  }
+  const socketDef = id => `<linearGradient id="${id}sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>`;
+
+  // The body seen from either end: lower body, shoulders, tumblehome, roof.
+  function endSilhouette(G, yLowEdge, yShoulder, yRoofSide, yRoofTop, cornerR) {
+    const hw = G.hw, q = cornerR;
+    return `M${f(-hw + q)},${f(-yLowEdge)}Q${f(-hw)},${f(-yLowEdge)} ${f(-hw)},${f(-(yLowEdge + q))}L${f(-hw)},${f(-(yShoulder - 60))}Q${f(-hw)},${f(-yShoulder)} ${f(-G.hwS)},${f(-yShoulder)}` +
+      `L${f(-G.hwR - 30)},${f(-(yRoofSide - 60))}Q${f(-G.hwR)},${f(-yRoofSide)} ${f(-G.hwR + 90)},${f(-(yRoofSide + (yRoofTop - yRoofSide) * 0.7))}Q0,${f(-(yRoofTop + (yRoofTop - yRoofSide) * 0.3))} ${f(G.hwR - 90)},${f(-(yRoofSide + (yRoofTop - yRoofSide) * 0.7))}` +
+      `Q${f(G.hwR)},${f(-yRoofSide)} ${f(G.hwR + 30)},${f(-(yRoofSide - 60))}L${f(G.hwS)},${f(-yShoulder)}Q${f(hw)},${f(-yShoulder)} ${f(hw)},${f(-(yShoulder - 60))}L${f(hw)},${f(-(yLowEdge + q))}Q${f(hw)},${f(-yLowEdge)} ${f(hw - q)},${f(-yLowEdge)}Z`;
+  }
+  function endCommon(P, G, o, defs, out, yLowEdge, rear) {
+    const c = G.col, hw = G.hw, Rw = G.Rw;
+    out.push(`<ellipse cx="0" cy="6" rx="${f(hw * 1.02)}" ry="30" fill="#000" fill-opacity=".13"/>`);
+    // tyres, with the wheel inset from the body side
+    const zo = hw - P.track + (P.flare > 0 ? P.flare * 0.4 : 0);
+    out.push([1, -1].map(s => rect(s > 0 ? zo - G.tw : -zo, 0, G.tw, Rw * 1.9, 'fill="#191a1c"', 46) +
+      (o.lod ? '' : [0.25, 0.5, 0.75].map(t => rect((s > 0 ? zo - G.tw : -zo) + G.tw * t - 4, 20, 8, Rw * 1.1, 'fill="#000" fill-opacity=".5"')).join(''))).join(''));
+    if (P.flare > 0) out.push([1, -1].map(s => path(`M${f(s * (hw - 30))},${f(-(G.archTop + 60))}Q${f(s * (hw + P.flare * 1.1))},${f(-(G.archTop + 20))} ${f(s * (hw + P.flare * 0.9))},${f(-(Rw * 1.2))}L${f(s * (hw - 40))},${f(-(Rw * 1.1))}Z`, `fill="${P.clad === 'arches' ? c.plastic : c.C}" stroke="${c.edge}" stroke-width="9" stroke-linejoin="round"`)).join(''));
+  }
+  const MIRRORF = {   // front or rear view: s is the side, base at the shoulder
+    door: (s, z, y, c) => path(`M${f(s * z)},${f(-(y - 20))}l${f(s * 60)},-30 l${f(s * 150)},-10 q${f(s * 40)},20 ${f(s * 30)},80 l${f(-s * 170)},40Z`, `fill="${c.C}" stroke="${c.edge}" stroke-width="9" stroke-linejoin="round"`),
+    pillar: (s, z, y, c) => path(`M${f(s * (z - 20))},${f(-(y + 40))}l${f(s * 70)},-40 l${f(s * 150)},-10 q${f(s * 40)},20 ${f(s * 30)},80 l${f(-s * 170)},40Z`, `fill="${c.C}" stroke="${c.edge}" stroke-width="9" stroke-linejoin="round"`),
+    camera: (s, z, y) => path(`M${f(s * z)},${f(-(y - 10))}l${f(s * 150)},-30`, 'stroke="#1b1c1f" stroke-width="16" stroke-linecap="round"') + circ([s * (z + 165), y + 22], 26, 'fill="#1b1c1f"'),
+    none: () => ''
+  };
+  function roofFurniture(P, G, yTop, hwR) {
+    const s = [];
+    if (P.rails !== 'none') s.push([1, -1].map(k => rect(k * (hwR - 90) - 22, yTop - 40, 44, P.rails === 'flush' ? 30 : 70, 'fill="#1b1c1f"', 12)).join('') + (P.rails === 'bars' ? rect(-hwR + 60, yTop + 10, 2 * hwR - 120, 26, 'fill="#3a3c40" stroke="#000" stroke-width="4"', 10) : ''));
+    if (P.antenna === 'fin') s.push(path(poly([[-18, yTop - 4], [0, yTop + 66], [18, yTop - 4]]), `fill="${G.col.twoTone ? G.col.roof : G.col.C}" stroke="${G.col.edge}" stroke-width="7" stroke-linejoin="round"`));
+    if (P.antenna === 'mast') s.push(line([[hwR * 0.5, yTop - 20], [hwR * 0.5, yTop + 330]], '#1b1c1f', 9, 'stroke-linecap="round"'));
+    if (P.sensor === 'roof') s.push(rect(-150, yTop - 6, 300, 76, 'fill="#1b1c1f" stroke="#000" stroke-width="5"', 34));
+    return s.join('');
+  }
+  const PLATE = (z, y) => rect(z - 260, y - 56, 520, 112, 'fill="#e9e9e3" stroke="#3a3c40" stroke-width="6"', 10);
+  const BADGE = {   // blank shapes only
+    round: (z, y, c) => circ([z, y], 40, `fill="${mix(c.C, '#000', 0.25)}" stroke="${c.trim === c.C ? '#d5d8dc' : c.trim}" stroke-width="8"`),
+    none: () => '',
+    shield: (z, y, c) => path(`M${f(z - 34)},${f(-(y + 40))}h68v44q0,36 -34,46q-34,-10 -34,-46Z`, `fill="${mix(c.C, '#000', 0.25)}" stroke="${c.trim === c.C ? '#d5d8dc' : c.trim}" stroke-width="8" stroke-linejoin="round"`),
+    bar: (z, y, c) => rect(z - 90, y - 15, 180, 30, `fill="${mix(c.C, '#000', 0.25)}" stroke="${c.trim === c.C ? '#d5d8dc' : c.trim}" stroke-width="7"`, 8)
+  };
+
+  // ============================================================== FRONT
+  const GRILLE = {   // pattern inside the grille, over its box [z0, y0, w, h]; d is the pitch
+    hbars: (z0, y0, w, h, d, col) => { let s = ''; for (let y = y0 + d / 2; y < y0 + h; y += d) s += rect(z0, y - d * 0.16, w, d * 0.32, `fill="${col}"`); return s; },
+    vbars: (z0, y0, w, h, d, col) => { let s = ''; for (let z = z0 + d / 2; z < z0 + w; z += d) s += rect(z - d * 0.16, y0, d * 0.32, h, `fill="${col}"`); return s; },
+    mesh: (z0, y0, w, h, d, col) => { let s = ''; for (let k = -h; k < w + h; k += d) s += line([[z0 + k, y0], [z0 + k + h, y0 + h]], col, d * 0.14) + line([[z0 + k + h, y0], [z0 + k, y0 + h]], col, d * 0.14); return s; },
+    dots: (z0, y0, w, h, d, col) => { let s = '', j = 0; for (let y = y0 + d / 2; y < y0 + h; y += d * 0.8, j++) for (let z = z0 + (j % 2 ? d : d / 2); z < z0 + w; z += d) s += circ([z, y], d * 0.2, `fill="${col}"`); return s; },
+    blank: () => '',
+    none: () => ''
+  };
+  const LOWER = {   // openings low in the bumper: returns boxes [z centre, y centre, w, h]
+    slot: (W, yb, hF) => [[0, yb + 105, W * 0.6, 80]],
+    none: () => [],
+    centre: (W, yb, hF) => [[0, yb + 140, W * 0.42, Math.min(210, hF * 0.4)]],
+    three: (W, yb, hF) => [[0, yb + 125, W * 0.32, Math.min(150, hF * 0.3)], [W * 0.34, yb + 135, W * 0.14, Math.min(170, hF * 0.34)], [-W * 0.34, yb + 135, W * 0.14, Math.min(170, hF * 0.34)]],
+    mouth: (W, yb, hF) => [[0, yb + 60 + hF * 0.17, W * 0.82, hF * 0.34]]
+  };
+  function viewFront(P, G, o) {
+    const id = o.idp, lod = o.lod, c = G.col, defs = [socketDef(id)], out = [];
+    const { hw, W, yb1, yN, yC, yHd, H, beltF } = G;
+    const paint = paintDefs(id, P, G, defs, yb1, H);
+    endCommon(P, G, o, defs, out, yb1, false);
+    const corner = 60 + P.plan * 170;
+    defs.push(`<path id="${id}s" d="${endSilhouette(G, yb1, beltF, yHd - 40, H, corner)}"/>`, `<clipPath id="${id}sc"><use href="#${id}s"/></clipPath>`);
+    // door ghosts behind the body
+    const GH = {
+      scissor: () => path(poly([[hw - 20, beltF - 500], [hw + 250, beltF + 250], [hw + 330, beltF + 1150], [hw + 120, beltF + 1250], [hw - 60, beltF + 300]]), GHOST),
+      gull: () => path(poly([[G.hwR - 200, H - 10], [hw + 520, H + 520], [hw + 760, H + 300], [hw + 560, H - 260], [hw + 200, H + 60]]), GHOST)
+    };
+    if (GH[P.dooropen]) out.push(GH[P.dooropen]());
+    out.push([1, -1].map(s => MIRRORF[P.mirror](s, G.hwS + 10, beltF, c)).join(''));
+    out.push(roofFurniture(P, G, H, G.hwR));
+    out.push(paint(id + 's'));
+    // roof and pillars, windscreen
+    const inS = s => `<g clip-path="url(#${id}sc)">${s}</g>`;
+    if (c.twoTone) out.push(inS(rect(-hw - 50, yC + 4, 2 * hw + 100, H, `fill="${c.roof}"`) + rect(-hw - 50, yC + 4, 2 * hw + 100, H, `fill="url(#${id}sh)"`)));
+    const gz0 = G.hwS - 95, gz1 = G.hwR - 70, gy1 = yHd - 45;
+    const scr = [[-gz0, yC + 14], [gz0, yC + 14], [gz1, gy1], [-gz1, gy1]];
+    out.push(path(poly(scr), `fill="${c.glass}" stroke="${P.float === 'visor' || P.float === 'wrap' ? '#141518' : '#000'}" stroke-width="${P.float === 'visor' || P.float === 'wrap' ? 60 : 6}" stroke-linejoin="round"`));
+    if (!lod) out.push([-0.45, 0.45].map(t => rect(t * gz0 - 95, yC + 60, 190, Math.min(260, gy1 - yC - 90), 'fill="#07080a" fill-opacity=".45"', 60)).join(''));
+    out.push(path(poly([[-gz0 * 0.9, yC + 14], [-gz0 * 0.5, yC + 14], [-gz1 * 0.2, gy1], [-gz1 * 0.6, gy1]]), 'fill="#fff" fill-opacity=".1"'));
+    if (P.sensor === 'screen') out.push(path(poly([[-120, gy1], [120, gy1], [80, gy1 - 120], [-80, gy1 - 120]]), 'fill="#0b0c0e"') + circ([0, gy1 - 60], 22, 'fill="#31404d"'));
+    // bonnet, seen rising to the windscreen
+    const hwN = hw - 50 - P.plan * 110;
+    out.push(inS(path(poly([[-hwN, yN], [hwN, yN], [G.hwS, yC + 6], [-G.hwS, yC + 6]]), `fill="#fff" fill-opacity="${r2(0.1 * c.fin[0] + 0.03)}"`) + line([[-hwN, yN], [hwN, yN]], '#000', 7, 'stroke-opacity=".45"')));
+    const BON = {
+      two: () => [1, -1].map(s => line([[s * hwN * 0.5, yN], [s * G.hwS * 0.62, yC]], '#000', 6, 'stroke-opacity=".35"')).join(''),
+      none: () => '',
+      centre: () => line([[0, yN], [0, yC]], '#000', 7, 'stroke-opacity=".45"') + line([[9, yN], [9, yC]], '#fff', 6, 'stroke-opacity=".3"'),
+      bulge: () => path(poly([[-hwN * 0.3, yN], [hwN * 0.3, yN], [G.hwS * 0.42, yC], [-G.hwS * 0.42, yC]]), 'fill="#fff" fill-opacity=".14" stroke="#000" stroke-opacity=".35" stroke-width="6"'),
+      vents: () => [1, -1].map(s => path(poly([[s * hwN * 0.3, yN + (yC - yN) * 0.45], [s * hwN * 0.62, yN + (yC - yN) * 0.5], [s * hwN * 0.6, yN + (yC - yN) * 0.72], [s * hwN * 0.3, yN + (yC - yN) * 0.66]]), 'fill="#0b0c0e"')).join('')
+    };
+    out.push(BON[P.bcrease]());
+    if (P.stripes === 'twin') out.push(inS([-1, 1].map(s => path(poly([[s * 45, yb1], [s * 45, yN], [s * 55, yC], [s * 200, yC], [s * 175, yN], [s * 175, yb1]]), `fill="${c.stripe}"`)).join('') + rect(-190, yHd - 20, 150, H, `fill="${c.stripe}"`) + rect(40, yHd - 20, 150, H, `fill="${c.stripe}"`)));
+    if (P.stripes === 'offset') out.push(inS(path(poly([[-hw * 0.5, yb1], [-hw * 0.5, yN], [-hw * 0.52, yC], [-hw * 0.32, yC], [-hw * 0.3, yN], [-hw * 0.3, yb1]]), `fill="${c.stripe}"`)));
+    // lower body colour
+    const hF = yN - yb1;
+    if (P.clad !== 'body') out.push(inS(rect(-hw - 20, yb1 - 20, 2 * hw + 40, P.clad === 'contrast' ? hF * 0.34 : 150, `fill="${P.clad === 'contrast' ? c.lower : c.plastic}"`)));
+
+    // grille
+    const face = [];
+    const gy = [0, 0, 0, 0];
+    if (P.grille !== 'none') {
+      // the grille keeps to the space above the lower opening
+      const lowTop = LOWER[P.lower](W, yb1, hF).reduce((m, b) => (Math.abs(b[0]) < 1 ? Math.max(m, b[1] + b[3] / 2 - yb1 + 26) : m), 60);
+      const gw = Math.min(P.grw * W, 2 * hw - 160), gh = Math.max(30, Math.min(P.grh, hF - lowTop - 40));
+      const gTop = yN - 34 - P.grpos * Math.max(0, hF - gh - lowTop - 34), gc = [0, gTop - gh / 2];
+      const O = outlineAt(0, gc[1], gw, gh, 4, P.grsoft, 0, P.grtaper, lod ? 32 : 64);
+      gy[0] = gc[1];
+      defs.push(`<clipPath id="${id}gr"><path d="${poly(O)}"/></clipPath>`);
+      const blank = P.grille === 'blank';
+      let g = path(poly(O), `fill="${blank ? mix(c.C, '#000', 0.12) : '#0b0c0e'}"`);
+      const bar = c.trim === c.C ? '#3a3c40' : mix(c.trim, '#000', P.trim === 'dark' ? 0 : 0.25);
+      if (!lod || P.grden <= 1) g += `<g clip-path="url(#${id}gr)">` + GRILLE[P.grille](-gw / 2, gc[1] - gh / 2, gw, gh, clamp(46 / P.grden, 16, 110), P.trim === 'dark' ? '#3d4046' : bar) +
+        (P.socket > 0 ? rect(-gw / 2, gc[1] + gh / 2 - gh * (0.25 + P.socket / 300), gw, gh * (0.25 + P.socket / 300), `fill="url(#${id}sg)" fill-opacity="${r2(Math.min(0.9, 0.2 + P.socket / 170))}"`) : '') + '</g>';
+      const gaps = { 1: [], 2: [0], 3: [-0.17, 0.17] }[P.grsplit];
+      g += gaps.map(t => rect(t * gw - Math.max(22, gw * 0.035), gc[1] - gh / 2 - 6, Math.max(44, gw * 0.07), gh + 12, `fill="${c.C}" stroke="#000" stroke-opacity=".5" stroke-width="5"`)).join('');
+      const SUR = { none: '', bright: `stroke="#d5d8dc" stroke-width="16"`, dark: 'stroke="#141518" stroke-width="16"', body: `stroke="${mix(c.C, '#fff', 0.12)}" stroke-width="40"` };
+      g += path(poly(O), 'fill="none" ' + (SUR[P.grsur] || '') + ' stroke-linejoin="round"') + path(poly(O), 'fill="none" stroke="#000" stroke-opacity=".6" stroke-width="5" stroke-linejoin="round"');
+      face.push(g);
+    }
+    // lower openings
+    const lows = LOWER[P.lower](W, yb1, hF);
+    face.push(lows.map(b => rect(b[0] - b[2] / 2, b[1] - b[3] / 2, b[2], b[3], 'fill="#0b0c0e" stroke="#000" stroke-width="5"', Math.min(b[3] * 0.3, 40)) + (lod ? '' : rect(b[0] - b[2] / 2 + 20, b[1] - 5, b[2] - 40, 10, 'fill="#3d4046"'))).join(''));
+    if (P.glowp === 'face') face.push(rect(-hw * 0.44, yN - 150, hw * 0.88, 70, 'fill="#8ff1ff" fill-opacity=".3"', 35) + rect(-hw * 0.4, yN - 130, hw * 0.8, 30, 'fill="#e9feff" fill-opacity=".9"', 15));
+    out.push(inS(face.join('')));
+
+    // lamps: one side is drawn, the other mirrors it
+    const lw = Math.min(P.hlw, hw - 170), zc = hw - 85 - P.plan * 50 - lw / 2;
+    const yT = yN - 28 - P.hlpos * Math.max(0, hF - P.hlh - 130), lh = Math.min(P.hlh, hF - 60);
+    const UNITS = {
+      single: () => lampUnit(id, 'a', P, G, defs, zc, yT - lh / 2, lw, lh, 'head', lod),
+      split: () => lampUnit(id, 'a', P, G, defs, zc, yT - Math.max(13, lh * 0.13), lw, Math.max(26, lh * 0.26), 'head', lod) +
+        rect(zc - lw * 0.3, yb1 + hF * 0.36, lw * 0.6, Math.min(110, hF * 0.24), 'fill="#0b0c0e" stroke="#000" stroke-width="5"', 26) + circ([zc, yb1 + hF * 0.36 + Math.min(55, hF * 0.12)], Math.min(42, hF * 0.09), 'fill="#31404d" stroke="#dbe6ef" stroke-width="6"'),
+      stack: () => lampUnit(id, 'a', P, G, defs, zc, yT - lh * 0.24, lw, lh * 0.46, 'head', lod) + lampUnit(id, 'b', P, G, defs, zc, yT - lh * 0.76, lw, lh * 0.46, 'head', lod),
+      twin: () => lampUnit(id, 'a', P, G, defs, zc + lw * 0.26, yT - lh / 2, lw * 0.48, lh, 'head', lod) + lampUnit(id, 'b', P, G, defs, zc - lw * 0.26, yT - lh / 2, lw * 0.48, lh, 'head', lod)
+    };
+    defs.push(`<g id="${id}L">${UNITS[P.hlsplit]()}</g>`);
+    out.push(`<use href="#${id}L"/><use href="#${id}L" transform="scale(-1,1)"/>`);
+    const BAR = { none: () => '', between: () => rect(-(zc - lw / 2), yT - 36, 2 * (zc - lw / 2), 30, 'fill="#ffffff" stroke="#bfe3ff" stroke-opacity=".5" stroke-width="14"', 10), full: () => rect(-(hw - 60), yT - 36, 2 * (hw - 60), 30, 'fill="#ffffff" stroke="#bfe3ff" stroke-opacity=".5" stroke-width="14"', 10) };
+    out.push(BAR[P.bar]());
+    // plate, badge, hooks
+    const PL = { low: [0, yb1 + 150], none: null, high: [0, yb1 + hF * 0.55], offset: [-hw * 0.5, yb1 + 150] };
+    if (PL[P.platef]) out.push(PLATE(PL[P.platef][0], PL[P.platef][1]));
+    out.push(BADGE[P.badge](0, P.grille !== 'none' && P.platef !== 'high' ? gy[0] : yN - 60, c));
+    if (P.tow === 'hooks') out.push([1, -1].map(s => circ([s * hw * 0.62, yb1 + 60], 30, 'fill="none" stroke="#c8281f" stroke-width="16"')).join(''));
+    out.push(`<use href="#${id}s" fill="none" stroke="${c.edge}" stroke-width="12" stroke-linejoin="round"/>`);
+    const y1 = Math.max(2230, H + 420);
+    return {
+      defs: defs.join(''), body: out.join(''), box: [-1300, -y1, 2600, y1 + 300],
+      anchors: { face: [0, -(yN + yb1) / 2], lamp: [zc, -(yT - lh / 2)], grille: [0, -(yb1 + hF * 0.55)], bumper: [0, -yb1 - 150] }
+    };
+  }
+
+  // =============================================================== REAR
+  const OUTLET = {
+    round: (z, y) => circ([z, y], 44, 'fill="#0b0c0e" stroke="#b9bdc2" stroke-width="12"'),
+    oval: (z, y) => `<ellipse cx="${f(z)}" cy="${f(-y)}" rx="66" ry="38" fill="#0b0c0e" stroke="#b9bdc2" stroke-width="12"/>`,
+    rect: (z, y) => rect(z - 68, y - 34, 136, 68, 'fill="#0b0c0e" stroke="#b9bdc2" stroke-width="12"', 12),
+    trap: (z, y) => path(poly([[z - 76, y - 36], [z + 76, y - 36], [z + 52, y + 36], [z - 52, y + 36]]), 'fill="#0b0c0e" stroke="#b9bdc2" stroke-width="12" stroke-linejoin="round"')
+  };
+  function viewRear(P, G, o) {
+    const id = o.idp, lod = o.lod, c = G.col, defs = [socketDef(id)], out = [];
+    const { hw, W, yb2, yD, H, beltR } = G;
+    const paint = paintDefs(id, P, G, defs, yb2, H);
+    endCommon(P, G, o, defs, out, yb2, true);
+    const corner = 60 + P.plan * 150, yTop = G.bed ? yD : G.tailTop[1];
+    defs.push(`<path id="${id}s" d="${endSilhouette(G, yb2, Math.max(beltR, G.archTop + 80), G.yRh - 30, Math.max(H - P.rdrop * 0.4, G.yRh + 20), corner)}"/>`, `<clipPath id="${id}sc"><use href="#${id}s"/></clipPath>`);
+    const inS = s => `<g clip-path="url(#${id}sc)">${s}</g>`;
+    out.push([1, -1].map(s => MIRRORF[P.mirror](s, G.hwS + 10, G.beltF, c)).join(''));
+    out.push(roofFurniture(P, G, Math.max(H - P.rdrop * 0.4, G.yRh + 20), G.hwR));
+    if (P.aero !== 'none') out.push(path(poly([[-hw * 0.8, yTop + 300], [hw * 0.8, yTop + 300], [hw * 0.8, yTop + (P.aero === 'brake' ? 560 : 350)], [-hw * 0.8, yTop + (P.aero === 'brake' ? 560 : 350)]]), GHOST));
+    if (P.spoiler === 'wing') out.push([1, -1].map(s => rect(s * hw * 0.5 - 14, yTop - 10, 28, 210, 'fill="#1b1c1f"')).join('') + rect(-hw * 0.86, yTop + 195, hw * 1.72, 46, `fill="${c.C}" stroke="${c.edge}" stroke-width="9"`, 16));
+    out.push(paint(id + 's'));
+    const yGlass0 = Math.max(G.deck ? yD : Math.min(G.tailTop[1], beltR + 400), beltR) + 26;
+    if (c.twoTone) out.push(inS(rect(-hw - 50, yGlass0 - 20, 2 * hw + 100, H, `fill="${c.roof}"`) + rect(-hw - 50, yGlass0 - 20, 2 * hw + 100, H, `fill="url(#${id}sh)"`)));
+    // rear screen, or the back of a cabin over an open bed
+    const gz0 = G.hwS - 110, gz1 = G.hwR - 75, gy1 = G.yRh - 50;
+    if (gy1 - yGlass0 > 50) {
+      const dk = P.float === 'float' || P.float === 'wrap';
+      out.push(path(poly([[-gz0, yGlass0], [gz0, yGlass0], [gz1, gy1], [-gz1, gy1]]), `fill="${c.glass}" stroke="${dk ? '#141518' : '#000'}" stroke-width="${dk ? 60 : 6}" stroke-linejoin="round"`) +
+        path(poly([[gz0 * 0.3, yGlass0], [gz0 * 0.7, yGlass0], [gz1 * 0.5, gy1], [gz1 * 0.1, gy1]]), 'fill="#fff" fill-opacity=".1"'));
+    }
+    if (P.spoiler === 'roof') out.push(rect(-G.hwR + 60, G.yRh - 62, 2 * G.hwR - 120, 46, `fill="${c.twoTone ? c.roof : c.C}" stroke="${c.edge}" stroke-width="8"`, 16));
+    if (P.stripes === 'twin') out.push(inS(rect(-190, yb2, 150, H + 200, `fill="${c.stripe}"`) + rect(40, yb2, 150, H + 200, `fill="${c.stripe}"`)));
+    if (P.stripes === 'offset') out.push(inS(rect(hw * 0.3, yb2, hw * 0.2, H + 200, `fill="${c.stripe}"`)));
+    // the tail panel below the tail top
+    const hT = yD - yb2;
+    if (G.bed) out.push(inS(rect(-hw + 70, yD - 10, 2 * hw - 140, Math.max(60, yGlass0 - yD - 30), 'fill="#101113"') + rect(-hw + 50, yD - 46, 2 * hw - 100, 46, `fill="${c.plastic}"`) + rect(-hw + 120, yb2 + 150, 2 * hw - 240, 8, 'fill="#000" fill-opacity=".5"')));
+    else out.push(inS(line([[-hw, yTop], [hw, yTop]], '#000', 7, 'stroke-opacity=".4"')));
+    if (P.spoiler === 'lip' || P.spoiler === 'duck') out.push(rect(-hw * 0.8, yTop - 6, hw * 1.6, P.spoiler === 'lip' ? 34 : 96, `fill="${c.C}" stroke="${c.edge}" stroke-width="8"`, 14));
+    if (P.clad !== 'body') out.push(inS(rect(-hw - 20, yb2 - 20, 2 * hw + 40, P.clad === 'contrast' ? hT * 0.34 : 170, `fill="${P.clad === 'contrast' ? c.lower : c.plastic}"`)));
+    const DIFF = {
+      plain: () => '',
+      fins: () => rect(-hw * 0.5, yb2 - 10, hw, 120, 'fill="#101113"', 14) + [-0.3, -0.15, 0, 0.15, 0.3].map(t => rect(t * hw - 7, yb2 - 10, 14, 120, 'fill="#3d4046"')).join(''),
+      skid: () => path(poly([[-hw * 0.45, yb2 - 10], [hw * 0.45, yb2 - 10], [hw * 0.36, yb2 + 110], [-hw * 0.36, yb2 + 110]]), 'fill="#aeb2b7" stroke="#000" stroke-opacity=".5" stroke-width="5"')
+    };
+    out.push(inS(DIFF[P.diffuser]()));
+    const oy = yb2 + 62, OP = { 0: [], 1: [0.56], 2: [-0.56, 0.56], 4: [-0.66, -0.48, 0.48, 0.66] }[P.outlets];
+    out.push(OP.map(t => OUTLET[P.outshape](t * hw, oy)).join(''));
+    // tail lamps
+    const lw = Math.min(P.tlw, hw - 150), zc = hw - 75 - P.plan * 40 - lw / 2, lh = Math.min(P.tlh, hT - 70);
+    const yT = yD - 24 - P.tlpos * Math.max(0, hT - lh - 150);
+    defs.push(`<g id="${id}L">${lampUnit(id, 'a', P, G, defs, zc, yT - lh / 2, lw, lh, 'tail', lod)}</g>`);
+    out.push(`<use href="#${id}L"/><use href="#${id}L" transform="scale(-1,1)"/>`);
+    const BAR = { none: () => '', between: () => rect(-(zc - lw / 2), yT - 38, 2 * (zc - lw / 2), 30, 'fill="#ff4336" stroke="#ff7a6e" stroke-opacity=".45" stroke-width="14"', 10), full: () => rect(-(hw - 50), yT - 38, 2 * (hw - 50), 30, 'fill="#ff4336" stroke="#ff7a6e" stroke-opacity=".45" stroke-width="14"', 10) };
+    out.push(BAR[P.tbar]());
+    const spare = P.spare === 'tail';
+    const PL = { tail: [0, Math.max(yT - lh - 90, yb2 + 260)], bumper: [0, yb2 + 190], offset: [-hw * 0.42, Math.max(yT - lh - 90, yb2 + 260)] };
+    let pl = PL[P.plater];
+    if (spare) {
+      const sy = Math.max(yD - G.Rw - 40, yb2 + G.Rw + 60);
+      out.push(circ([0, sy], G.Rw, 'fill="#191a1c" stroke="#000" stroke-width="6"') + circ([0, sy], G.Rw * 0.62, `fill="${c.plastic}" stroke="#000" stroke-width="5"`));
+      pl = [-hw * 0.55, yb2 + 200];
+    }
+    out.push(PLATE(pl[0], pl[1]));
+    if (!spare) out.push(BADGE[P.badge](0, Math.min(pl[1] + 150, yD - 60), c));
+    if (P.tow === 'bar') out.push(rect(-16, yb2 - 70, 32, 90, 'fill="#1b1c1f"') + circ([0, yb2 - 80], 26, 'fill="#8b8f94"'));
+    out.push(`<use href="#${id}s" fill="none" stroke="${c.edge}" stroke-width="12" stroke-linejoin="round"/>`);
+    const y1 = Math.max(2230, H + 420);
+    return {
+      defs: defs.join(''), body: out.join(''), box: [-1300, -y1, 2600, y1 + 300],
+      anchors: { tailf: [0, -(yD + yb2) / 2], lamp: [zc, -(yT - lh / 2)], bumper: [0, -yb2 - 180] }
+    };
+  }
+
+  // ================================================================ TOP
+  // Hidden parts are dashed, as on a technical drawing.
+  const HID = 'fill="none" stroke="#2f343a" stroke-opacity=".8" stroke-width="8" stroke-dasharray="34 26"';
+  const POWER = {
+    front: G => rect(Math.max(G.xa - 380, 160), -300, Math.max(260, Math.min(700, G.xC - G.xa + 380 - 120)), 600, HID, 40),
+    mid: G => rect(G.xb - 950, -310, 680, 620, HID, 40),
+    rear: G => rect(G.xb - 60, -300, Math.min(620, G.L - G.xb - 60), 600, HID, 40),
+    electric: G => rect(G.xa + G.Ra + 60, -G.hw + 260, G.xb - G.xa - 2 * G.Ra - 120, 2 * G.hw - 520, HID, 50) + circ([G.xb, 0], 150, HID) + [0.25, 0.5, 0.75].map(t => line([[lerp(G.xa + G.Ra + 60, G.xb - G.Ra - 60, t), -G.hw + 260], [lerp(G.xa + G.Ra + 60, G.xb - G.Ra - 60, t), G.hw - 260]], '#2f343a', 6, 'stroke-opacity=".5" stroke-dasharray="20 22"')).join('')
+  };
+  function viewTop(P, G, o) {
+    const id = o.idp, lod = o.lod, c = G.col, defs = [], out = [];
+    const { L, hw, xa, xb, Rw } = G;
+    const paint = paintDefs(id, P, G, defs, -hw, hw);
+    // in this view the second coordinate is z (across the car)
+    const a = [], b = [];
+    for (let x = 0; x <= L; x += lod ? 90 : 40) { a.push([x, G.planW(x)]); b.push([x, -G.planW(x)]); }
+    a.push([L, G.planW(L)]); b.push([L, -G.planW(L)]);
+    defs.push(`<path id="${id}p" d="${poly(a.concat(rev(b)))}"/>`, `<clipPath id="${id}pc"><use href="#${id}p"/></clipPath>`);
+    const inP = s => `<g clip-path="url(#${id}pc)">${s}</g>`;
+    out.push(`<ellipse cx="${f(L / 2)}" cy="0" rx="${f(L * 0.53)}" ry="${f(hw * 1.1)}" fill="#000" fill-opacity=".07"/>`);
+    // tyres show only where they stand out from the body
+    const zo = hw - P.track;
+    out.push([xa, xb].map(x => [1, -1].map(s => rect(x - Rw * 0.92, s > 0 ? zo - G.tw : -zo, Rw * 1.84, G.tw, 'fill="#191a1c"', 40)).join('')).join(''));
+    const MIRT = {   // seen from above, s is the side
+      door: s => path(poly([[G.xf0 + 60, s * (G.hwS - 10)], [G.xf0 + 20, s * (G.hwS + 190)], [G.xf0 + 150, s * (G.hwS + 210)], [G.xf0 + 190, s * (G.hwS - 10)]]), `fill="${c.C}" stroke="${c.edge}" stroke-width="8" stroke-linejoin="round"`),
+      pillar: s => path(poly([[G.xf0 - 120, s * (G.hwS - 10)], [G.xf0 - 150, s * (G.hwS + 190)], [G.xf0 - 20, s * (G.hwS + 210)], [G.xf0 + 10, s * (G.hwS - 10)]]), `fill="${c.C}" stroke="${c.edge}" stroke-width="8" stroke-linejoin="round"`),
+      camera: s => line([[G.xf0 + 40, s * (G.hwS - 10)], [G.xf0 + 10, s * (G.hwS + 150)]], '#1b1c1f', 18, 'stroke-linecap="round"') + rect(G.xf0 - 40, s * (G.hwS + 150) - 26, 100, 52, 'fill="#1b1c1f"', 22),
+      none: () => ''
+    };
+    out.push([1, -1].map(MIRT[P.mirror]).join(''));
+    out.push(paint(id + 'p'));
+    // lower body colours, stripes
+    let over = '';
+    if (P.stripes === 'twin') over += rect(-50, 40, L + 100, 150, `fill="${c.stripe}"`) + rect(-50, -190, L + 100, 150, `fill="${c.stripe}"`);
+    if (P.stripes === 'offset') over += rect(-50, hw * 0.3, L + 100, hw * 0.2, `fill="${c.stripe}"`);
+    out.push(inP(over));
+    // bonnet: shut lines and pressed lines
+    const xN = G.xu + 40, zB = G.hwS - 130;
+    out.push(line([[G.xC - 40, zB], [xN + 80, zB - 90], [xN, zB - 260]], '#000', 6, 'stroke-opacity=".4"') + line([[G.xC - 40, -zB], [xN + 80, -zB + 90], [xN, -zB + 260]], '#000', 6, 'stroke-opacity=".4"'));
+    const BON = {
+      two: () => [1, -1].map(s => line([[xN + 60, s * zB * 0.5], [G.xC - 60, s * zB * 0.66]], '#000', 6, 'stroke-opacity=".3"')).join(''),
+      none: () => '',
+      centre: () => line([[xN, 0], [G.xC - 40, 0]], '#000', 7, 'stroke-opacity=".45"') + line([[xN, 9], [G.xC - 40, 9]], '#fff', 6, 'stroke-opacity=".3"'),
+      bulge: () => path(poly([[xN + 40, zB * 0.3], [G.xC - 60, zB * 0.42], [G.xC - 60, -zB * 0.42], [xN + 40, -zB * 0.3]]), 'fill="#fff" fill-opacity=".14" stroke="#000" stroke-opacity=".35" stroke-width="6"'),
+      vents: () => [1, -1].map(s => rect(lerp(xN, G.xC, 0.5), s * zB * 0.45 - 45, (G.xC - xN) * 0.28, 90, 'fill="#0b0c0e"', 16)).join('')
+    };
+    out.push(BON[P.bcrease]());
+    // windscreen, roof, side glass, rear screen
+    const zR = G.hwR - 25, zS = G.hwS - 70;
+    const scr = `M${f(G.xC + 20)},${f(-zS)}Q${f(G.xC - 130)},0 ${f(G.xC + 20)},${f(zS)}L${f(G.xHd + 20)},${f(zR)}Q${f(G.xHd - 60)},0 ${f(G.xHd + 20)},${f(-zR)}Z`;
+    const xS1 = G.bed ? G.xAtD : G.xSB, xr1 = Math.max(G.xRh, G.xHd + 300);
+    out.push(path(poly([[G.xg0, zS + 40], [G.xg1, zS + 40], [Math.min(xr1, G.xg1), zR], [G.xHd + 40, zR]]) + poly([[G.xg0, -zS - 40], [G.xg1, -zS - 40], [Math.min(xr1, G.xg1), -zR], [G.xHd + 40, -zR]]), `fill="${c.glass}" stroke="#000" stroke-opacity=".5" stroke-width="5"`));
+    if (P.pillars >= 3 && P.roofop !== 'soft') out.push([1, -1].map(s => line([[G.xPB, s * (zS + 44)], [G.xPB, s * zR]], P.float === 'wrap' ? '#141518' : c.twoTone ? c.roof : c.C, 76)).join(''));
+    if (P.pillars === 4 && P.roofop !== 'soft') out.push([1, -1].map(s => line([[G.xPC, s * (zS + 44)], [G.xPC, s * zR]], P.float === 'wrap' ? '#141518' : c.twoTone ? c.roof : c.C, 84)).join(''));
+    out.push(path(scr, `fill="${c.glass}" stroke="#000" stroke-opacity=".6" stroke-width="6"`));
+    if (xS1 - xr1 > 60) out.push(path(`M${f(xr1)},${f(-zR)}L${f(xS1)},${f(-(G.hwS - 120))}Q${f(xS1 + 70)},0 ${f(xS1)},${f(G.hwS - 120)}L${f(xr1)},${f(zR)}Z`, `fill="${c.glass}" stroke="#000" stroke-opacity=".6" stroke-width="6"`));
+    const roof = `M${f(G.xHd + 30)},${f(-zR)}Q${f(G.xHd - 40)},0 ${f(G.xHd + 30)},${f(zR)}L${f(xr1)},${f(zR)}Q${f(xr1 + 50)},0 ${f(xr1)},${f(-zR)}Z`;
+    defs.push(`<path id="${id}r" d="${roof}"/>`, `<clipPath id="${id}rc"><use href="#${id}r"/></clipPath>`);
+    out.push(`<use href="#${id}r" fill="${c.twoTone ? c.roof : c.C}" stroke="${c.edge}" stroke-width="8"/><use href="#${id}r" fill="url(#${id}sh)"/>`);
+    let onRoof = '';
+    const rl = xr1 - G.xHd;
+    if (P.stripes === 'twin' && P.roofop !== 'soft') onRoof += rect(G.xHd - 100, 40, rl + 300, 150, `fill="${c.stripe}"`) + rect(G.xHd - 100, -190, rl + 300, 150, `fill="${c.stripe}"`);
+    if (P.stripes === 'offset' && P.roofop !== 'soft') onRoof += rect(G.xHd - 100, hw * 0.3, rl + 300, hw * 0.2, `fill="${c.stripe}"`);
+    const ROOFOP = {
+      fixed: () => '',
+      sunroof: () => rect(G.xHd + rl * 0.12, -zR * 0.62, Math.min(rl * 0.42, 900), zR * 1.24, 'fill="#0d1116" stroke="#000" stroke-width="6"', 50),
+      glass: () => rect(G.xHd + rl * 0.08, -zR * 0.8, rl * 0.84, zR * 1.6, 'fill="#0d1116" stroke="#000" stroke-width="6"', 60) + rect(G.xHd + rl * 0.5 - 12, -zR * 0.8, 24, zR * 1.6, `fill="${c.twoTone ? c.roof : c.C}"`),
+      soft: () => [0.25, 0.5, 0.75].map(t => line([[G.xHd + rl * t, -zR], [G.xHd + rl * t, zR]], '#000', 7, 'stroke-opacity=".45"')).join('')
+    };
+    onRoof += ROOFOP[P.roofop]();
+    if (P.solar === 'cells') {
+      onRoof += rect(G.xHd + rl * 0.08, -zR * 0.82, rl * 0.84, zR * 1.64, 'fill="#16264f"', 40);
+      if (!lod) { for (let x = G.xHd + rl * 0.08 + 130; x < G.xHd + rl * 0.92; x += 130) onRoof += line([[x, -zR * 0.82], [x, zR * 0.82]], '#6f8fd6', 5); for (let z = -zR * 0.82 + 130; z < zR * 0.82; z += 130) onRoof += line([[G.xHd + rl * 0.08, z], [G.xHd + rl * 0.92, z]], '#6f8fd6', 5); }
+    }
+    out.push(`<g clip-path="url(#${id}rc)">${onRoof}</g>`);
+    if (P.rails !== 'none') out.push([1, -1].map(s => line([[G.xHd + 150, s * (zR - 60)], [xr1 - 100, s * (zR - 60)]], '#1b1c1f', P.rails === 'flush' ? 22 : 34, 'stroke-linecap="round"')).join('') + (P.rails === 'bars' ? [0.22, 0.78].map(t => line([[G.xHd + rl * t, -zR + 30], [G.xHd + rl * t, zR - 30]], '#3a3c40', 46, 'stroke-linecap="round"')).join('') : ''));
+    if (P.antenna === 'fin') out.push(path(poly([[xr1 - 300, 0], [xr1 - 150, 26], [xr1 - 110, 0], [xr1 - 150, -26]]), `fill="${mix(c.twoTone ? c.roof : c.C, '#000', 0.2)}" stroke="${c.edge}" stroke-width="6"`));
+    if (P.antenna === 'mast') out.push(circ([xr1 - 200, zR * 0.5], 18, 'fill="#1b1c1f"'));
+    if (P.sensor === 'roof') out.push(rect(G.xHd + 60, -150, 260, 300, 'fill="#1b1c1f" stroke="#000" stroke-width="5"', 60));
+    // deck, or an open bed
+    if (G.bed) {
+      const x0 = G.xAtD + 90, x1 = G.tailTop[0] - 70, zb = G.hwS - 110;
+      out.push(rect(x0, -zb, x1 - x0, 2 * zb, 'fill="#17181b" stroke="#000" stroke-width="8"', 30) + (lod ? '' : [1, -1].map(s => rect(G.xb - Rw * 0.9, s > 0 ? zb - 150 : -zb, Rw * 1.8, 150, 'fill="#26272a"', 30)).join('') +
+        [0.2, 0.4, 0.6, 0.8].map(t => line([[x0 + 20, lerp(-zb, zb, t)], [x1 - 20, lerp(-zb, zb, t)]], '#000', 5, 'stroke-opacity=".5"')).join('')));
+    } else if (G.deck) out.push(line([[G.xAtD + 50, G.hwS - 130], [G.tailTop[0] - 40, G.hwS - 150], [G.tailTop[0] - 40, -(G.hwS - 150)], [G.xAtD + 50, -(G.hwS - 130)]], '#000', 6, 'stroke-opacity=".45" stroke-linejoin="round"'));
+    if (P.spoiler === 'wing') out.push(rect(G.tailTop[0] - 330, -hw * 0.86, 240, hw * 1.72, `fill="${c.C}" stroke="${c.edge}" stroke-width="8"`, 30));
+    if (P.spoiler === 'lip' || P.spoiler === 'duck') out.push(rect(G.tailTop[0] - (P.spoiler === 'lip' ? 90 : 190), -hw * 0.8, P.spoiler === 'lip' ? 80 : 180, hw * 1.6, `fill="${mix(c.C, '#fff', 0.1)}" stroke="${c.edge}" stroke-width="7"`, 30));
+    if (P.spare === 'tail') out.push(rect(L + 10, -Rw, G.tw * 0.92, 2 * Rw, 'fill="#191a1c" stroke="#000" stroke-width="6"', 60));
+    // lamps at the corners
+    const hlw = Math.min(P.hlw, hw - 170), tlw = Math.min(P.tlw, hw - 150);
+    out.push(inP([1, -1].map(s => rect(-20, s > 0 ? hw - 85 - hlw : -(hw - 85), 120 + P.plan * 120, hlw, 'fill="#e6eef5" stroke="#000" stroke-opacity=".5" stroke-width="5"', 30) +
+      rect(L - 100 - P.plan * 100, s > 0 ? hw - 75 - tlw : -(hw - 75), 130 + P.plan * 100, tlw, 'fill="#b01e1e" stroke="#000" stroke-opacity=".5" stroke-width="5"', 30)).join('') +
+      (P.bar !== 'none' ? rect(-10, -(hw - 85 - hlw), 50, 2 * (hw - 85 - hlw), 'fill="#ffffff"') : '') + (P.tbar !== 'none' ? rect(L - 40, -(hw - 75 - tlw), 50, 2 * (hw - 75 - tlw), 'fill="#ff4336"') : '') +
+      (P.glowp === 'sills' ? [1, -1].map(s => rect(xa + G.Ra, s > 0 ? hw - 40 : -hw - 20, xb - xa - 2 * G.Ra, 60, 'fill="#8ff1ff" fill-opacity=".7"')).join('') : '') +
+      (P.glowp === 'face' ? rect(-20, -hw * 0.44, 60, hw * 0.88, 'fill="#8ff1ff" fill-opacity=".8"') : '')));
+    // what drives it, hidden under the skin
+    out.push(POWER[P.power](G));
+    if (P.outlets > 0) out.push({ 1: [0.56], 2: [-0.56, 0.56], 4: [-0.66, -0.48, 0.48, 0.66] }[P.outlets].map(t => rect(L - 10, t * hw - 30, 50, 60, 'fill="#8b8f94" stroke="#000" stroke-width="5"', 12)).join(''));
+    // doors: cut lines, and one door open, dashed
+    const zd = G.hwS + 2;
+    out.push([G.xD0, G.xD1, G.xD2].map(x => [1, -1].map(s => line([[x, s * (G.planW(x) - 4)], [x, s * (zS + 40)]], '#000', 6, 'stroke-opacity=".55"')).join('')).join(''));
+    const th = P.doorth, dl = G.xD1 - G.xD0, dl2 = G.xD2 - G.xD1;
+    const slab = (hx, len, ang) => {   // a door slab hinged at (hx, zd), len long, swung out by ang
+      const ca = Math.cos(ang), sa = Math.sin(ang), q = (u, v) => [hx + u * ca - v * sa, zd + u * sa + v * ca];
+      let s = path(poly([q(0, 0), q(len, 0), q(len, -th), q(0, -th)]), GHOST + ' fill-opacity=".001"') ;
+      for (let k = 1; k <= P.seals; k++) s += line([q(len * 0.04, -th * k / (P.seals + 1)), q(len * 0.96, -th * k / (P.seals + 1))], '#2f343a', 5, 'stroke-opacity=".8"');
+      return s;
+    };
+    const DOOR = {
+      swing: () => slab(G.xD0, dl, 0.95),
+      coach: () => slab(G.xD0, dl, 0.95) + (G.two ? slab(G.xD2, -dl2, -0.95) : ''),
+      slide: () => slab(G.xD0, dl, 0.95) + (G.two ? path(poly([[G.xD1 + dl2 * 0.7, zd + 150], [G.xD2 + dl2 * 0.7, zd + 150], [G.xD2 + dl2 * 0.7, zd + 150 - th], [G.xD1 + dl2 * 0.7, zd + 150 - th]]), GHOST) : ''),
+      scissor: () => slab(G.xD0, dl * 0.34, 0.2),
+      gull: () => path(poly([[G.xD0 + 120, zd], [G.xD1, zd], [G.xD1, zd - th], [G.xD0 + 120, zd - th]]) + poly([[G.xD0 + 160, 60], [G.xD1 - 40, 60], [G.xD1 - 40, G.hwR + 80], [G.xD0 + 160, G.hwR + 80]]), GHOST)
+    };
+    out.push(DOOR[P.dooropen]());
+    return {
+      defs: defs.join(''), body: out.join(''), box: [-350, -1560, Math.max(6300, L + 850), 3120],
+      anchors: { roof: [(G.xHd + xr1) / 2, 0], door: [G.xD0 + dl * 0.6, -(zd + 420)] }
+    };
+  }
+
+  // ------------------------------------------------------------- public
+  const VIEWS = {
+    side: viewSide, front: viewFront, rear: viewRear, top: viewTop,
+    street: (P, G, o) => viewSide(P, G, Object.assign({}, o, { street: true }))
+  };
+  function parts(v, o) {
+    o = o || {};
+    const P = params(v), lod = o.lod ? 1 : 0;
+    const G = geometry(P);
+    const r = VIEWS[o.view || 'side'](P, G, { idp: o.idp || 'g', lod: lod && !o.at ? 1 : 0, thin: lod });
+    let box = r.box;
+    if (o.at && r.anchors[o.at]) {
+      const a = r.anchors[o.at], w = o.w || 1200, h = w * (o.aspect || 0.66);
+      box = [a[0] - w / 2, a[1] - h / 2, w, h];
+    }
+    r.viewBox = box.map(f).join(' ');
+    r.box = box;
+    return r;
+  }
+  function draw(v, o) {
+    const r = parts(v, o);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${r.viewBox}"${o && o.attrs ? ' ' + o.attrs : ''}><defs>${r.defs}</defs>${r.body}</svg>`;
+  }
+  // length, width and height, as a car's size is usually written
+  function stamp(v) { const P = params(v); return (P.fo + P.wb + P.ro) + ' × ' + P.width + ' × ' + P.height + ' mm'; }
+
+  // The page can play these. ctx is an AudioContext.
+  function burst(ctx, t, freq, q, gain, dur, type) {
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur)), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = buf; fl.type = type || 'bandpass'; fl.frequency.value = freq; fl.Q.value = q; g.gain.value = gain;
+    src.connect(fl); fl.connect(g); g.connect(ctx.destination); src.start(t);
+  }
+  function tone(ctx, t, freq, gain, dur, type, wobble) {
+    const osc = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
+    osc.type = type; osc.frequency.value = freq; fl.type = 'lowpass'; fl.frequency.value = freq * 6;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.08); g.gain.linearRampToValueAtTime(0, t + dur);
+    if (wobble) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = wobble; lg.gain.value = gain * 0.6; l.connect(lg); lg.connect(g.gain); l.start(t); l.stop(t + dur); }
+    osc.connect(fl); fl.connect(g); g.connect(ctx.destination); osc.start(t); osc.stop(t + dur);
+  }
+  const SOUND = {
+    power: (ctx, key) => {
+      const t = ctx.currentTime + 0.02;
+      if (key === 'electric') { tone(ctx, t, 420, 0.05, 1.1, 'sine'); tone(ctx, t, 840, 0.02, 1.1, 'sine'); }
+      else { tone(ctx, t, key === 'rear' ? 62 : key === 'mid' ? 74 : 52, 0.22, 1.2, 'sawtooth', key === 'mid' ? 37 : 26); burst(ctx, t, 300, 0.6, 0.05, 1.1, 'lowpass'); }
+    },
+    seals: (ctx, key) => {
+      const t = ctx.currentTime + 0.02;
+      ({ 1: () => { burst(ctx, t, 2400, 3, 0.5, 0.05); burst(ctx, t, 500, 1, 0.3, 0.08); }, 2: () => { burst(ctx, t, 170, 1.2, 1, 0.16, 'lowpass'); burst(ctx, t, 1200, 2, 0.12, 0.04); }, 3: () => burst(ctx, t, 95, 1, 1, 0.24, 'lowpass') })[key]();
+    }
+  };
+  function sound(axisId, v, ctx) { const P = params(v); if (SOUND[axisId]) SOUND[axisId](ctx, P[axisId]); }
+
+  const api = { draw, parts, params, stamp, sound, PAPER, VIEWS: Object.keys(VIEWS) };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  root.FS_DRAW = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>/* Form space page, shared by every thing built on the kit.
+ * Needs FS_SPACE (the thing's space.js) and FS_DRAW (its draw.js) loaded first.
+ * What differs between things comes from FS_SPACE.THING and FS_SPACE.LANGUAGE.
+ * State lives in the page and is saved on the device. No pop-up dialogs.
+ */
+(function () {
+  'use strict';
+  const S = window.FS_SPACE, D = window.FS_DRAW;
+  const AXES = S.AXES, BY = S.BY, SPACE = S.SPACE, DIST = S.DIST, VERSION = S.VERSION, T = S.THING, LANGUAGE = S.LANGUAGE;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const KEY = 'formspace:' + VERSION;
+  const SVGNS = 'xmlns="http://www.w3.org/2000/svg"';
+  const VIEW_IDS = T.views.map(v => v[0]);
+  const viewName = id => { const v = T.views.find(q => q[0] === id); return v ? v[1] : id.charAt(0).toUpperCase() + id.slice(1); };
+
+  // Order for stepping and strips: quantities ascend, names keep their order.
+  const ORDER = {};
+  AXES.forEach(a => { ORDER[a.id] = a.n ? a.all.slice().sort((p, q) => a.n[p] - a.n[q]) : a.all.slice(); });
+  const LANG = AXES.filter(a => a.lang).map(a => a.id);
+
+  const st = {
+    v: SPACE.normalize({}), holds: {}, lang: null, keeps: [],
+    view: T.main, dist: 'arm', tab: 'axes', open: { 1: true }, sheet: T.sheet.slice(), loupe: [0.7, 0.42],
+    auto: null
+  };
+  let driftTimer = null, cur = null, editing = false;
+
+  // ------------------------------------------------------------ storage
+  function load() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { saved = null; }
+    if (saved && typeof saved === 'object') {
+      ['view', 'dist', 'tab'].forEach(k => { if (typeof saved[k] === 'string') st[k] = saved[k]; });
+      if (saved.open && typeof saved.open === 'object') st.open = saved.open;
+      if (Array.isArray(saved.sheet) && BY[saved.sheet[0]] && BY[saved.sheet[1]]) st.sheet = saved.sheet;
+      if (Array.isArray(saved.loupe)) st.loupe = saved.loupe;
+      if (Array.isArray(saved.holds)) saved.holds.forEach(id => { if (BY[id]) st.holds[id] = true; });
+      if (saved.lang && Array.isArray(saved.lang.ids)) st.lang = { ids: saved.lang.ids.filter(id => BY[id]) };
+      if (Array.isArray(saved.keeps)) st.keeps = saved.keeps.filter(k => k && /^\d+$/.test(k.a) && BigInt(k.a) < SPACE.total);
+      if (typeof saved.a === 'string' && /^\d+$/.test(saved.a) && BigInt(saved.a) < SPACE.total) st.v = SPACE.unrank(BigInt(saved.a));
+    }
+    if (VIEW_IDS.indexOf(st.view) < 0) st.view = T.main;
+    if (!['room', 'arm', 'loupe'].includes(st.dist)) st.dist = 'arm';
+    if (!['axes', 'sheet', 'lang', 'keeps'].includes(st.tab)) st.tab = 'axes';
+    const m = /^#n(\d+)$/.exec(location.hash || '');
+    if (m && BigInt(m[1]) < SPACE.total) st.v = SPACE.unrank(BigInt(m[1]));
+  }
+  let saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      const data = {
+        a: SPACE.rank(st.v).toString(), ver: VERSION, holds: Object.keys(st.holds), lang: st.lang, keeps: st.keeps,
+        view: st.view, dist: st.dist, tab: st.tab, open: st.open, sheet: st.sheet, loupe: st.loupe
+      };
+      try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* saving is a convenience */ }
+      try { history.replaceState(null, '', '#n' + data.a); } catch (e) { /* the frame may not allow it */ }
+    }, 250);
+  }
+
+  // ------------------------------------------------------------ helpers
+  const held = id => !!st.holds[id] || !!(st.lang && st.lang.ids.indexOf(id) >= 0);
+  const allowed = a => SPACE.allowed(a, st.v);
+  const notApplicable = (a, al) => !!a.when && al.length === 1;
+  const sortedAllowed = (a, al) => ORDER[a.id].filter(i => al.indexOf(i) >= 0);
+  function withAxis(v, id, i) { const p = Object.assign({}, v); p[id] = i; return SPACE.normalize(p); }
+  function randomAddress() {
+    const w = new Uint32Array(10);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(w); else for (let i = 0; i < 10; i++) w[i] = Math.floor(Math.random() * 4294967296);
+    let n = 0n;
+    for (let i = 0; i < 10; i++) n = (n << 32n) + BigInt(w[i]);
+    return n % SPACE.total;
+  }
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  function optionTags(a, i) {
+    return (a.nw && a.nw.indexOf(i) >= 0 ? ' <span class="tag new">new</span>' : '') + (a.ex && a.ex.indexOf(i) >= 0 ? ' <span class="tag ex">extreme</span>' : '');
+  }
+  // the small drawing for an axis: a close crop where it names one, else the whole view
+  function thumbSpec(a) {
+    const l = a.look || { v: T.main };
+    if (l.at) { const asp = l.aspect || 0.66; return { o: { view: l.v, at: l.at, w: l.w, aspect: asp }, w: asp < 0.55 ? 110 : 84, h: Math.round((asp < 0.55 ? 110 : 84) * asp) }; }
+    return T.thumbs[l.v] || T.thumbs[T.main];
+  }
+  let uid = 0;
+  function thumb(v, spec, label, cls, data) {
+    const svg = D.draw(v, Object.assign({ lod: true, idp: 'u' + (uid++) + '_', attrs: `width="${spec.w}" height="${spec.h}" aria-hidden="true"` }, spec.o));
+    return `<button class="th ${cls || ''}" ${data || ''} title="${esc(label)}" aria-label="${esc(label)}" style="width:${spec.w + 2}px">${svg}<span>${esc(label)}</span></button>`;
+  }
+
+  // ------------------------------------------------------------- moves
+  function setChoices(v, keepAuto) {
+    st.v = SPACE.normalize(v);
+    if (!keepAuto) st.auto = null;
+    render();
+  }
+  function setAxis(id, i) {
+    const a = BY[id];
+    const lv = (a.look && a.look.v) || T.main, base = st.dist === 'room' ? T.room : st.view;
+    // a view that switches itself on for one axis is switched off by the next
+    st.auto = lv !== base && !(st.dist === 'room' && lv === T.main) ? { id, view: lv, name: a.name } : null;
+    st.v = withAxis(st.v, id, i);
+    render();
+  }
+  function stepAxis(id, dir) {
+    const a = BY[id], list = sortedAllowed(a, allowed(a)), k = list.indexOf(st.v[id]) + dir;
+    if (k >= 0 && k < list.length) setAxis(id, list[k]);
+  }
+  function anywhere() {
+    const p = SPACE.unrank(randomAddress());
+    for (const a of AXES) if (held(a.id)) p[a.id] = st.v[a.id];
+    setChoices(p);
+  }
+  function driftStep() {
+    const free = AXES.filter(a => !held(a.id) && allowed(a).length > 1);
+    if (!free.length) return;
+    const a = pick(free), list = sortedAllowed(a, allowed(a)), k = list.indexOf(st.v[a.id]);
+    let d = Math.random() < 0.5 ? -1 : 1;
+    if (k + d < 0 || k + d >= list.length) d = -d;
+    st.v = withAxis(st.v, a.id, list[k + d]);
+    render();
+  }
+  function setDrift(on) {
+    clearInterval(driftTimer); driftTimer = null;
+    if (on) driftTimer = setInterval(driftStep, 1100);
+    $('drift').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('drift').textContent = on ? 'Drifting' : 'Drift';
+  }
+  function keepThis() {
+    const a = SPACE.rank(st.v).toString();
+    if (!st.keeps.some(k => k.a === a)) st.keeps.unshift({ a, ver: VERSION });
+    render(); drawPile();
+  }
+  function nearKeeps() {
+    if (!st.keeps.length) return;
+    let v = SPACE.unrank(BigInt(pick(st.keeps).a));
+    const count = 2 + Math.floor(Math.random() * 4);
+    for (let k = 0; k < count; k++) {
+      const free = AXES.filter(a => !held(a.id) && SPACE.allowed(a, v).length > 1);
+      if (!free.length) break;
+      const a = pick(free), others = SPACE.allowed(a, v).filter(i => i !== v[a.id]);
+      v = withAxis(v, a.id, pick(others));
+    }
+    setChoices(v);
+  }
+
+  // ---------------------------------------------------------- language
+  function rollLanguage() {
+    st.v = SPACE.normalize(Object.assign({}, st.v, LANGUAGE.roll(pick, st.v)));
+    st.lang = { ids: LANG.slice() };
+    st.auto = null;
+    render();
+  }
+  function holdLanguage() { st.lang = { ids: LANG.slice() }; render(); }
+  function drawLanguage() {
+    const on = !!st.lang;
+    $('lang-free').disabled = !on;
+    $('lang-words').innerHTML = on ? LANGUAGE.describe(st.v).map(w => `<span class="chip word">${esc(w)}</span>`).join('') : '';
+    $('lang-held').innerHTML = on
+      ? st.lang.ids.map(id => { const a = BY[id], al = allowed(a); return notApplicable(a, al) ? '' : `<span class="chip">${esc(a.name)}: ${esc(a.o[st.v[id]])}</span>`; }).join('')
+      : '<span class="chip">No language held</span>';
+  }
+
+  // -------------------------------------------------------------- stage
+  const stageView = () => (st.auto ? st.auto.view : st.dist === 'room' ? T.room : st.view);
+  function drawStage() {
+    const view = stageView();
+    const r = D.parts(st.v, { view, idp: 'm' });
+    $('draw').innerHTML = `<svg ${SVGNS} viewBox="${r.viewBox}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(T.name)}, ${esc(viewName(view))} view"><defs>${r.defs}</defs>${r.body}</svg>`;
+    cur = { box: r.box, view };
+    const note = $('auto-note');
+    note.hidden = !st.auto;
+    if (st.auto) note.textContent = viewName(view) + ' view, for ' + st.auto.name;
+    $('stamp').textContent = D.stamp ? D.stamp(st.v) : '';
+    const lp = $('loupe');
+    lp.hidden = st.dist !== 'loupe';
+    if (!lp.hidden) {
+      const z = D.parts(st.v, { view, idp: 'z' });
+      lp.innerHTML = `<svg ${SVGNS} viewBox="0 0 10 10"><defs>${z.defs}</defs>${z.body}</svg>`;
+    } else lp.innerHTML = '';
+    layoutStage();
+  }
+  function stageGeom() {
+    // the drawing sits above a strip kept for the scale bar and the size stamp
+    const rc = $('stage').getBoundingClientRect(), dr = $('draw').getBoundingClientRect(), b = cur.box;
+    const k = Math.min(dr.width / b[2], dr.height / b[3]) || 1;
+    return { k, ox: (dr.width - b[2] * k) / 2, oy: (dr.height - b[3] * k) / 2, w: rc.width, h: rc.height };
+  }
+  function layoutStage() {
+    if (!cur) return;
+    // the stage takes the shape of the view, within limits
+    const stage = $('stage'), w0 = stage.getBoundingClientRect().width || 358;
+    const maxH = Math.max(160, Math.min(window.innerHeight * 0.42, 460));
+    stage.style.height = Math.round(Math.max(140, Math.min(maxH, w0 * cur.box[3] / cur.box[2])) + 20) + 'px';
+    const g = stageGeom();
+    const steps = [5, 10, 20, 50, 100, 200, 500, 1000, 2000];
+    let mm = steps[0];
+    for (const s of steps) if (s * g.k <= 90) mm = s;
+    const sc = $('scale');
+    sc.firstElementChild.style.width = Math.round(mm * g.k) + 'px';
+    sc.lastElementChild.textContent = mm >= 1000 ? (mm / 1000) + ' m' : mm + ' mm';
+    const lp = $('loupe');
+    if (lp.hidden) return;
+    const R = 66, Z = 4;
+    const x = Math.max(0, Math.min(1, st.loupe[0])) * g.w, y = Math.max(0, Math.min(1, st.loupe[1])) * g.h;
+    lp.style.left = Math.round(x - R) + 'px';
+    lp.style.top = Math.round(y - R) + 'px';
+    const mx = cur.box[0] + (x - g.ox) / g.k, my = cur.box[1] + (y - g.oy) / g.k, half = R / g.k / Z;
+    const svg = lp.firstElementChild;
+    if (svg) svg.setAttribute('viewBox', [mx - half, my - half, 2 * half, 2 * half].map(q => Math.round(q * 100) / 100).join(' '));
+  }
+  function moveLoupe(e) {
+    const rc = $('stage').getBoundingClientRect();
+    st.loupe = [(e.clientX - rc.left) / rc.width, (e.clientY - rc.top) / rc.height];
+    layoutStage();
+  }
+
+  // --------------------------------------------------------------- axes
+  const visible = new Set();
+  let io = null;
+  function buildAxes() {
+    let html = '';
+    for (const d of DIST) {
+      const ax = AXES.filter(a => a.d === d.n);
+      html += `<details class="dist" data-d="${d.n}"${st.open[d.n] ? ' open' : ''}><summary><span class="n">${d.n}</span><span class="name">${esc(d.name)}</span>` +
+        `<span class="at">${esc(d.at)}</span><span class="count">${ax.length} ${ax.length === 1 ? 'axis' : 'axes'}</span></summary>` +
+        `<div class="dist-tools"><button data-holdall="${d.n}">Hold all</button><button data-freeall="${d.n}">Release all</button></div>`;
+      for (const a of ax) {
+        html += `<div class="ax" id="ax-${a.id}" data-id="${a.id}"><div class="ax-head"><div class="ax-name">${esc(a.name)}</div>` +
+          '<div class="stepper"><button class="st" data-step="-1" aria-label="Previous option">&#8249;</button><output class="val"></output><button class="st" data-step="1" aria-label="Next option">&#8250;</button></div>' +
+          '<button class="hold" aria-pressed="false">Hold</button></div>' +
+          `<div class="ax-say">${esc(a.say)}</div>` +
+          '<div class="strip"></div><p class="why" hidden></p>' +
+          (a.sound && D.sound ? '<button class="sound">Hear it</button>' : '') + '</div>';
+      }
+      html += '</details>';
+    }
+    const host = $('tab-axes');
+    host.innerHTML = html;
+    host.addEventListener('click', e => {
+      const t = e.target.closest('button');
+      if (!t) return;
+      if (t.dataset.holdall || t.dataset.freeall) {
+        const d = +(t.dataset.holdall || t.dataset.freeall), on = !!t.dataset.holdall;
+        AXES.filter(a => a.d === d).forEach(a => {
+          if (on) st.holds[a.id] = true;
+          else { delete st.holds[a.id]; if (st.lang) st.lang.ids = st.lang.ids.filter(id => id !== a.id); }
+        });
+        return render();
+      }
+      const row = t.closest('.ax');
+      if (!row) return;
+      const id = row.dataset.id;
+      if (t.classList.contains('st')) return stepAxis(id, +t.dataset.step);
+      if (t.classList.contains('th')) return setAxis(id, +t.dataset.i);
+      if (t.classList.contains('sound')) return playSound(id);
+      if (t.classList.contains('hold')) {
+        if (held(id)) { delete st.holds[id]; if (st.lang) st.lang.ids = st.lang.ids.filter(q => q !== id); } else st.holds[id] = true;
+        return render();
+      }
+    });
+    host.querySelectorAll('details.dist').forEach(d => d.addEventListener('toggle', () => { st.open[d.dataset.d] = d.open; save(); updateStrips(); }));
+    if ('IntersectionObserver' in window) {
+      io = new IntersectionObserver(entries => {
+        for (const en of entries) { if (en.isIntersecting) visible.add(en.target.dataset.id); else visible.delete(en.target.dataset.id); }
+        updateStrips();
+      }, { rootMargin: '200px 0px' });
+      host.querySelectorAll('.ax').forEach(r => io.observe(r));
+    } else AXES.forEach(a => visible.add(a.id));
+  }
+  function updateRows() {
+    for (const a of AXES) {
+      const row = $('ax-' + a.id);
+      if (!row) continue;
+      const al = allowed(a), na = notApplicable(a, al), list = sortedAllowed(a, al), k = list.indexOf(st.v[a.id]);
+      row.classList.toggle('na', na);
+      row.querySelector('.val').innerHTML = na ? 'Not here' : esc(a.o[st.v[a.id]]) + optionTags(a, st.v[a.id]);
+      const sb = row.querySelectorAll('.st');
+      sb[0].disabled = na || k <= 0;
+      sb[1].disabled = na || k >= list.length - 1;
+      const hb = row.querySelector('.hold'), h = held(a.id);
+      hb.setAttribute('aria-pressed', h ? 'true' : 'false');
+      hb.textContent = h ? 'Held' : 'Hold';
+      hb.disabled = na;
+      const why = row.querySelector('.why');
+      why.hidden = !na;
+      if (na) why.textContent = a.why || '';
+      row.querySelector('.strip').hidden = na;
+      const snd = row.querySelector('.sound');
+      if (snd) snd.hidden = na;
+    }
+  }
+  // Strips are drawn only when they are on screen, in low detail.
+  function updateStrips() {
+    for (const id of visible) {
+      const a = BY[id], row = $('ax-' + id);
+      if (!row || !row.offsetParent) continue;
+      const al = allowed(a);
+      if (notApplicable(a, al)) continue;
+      const strip = row.querySelector('.strip');
+      const key = AXES.map(x => (x.id === id ? '' : st.v[x.id])).join(',');
+      if (strip.dataset.key !== key) {
+        const spec = thumbSpec(a), list = sortedAllowed(a, al);
+        let html = '';
+        for (const i of list) {
+          html += thumb(withAxis(st.v, id, i), spec, a.o[i],
+            (a.nw && a.nw.indexOf(i) >= 0 ? 'new ' : '') + (a.ex && a.ex.indexOf(i) >= 0 ? 'ex ' : ''), `data-i="${i}"`);
+        }
+        if (list.length < a.o.length) {
+          html += `<span class="more">${a.o.length - list.length} more with another ${esc(a.on.map(c => BY[c].name).join(' or '))}</span>`;
+        }
+        strip.innerHTML = html;
+        strip.dataset.key = key;
+      }
+      let onEl = null;
+      strip.querySelectorAll('.th').forEach(b => { const on = +b.dataset.i === st.v[id]; b.classList.toggle('on', on); if (on) onEl = b; });
+      if (onEl && (onEl.offsetLeft < strip.scrollLeft || onEl.offsetLeft + onEl.offsetWidth > strip.scrollLeft + strip.clientWidth)) {
+        strip.scrollLeft = onEl.offsetLeft - (strip.clientWidth - onEl.offsetWidth) / 2;
+      }
+    }
+  }
+
+  // -------------------------------------------------------------- sheet
+  function buildSheetPickers() {
+    const opts = DIST.map(d => `<optgroup label="${d.n} ${esc(d.name)}">` + AXES.filter(a => a.d === d.n).map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('') + '</optgroup>').join('');
+    ['sheet-a', 'sheet-b'].forEach((id, k) => {
+      const s = $(id);
+      s.innerHTML = opts; s.value = st.sheet[k];
+      s.addEventListener('change', () => { st.sheet[k] = s.value; $('sheet-grid').dataset.key = ''; render(); });
+    });
+    $('sheet-grid').addEventListener('click', e => {
+      const t = e.target.closest('.th');
+      if (!t) return;
+      const p = Object.assign({}, st.v);
+      p[st.sheet[0]] = +t.dataset.i; p[st.sheet[1]] = +t.dataset.j;
+      setChoices(p);
+    });
+  }
+  function drawSheet() {
+    const host = $('sheet-grid'), A = BY[st.sheet[0]], B = BY[st.sheet[1]];
+    if (A.id === B.id) { host.innerHTML = '<p class="empty" style="margin:8px">Pick two different axes.</p>'; host.dataset.key = ''; return; }
+    const key = AXES.map(x => (x.id === A.id || x.id === B.id ? '' : st.v[x.id])).join(',') + '|' + A.id + '|' + B.id;
+    if (host.dataset.key !== key) {
+      const la = A.look || { v: T.main }, lb = B.look || { v: T.main };
+      const spec = la.v === lb.v && la.at === lb.at ? thumbSpec(A) : thumbSpec({ look: { v: la.v } });
+      const cell = { o: spec.o, w: Math.round(spec.w * 0.8), h: Math.round(spec.h * 0.8) };
+      let html = '<table class="grid"><thead><tr><th></th>' + ORDER[B.id].map(j => `<th>${esc(B.o[j])}</th>`).join('') + '</tr></thead><tbody>';
+      for (const i of ORDER[A.id]) {
+        html += `<tr><th>${esc(A.o[i])}</th>`;
+        for (const j of ORDER[B.id]) {
+          const p = Object.assign({}, st.v);
+          p[A.id] = i; p[B.id] = j;
+          const q = SPACE.normalize(p);
+          html += '<td>' + (q[A.id] === i && q[B.id] === j ? thumb(q, cell, A.o[i] + ', ' + B.o[j], '', `data-i="${i}" data-j="${j}"`) : '') + '</td>';
+        }
+        html += '</tr>';
+      }
+      host.innerHTML = html + '</tbody></table>';
+      host.dataset.key = key;
+    }
+    host.querySelectorAll('.th').forEach(b => b.classList.toggle('on', +b.dataset.i === st.v[A.id] && +b.dataset.j === st.v[B.id]));
+  }
+
+  // -------------------------------------------------------------- keeps
+  function drawPile() {
+    const host = $('pile'), base = T.thumbs[T.main], spec = { o: base.o, w: 104, h: Math.round(104 * base.h / base.w) };
+    $('keep-count').textContent = st.keeps.length ? '(' + st.keeps.length + ')' : '';
+    $('near').disabled = !st.keeps.length;
+    if (!st.keeps.length) { host.innerHTML = '<p class="empty">Nothing kept yet. Keep one and it lands here.</p>'; host.className = ''; return; }
+    host.className = 'pile';
+    const now = SPACE.rank(st.v).toString();
+    host.innerHTML = st.keeps.map((k, n) => '<div class="kept">' +
+      thumb(SPACE.unrank(BigInt(k.a)), spec, 'Go to kept number ' + (n + 1), k.a === now ? 'on' : '', `data-go="${k.a}"`).replace(/<span>.*?<\/span>/, '') +
+      `<small>${k.a.length > 14 ? k.a.slice(0, 7) + '…' + k.a.slice(-5) : k.a}</small><button class="rm" data-rm="${k.a}">Remove</button></div>`).join('');
+  }
+
+  // -------------------------------------------------------------- sound
+  let actx = null;
+  function playSound(id) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || !D.sound) return;
+    try {
+      actx = actx || new AC();
+      if (actx.state === 'suspended') actx.resume();
+      D.sound(id, st.v, actx);
+    } catch (e) { /* sound is optional */ }
+  }
+
+  // ------------------------------------------------------------- render
+  let pending = false;
+  function render() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => { pending = false; paint(); });
+  }
+  function paint() {
+    drawStage();
+    if (!editing) { $('addr').value = SPACE.rank(st.v).toString(); $('go').hidden = true; $('addr-msg').hidden = true; }
+    document.querySelectorAll('[data-dist]').forEach(b => b.setAttribute('aria-pressed', b.dataset.dist === st.dist ? 'true' : 'false'));
+    document.querySelectorAll('[data-view]').forEach(b => { b.setAttribute('aria-pressed', !st.auto && st.dist !== 'room' && b.dataset.view === st.view ? 'true' : 'false'); });
+    updateRows();
+    updateStrips();
+    if (st.tab === 'sheet') drawSheet();
+    if (st.tab === 'lang') drawLanguage();
+    if (st.tab === 'keeps') drawPile(); else { $('keep-count').textContent = st.keeps.length ? '(' + st.keeps.length + ')' : ''; }
+    save();
+  }
+  function showTab(tab) {
+    st.tab = tab;
+    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'));
+    ['axes', 'sheet', 'lang', 'keeps'].forEach(t => { $('tab-' + t).hidden = t !== tab; });
+    render();
+  }
+  function goTyped() {
+    const raw = $('addr').value.replace(/[\s,._]/g, ''), msg = $('addr-msg');
+    if (!/^\d+$/.test(raw) || BigInt(raw) >= SPACE.total) {
+      msg.textContent = 'Type a whole number from 0 to ' + (SPACE.total - 1n).toString() + '.';
+      msg.hidden = false;
+      return;
+    }
+    editing = false;
+    $('addr').blur();
+    setChoices(SPACE.unrank(BigInt(raw)));
+  }
+
+  // --------------------------------------------------------------- boot
+  function start() {
+    load();
+    const total = SPACE.total.toString();
+    $('thing-name').textContent = T.name;
+    $('total-short').innerHTML = total[0] + '.' + total[1] + ' × 10<sup>' + (total.length - 1) + '</sup>';
+    $('total-full').textContent = total;
+    $('ver').textContent = VERSION;
+    $('about-what').textContent = 'Every possible ' + T.one + ' this page can say, written as ' + AXES.length + ' choices and the rules about which choices fit together. Every valid set of choices has a whole number. Nothing is stored: a ' + T.one + ' is drawn when you land on its number.';
+    $('about-odd').textContent = 'Nothing here is ranked or filtered. Odd ' + T.many + ' are part of the space. Whether one can be made, what it costs and whether it is good are left to you.';
+    $('about-notes').innerHTML = ['Choices are sorted by the distance at which you notice them, from the silhouette down to the sound.',
+      '<span class="tag new">new</span> marks an option not in current practice. <span class="tag ex">extreme</span> marks one outside the ordinary range. Both are from memory, unverified.']
+      .concat(T.notes.map(esc), ['Kept ' + esc(T.many) + ' and holds are saved on this device only.']).map(t => '<li>' + t + '</li>').join('');
+    $('keeps-what').textContent = 'A pile of ' + T.many + ' you kept, saved on this device. Near my keeps starts from one of them and changes two to five choices.';
+    $('lang-agree').innerHTML = LANGUAGE.agreements.map(t => '<li>' + esc(t) + '</li>').join('');
+    $('views').innerHTML = T.views.map(v => `<button data-view="${v[0]}" aria-pressed="false">${esc(v[1])}</button>`).join('');
+    buildAxes();
+    buildSheetPickers();
+
+    $('about-btn').addEventListener('click', () => { const a = $('about'); a.hidden = !a.hidden; $('about-btn').setAttribute('aria-expanded', a.hidden ? 'false' : 'true'); });
+    document.querySelectorAll('[data-dist]').forEach(b => b.addEventListener('click', () => { st.dist = b.dataset.dist; st.auto = null; render(); }));
+    document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { st.view = b.dataset.view; st.auto = null; if (st.dist === 'room') st.dist = 'arm'; render(); }));
+    document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    const stepAddr = d => { const t = SPACE.total; editing = false; setChoices(SPACE.unrank(((SPACE.rank(st.v) + d) % t + t) % t)); };
+    $('prev').addEventListener('click', () => stepAddr(-1n));
+    $('next').addEventListener('click', () => stepAddr(1n));
+    $('anywhere').addEventListener('click', () => { editing = false; anywhere(); });
+    $('drift').addEventListener('click', () => setDrift(!driftTimer));
+    $('keep').addEventListener('click', keepThis);
+    $('keep2').addEventListener('click', keepThis);
+    $('near').addEventListener('click', nearKeeps);
+    $('reset').addEventListener('click', () => { editing = false; setChoices(SPACE.unrank(0n)); });
+    $('reset').title = 'Number 0, the most ordinary one';
+    $('lang-roll').addEventListener('click', rollLanguage);
+    $('lang-keep').addEventListener('click', holdLanguage);
+    $('lang-free').addEventListener('click', () => { st.lang = null; render(); });
+    $('pile').addEventListener('click', e => {
+      const t = e.target.closest('button');
+      if (!t) return;
+      if (t.dataset.go) setChoices(SPACE.unrank(BigInt(t.dataset.go)));
+      if (t.dataset.rm) { st.keeps = st.keeps.filter(k => k.a !== t.dataset.rm); render(); drawPile(); }
+    });
+    const addr = $('addr');
+    addr.addEventListener('focus', () => { addr.select(); });
+    addr.addEventListener('input', () => { editing = true; $('go').hidden = false; $('addr-msg').hidden = true; });
+    addr.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); goTyped(); }
+      if (e.key === 'Escape') { editing = false; addr.blur(); render(); }
+    });
+    $('go').addEventListener('click', goTyped);
+
+    const lp = $('loupe'), stage = $('stage');
+    let dragging = false;
+    const down = e => { if (st.dist !== 'loupe') return; dragging = true; try { lp.setPointerCapture(e.pointerId); } catch (x) { /* fine */ } moveLoupe(e); e.preventDefault(); };
+    lp.addEventListener('pointerdown', down);
+    stage.addEventListener('pointerdown', e => { if (st.dist === 'loupe' && e.target !== lp) { moveLoupe(e); save(); } });
+    lp.addEventListener('pointermove', e => { if (dragging) moveLoupe(e); });
+    const up = () => { if (dragging) { dragging = false; save(); } };
+    lp.addEventListener('pointerup', up);
+    lp.addEventListener('pointercancel', up);
+    window.addEventListener('resize', layoutStage);
+    document.addEventListener('visibilitychange', () => { if (document.hidden && driftTimer) setDrift(false); });
+    window.addEventListener('hashchange', () => {
+      const m = /^#n(\d+)$/.exec(location.hash || '');
+      if (m && BigInt(m[1]) < SPACE.total && m[1] !== SPACE.rank(st.v).toString()) setChoices(SPACE.unrank(BigInt(m[1])));
+    });
+    showTab(st.tab);
+  }
+  window.FS_UI = { state: st, render, setChoices };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "version": "car-1.0",
+  "identical": true,
+  "axes": 118,
+  "options": 531,
+  "total": "4966493480425514757340351093493613091989119356108800000000000000000000000",
+  "digits": 73,
+  "tests": {
+    "roundTripBad": 0,
+    "normalizeBad": 0,
+    "edgesOk": true
+  },
+  "pass": true
+}
