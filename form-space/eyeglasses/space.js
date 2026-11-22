@@ -259,7 +259,7 @@
       [['straight', 'Straight'], ['arched', 'Arched'], ['dropped', 'Dropped'], ['stepped', 'Stepped']],
       Object.assign({ look: { v: 'side' } }, needTemples)),
     K('tcol', 'Temple colour', 2, 'Temples like the front, or set against it.',
-      [['same', 'Same as the front'], ['metal', 'Hardware metal'], ['contrast', 'Contrast tone'], ['black', 'Black']],
+      [['same', 'Same as the front'], ['metal', 'Hardware metal'], ['contrast', 'Contrast tone'], ['tips', 'Contrast tips']],
       Object.assign({ lang: true, look: { v: 'side' } }, needTemples)),
     Q('tintd', 'Tint density', 2, 'How dark the lenses are.',
       [0, 0.1, 0.25, 0.5, 0.75, 0.9], x => (x ? pct(x) : 'Clear'), { look: { v: 'front', at: 'lensR', w: 84 } }),
@@ -325,7 +325,7 @@
       [['matte', 'Matte'], ['polished', 'Polished'], ['faceted', 'Faceted']],
       {
         on: ['rim'], when: v => (v.rim >= RIM.browcord ? null : NA),
-        why: 'The lens edge shows only where no rim covers it.', look: { v: 'front', at: 'lensR', w: 70 }
+        why: 'The lens edge shows only where no rim covers it.', look: { v: 'front', at: 'lensLow', w: 44 }
       }),
     Q('lthick', 'Lens edge thickness', 3, 'Thickness of the lens at its edge, seen from above.',
       [2, 1.2, 3.5, 5.5, 8], mm, { look: { v: 'top', at: 'lensR', w: 70 } }),
@@ -411,9 +411,9 @@
       [['none', 'None'], ['open', 'Open-ear speakers'], ['bone', 'Bone conduction']],
       Object.assign({ look: { v: 'side', at: 'mid', w: 120 } }, needTemples)),
     K('disp', 'Display', 5, 'A display in the lens.',
-      [['none', 'None'], ['one', 'One eye'], ['both', 'Both eyes']], { look: { v: 'front', at: 'lensR', w: 90 } }),
+      [['none', 'None'], ['one', 'One eye'], ['both', 'Both eyes']], { look: { v: 'front', at: 'face', w: 170 } }),
     K('cam', 'Camera', 5, 'A camera at the corner of the front.',
-      [['none', 'None'], ['one', 'One corner'], ['both', 'Both corners']], { look: { v: 'front', at: 'endR', w: 44 } }),
+      [['none', 'None'], ['one', 'One corner'], ['both', 'Both corners']], { look: { v: 'front', at: 'face', w: 170 } }),
     K('vent', 'Lens vents', 5, 'Openings in the lens to let air through.',
       [['none', 'None'], ['slots', 'Slots at the top'], ['holes', 'Holes at the side']],
       { look: { v: 'front', at: 'lensR', w: 84 } }),

@@ -1,0 +1,2993 @@
+{
+ "version": "eyeglasses-1.0",
+ "when": "2026-11-22T20:00:23.855Z",
+ "random": {
+  "addresses": 3000,
+  "drawings": 24000,
+  "failures": [],
+  "ms": 10275
+ },
+ "xml": {
+  "parsed": 4000,
+  "bad": []
+ },
+ "identical": {
+  "compared": 339,
+  "flagged": [],
+  "faint": [],
+  "errors": [],
+  "unreachable": []
+ },
+ "options": [
+  {
+   "axis": "lenses",
+   "option": "One shield",
+   "against": "Two lenses",
+   "pixels": 760,
+   "share": 5.213,
+   "max": 224
+  },
+  {
+   "axis": "lw",
+   "option": "40 mm",
+   "against": "50 mm",
+   "pixels": 1350,
+   "share": 9.259,
+   "max": 224
+  },
+  {
+   "axis": "lw",
+   "option": "44 mm",
+   "against": "50 mm",
+   "pixels": 1170,
+   "share": 8.025,
+   "max": 224
+  },
+  {
+   "axis": "lw",
+   "option": "47 mm",
+   "against": "50 mm",
+   "pixels": 873,
+   "share": 5.988,
+   "max": 222
+  },
+  {
+   "axis": "lw",
+   "option": "53 mm",
+   "against": "50 mm",
+   "pixels": 867,
+   "share": 5.947,
+   "max": 224
+  },
+  {
+   "axis": "lw",
+   "option": "56 mm",
+   "against": "50 mm",
+   "pixels": 1204,
+   "share": 8.258,
+   "max": 224
+  },
+  {
+   "axis": "lw",
+   "option": "59 mm",
+   "against": "50 mm",
+   "pixels": 1402,
+   "share": 9.616,
+   "max": 223
+  },
+  {
+   "axis": "lw",
+   "option": "62 mm",
+   "against": "50 mm",
+   "pixels": 1492,
+   "share": 10.233,
+   "max": 223
+  },
+  {
+   "axis": "lw",
+   "option": "34 mm",
+   "against": "50 mm",
+   "pixels": 1447,
+   "share": 9.925,
+   "max": 224
+  },
+  {
+   "axis": "lw",
+   "option": "70 mm",
+   "against": "50 mm",
+   "pixels": 1723,
+   "share": 11.818,
+   "max": 224
+  },
+  {
+   "axis": "lh",
+   "option": "25 mm",
+   "against": "38 mm",
+   "pixels": 1987,
+   "share": 13.628,
+   "max": 225
+  },
+  {
+   "axis": "lh",
+   "option": "29 mm",
+   "against": "38 mm",
+   "pixels": 1805,
+   "share": 12.38,
+   "max": 225
+  },
+  {
+   "axis": "lh",
+   "option": "33 mm",
+   "against": "38 mm",
+   "pixels": 1419,
+   "share": 9.733,
+   "max": 224
+  },
+  {
+   "axis": "lh",
+   "option": "42 mm",
+   "against": "38 mm",
+   "pixels": 1303,
+   "share": 8.937,
+   "max": 219
+  },
+  {
+   "axis": "lh",
+   "option": "46 mm",
+   "against": "38 mm",
+   "pixels": 1749,
+   "share": 11.996,
+   "max": 225
+  },
+  {
+   "axis": "lh",
+   "option": "50 mm",
+   "against": "38 mm",
+   "pixels": 2052,
+   "share": 14.074,
+   "max": 225
+  },
+  {
+   "axis": "lh",
+   "option": "55 mm",
+   "against": "38 mm",
+   "pixels": 2238,
+   "share": 15.35,
+   "max": 225
+  },
+  {
+   "axis": "lh",
+   "option": "18 mm",
+   "against": "38 mm",
+   "pixels": 2113,
+   "share": 14.492,
+   "max": 225
+  },
+  {
+   "axis": "lh",
+   "option": "62 mm",
+   "against": "38 mm",
+   "pixels": 2396,
+   "share": 16.433,
+   "max": 225
+  },
+  {
+   "axis": "sides",
+   "option": "Two",
+   "against": "Four",
+   "pixels": 1539,
+   "share": 10.556,
+   "max": 224
+  },
+  {
+   "axis": "sides",
+   "option": "Three",
+   "against": "Four",
+   "pixels": 1324,
+   "share": 9.081,
+   "max": 224
+  },
+  {
+   "axis": "sides",
+   "option": "Five",
+   "against": "Four",
+   "pixels": 1236,
+   "share": 8.477,
+   "max": 224
+  },
+  {
+   "axis": "sides",
+   "option": "Six",
+   "against": "Four",
+   "pixels": 1179,
+   "share": 8.086,
+   "max": 224
+  },
+  {
+   "axis": "sides",
+   "option": "Eight",
+   "against": "Four",
+   "pixels": 1128,
+   "share": 7.737,
+   "max": 223
+  },
+  {
+   "axis": "soft",
+   "option": "100%",
+   "against": "60%",
+   "pixels": 1226,
+   "share": 8.409,
+   "max": 223
+  },
+  {
+   "axis": "soft",
+   "option": "80%",
+   "against": "60%",
+   "pixels": 1139,
+   "share": 7.812,
+   "max": 224
+  },
+  {
+   "axis": "soft",
+   "option": "40%",
+   "against": "60%",
+   "pixels": 1141,
+   "share": 7.826,
+   "max": 224
+  },
+  {
+   "axis": "soft",
+   "option": "20%",
+   "against": "60%",
+   "pixels": 1251,
+   "share": 8.58,
+   "max": 225
+  },
+  {
+   "axis": "soft",
+   "option": "5%",
+   "against": "60%",
+   "pixels": 1337,
+   "share": 9.17,
+   "max": 224
+  },
+  {
+   "axis": "taper",
+   "option": "Brow wider 6%",
+   "against": "Even",
+   "pixels": 722,
+   "share": 4.952,
+   "max": 157
+  },
+  {
+   "axis": "taper",
+   "option": "Brow wider 12%",
+   "against": "Even",
+   "pixels": 944,
+   "share": 6.475,
+   "max": 223
+  },
+  {
+   "axis": "taper",
+   "option": "Brow wider 20%",
+   "against": "Even",
+   "pixels": 1127,
+   "share": 7.73,
+   "max": 221
+  },
+  {
+   "axis": "taper",
+   "option": "Cheek wider 8%",
+   "against": "Even",
+   "pixels": 864,
+   "share": 5.926,
+   "max": 183
+  },
+  {
+   "axis": "droop",
+   "option": "8%",
+   "against": "None",
+   "pixels": 344,
+   "share": 2.359,
+   "max": 105
+  },
+  {
+   "axis": "droop",
+   "option": "16%",
+   "against": "None",
+   "pixels": 555,
+   "share": 3.807,
+   "max": 157
+  },
+  {
+   "axis": "droop",
+   "option": "26%",
+   "against": "None",
+   "pixels": 645,
+   "share": 4.424,
+   "max": 220
+  },
+  {
+   "axis": "droop",
+   "option": "40%",
+   "against": "None",
+   "pixels": 802,
+   "share": 5.501,
+   "max": 223
+  },
+  {
+   "axis": "sweep",
+   "option": "Up 10%",
+   "against": "None",
+   "pixels": 542,
+   "share": 3.717,
+   "max": 197
+  },
+  {
+   "axis": "sweep",
+   "option": "Up 20%",
+   "against": "None",
+   "pixels": 874,
+   "share": 5.995,
+   "max": 217
+  },
+  {
+   "axis": "sweep",
+   "option": "Up 35%",
+   "against": "None",
+   "pixels": 1260,
+   "share": 8.642,
+   "max": 223
+  },
+  {
+   "axis": "sweep",
+   "option": "Up 55%",
+   "against": "None",
+   "pixels": 1603,
+   "share": 10.995,
+   "max": 224
+  },
+  {
+   "axis": "sweep",
+   "option": "Down 15%",
+   "against": "None",
+   "pixels": 604,
+   "share": 4.143,
+   "max": 220
+  },
+  {
+   "axis": "brow",
+   "option": "Flatter",
+   "against": "Natural",
+   "pixels": 308,
+   "share": 2.112,
+   "max": 130
+  },
+  {
+   "axis": "brow",
+   "option": "Flat",
+   "against": "Natural",
+   "pixels": 407,
+   "share": 2.791,
+   "max": 194
+  },
+  {
+   "axis": "brow",
+   "option": "Arched",
+   "against": "Natural",
+   "pixels": 389,
+   "share": 2.668,
+   "max": 141
+  },
+  {
+   "axis": "ncut",
+   "option": "8%",
+   "against": "None",
+   "pixels": 531,
+   "share": 3.642,
+   "max": 223
+  },
+  {
+   "axis": "ncut",
+   "option": "16%",
+   "against": "None",
+   "pixels": 718,
+   "share": 4.925,
+   "max": 224
+  },
+  {
+   "axis": "ncut",
+   "option": "26%",
+   "against": "None",
+   "pixels": 850,
+   "share": 5.83,
+   "max": 225
+  },
+  {
+   "axis": "tilt",
+   "option": "Outer up 5°",
+   "against": "Level",
+   "pixels": 870,
+   "share": 5.967,
+   "max": 165
+  },
+  {
+   "axis": "tilt",
+   "option": "Outer up 10°",
+   "against": "Level",
+   "pixels": 1113,
+   "share": 7.634,
+   "max": 223
+  },
+  {
+   "axis": "tilt",
+   "option": "Outer down 5°",
+   "against": "Level",
+   "pixels": 861,
+   "share": 5.905,
+   "max": 170
+  },
+  {
+   "axis": "tilt",
+   "option": "Outer down 10°",
+   "against": "Level",
+   "pixels": 1122,
+   "share": 7.695,
+   "max": 222
+  },
+  {
+   "axis": "dbl",
+   "option": "14 mm",
+   "against": "18 mm",
+   "pixels": 1210,
+   "share": 8.299,
+   "max": 223
+  },
+  {
+   "axis": "dbl",
+   "option": "16 mm",
+   "against": "18 mm",
+   "pixels": 986,
+   "share": 6.763,
+   "max": 171
+  },
+  {
+   "axis": "dbl",
+   "option": "20 mm",
+   "against": "18 mm",
+   "pixels": 996,
+   "share": 6.831,
+   "max": 174
+  },
+  {
+   "axis": "dbl",
+   "option": "22 mm",
+   "against": "18 mm",
+   "pixels": 1223,
+   "share": 8.388,
+   "max": 220
+  },
+  {
+   "axis": "dbl",
+   "option": "24 mm",
+   "against": "18 mm",
+   "pixels": 1434,
+   "share": 9.835,
+   "max": 223
+  },
+  {
+   "axis": "dbl",
+   "option": "10 mm",
+   "against": "18 mm",
+   "pixels": 1591,
+   "share": 10.912,
+   "max": 223
+  },
+  {
+   "axis": "dbl",
+   "option": "30 mm",
+   "against": "18 mm",
+   "pixels": 1921,
+   "share": 13.176,
+   "max": 224
+  },
+  {
+   "axis": "wrap",
+   "option": "0°",
+   "against": "5°",
+   "pixels": 1150,
+   "share": 3.363,
+   "max": 225
+  },
+  {
+   "axis": "wrap",
+   "option": "10°",
+   "against": "5°",
+   "pixels": 1409,
+   "share": 4.12,
+   "max": 229
+  },
+  {
+   "axis": "wrap",
+   "option": "15°",
+   "against": "5°",
+   "pixels": 2009,
+   "share": 5.874,
+   "max": 228
+  },
+  {
+   "axis": "wrap",
+   "option": "20°",
+   "against": "5°",
+   "pixels": 2251,
+   "share": 6.582,
+   "max": 230
+  },
+  {
+   "axis": "wrap",
+   "option": "28°",
+   "against": "5°",
+   "pixels": 2543,
+   "share": 7.436,
+   "max": 229
+  },
+  {
+   "axis": "base",
+   "option": "Flat",
+   "against": "Base 4",
+   "pixels": 495,
+   "share": 1.447,
+   "max": 216
+  },
+  {
+   "axis": "base",
+   "option": "Base 2",
+   "against": "Base 4",
+   "pixels": 397,
+   "share": 1.161,
+   "max": 119
+  },
+  {
+   "axis": "base",
+   "option": "Base 6",
+   "against": "Base 4",
+   "pixels": 927,
+   "share": 2.711,
+   "max": 175
+  },
+  {
+   "axis": "base",
+   "option": "Base 8",
+   "against": "Base 4",
+   "pixels": 1127,
+   "share": 3.295,
+   "max": 222
+  },
+  {
+   "axis": "panto",
+   "option": "0°",
+   "against": "8°",
+   "pixels": 758,
+   "share": 3.899,
+   "max": 226
+  },
+  {
+   "axis": "panto",
+   "option": "4°",
+   "against": "8°",
+   "pixels": 629,
+   "share": 3.236,
+   "max": 226
+  },
+  {
+   "axis": "panto",
+   "option": "12°",
+   "against": "8°",
+   "pixels": 605,
+   "share": 3.112,
+   "max": 226
+  },
+  {
+   "axis": "panto",
+   "option": "18°",
+   "against": "8°",
+   "pixels": 864,
+   "share": 4.444,
+   "max": 226
+  },
+  {
+   "axis": "fthick",
+   "option": "1 mm",
+   "against": "4 mm",
+   "pixels": 1048,
+   "share": 3.064,
+   "max": 228
+  },
+  {
+   "axis": "fthick",
+   "option": "2.5 mm",
+   "against": "4 mm",
+   "pixels": 873,
+   "share": 2.553,
+   "max": 195
+  },
+  {
+   "axis": "fthick",
+   "option": "6 mm",
+   "against": "4 mm",
+   "pixels": 939,
+   "share": 2.746,
+   "max": 221
+  },
+  {
+   "axis": "fthick",
+   "option": "9 mm",
+   "against": "4 mm",
+   "pixels": 1362,
+   "share": 3.982,
+   "max": 229
+  },
+  {
+   "axis": "hold",
+   "option": "Nose clip only",
+   "against": "Temples",
+   "pixels": 805,
+   "share": 4.141,
+   "max": 226
+  },
+  {
+   "axis": "hold",
+   "option": "Strap band",
+   "against": "Temples",
+   "pixels": 2361,
+   "share": 12.145,
+   "max": 226
+  },
+  {
+   "axis": "hold",
+   "option": "Hand-held handle",
+   "against": "Temples",
+   "pixels": 22320,
+   "share": 114.815,
+   "max": 255
+  },
+  {
+   "axis": "epos",
+   "option": "Top",
+   "against": "Upper third",
+   "pixels": 154,
+   "share": 1.056,
+   "max": 220
+  },
+  {
+   "axis": "epos",
+   "option": "Middle",
+   "against": "Upper third",
+   "pixels": 148,
+   "share": 1.015,
+   "max": 220
+  },
+  {
+   "axis": "epos",
+   "option": "Low",
+   "against": "Upper third",
+   "pixels": 14760,
+   "share": 101.235,
+   "max": 255
+  },
+  {
+   "axis": "endr",
+   "option": "0 mm",
+   "against": "3 mm",
+   "pixels": 70,
+   "share": 0.48,
+   "max": 220
+  },
+  {
+   "axis": "endr",
+   "option": "6 mm",
+   "against": "3 mm",
+   "pixels": 64,
+   "share": 0.439,
+   "max": 220
+  },
+  {
+   "axis": "endr",
+   "option": "10 mm",
+   "against": "3 mm",
+   "pixels": 128,
+   "share": 0.878,
+   "max": 220
+  },
+  {
+   "axis": "endr",
+   "option": "15 mm",
+   "against": "3 mm",
+   "pixels": 196,
+   "share": 1.344,
+   "max": 220
+  },
+  {
+   "axis": "tlen",
+   "option": "130 mm",
+   "against": "140 mm",
+   "pixels": 428,
+   "share": 2.202,
+   "max": 226
+  },
+  {
+   "axis": "tlen",
+   "option": "135 mm",
+   "against": "140 mm",
+   "pixels": 310,
+   "share": 1.595,
+   "max": 229
+  },
+  {
+   "axis": "tlen",
+   "option": "145 mm",
+   "against": "140 mm",
+   "pixels": 343,
+   "share": 1.764,
+   "max": 229
+  },
+  {
+   "axis": "tlen",
+   "option": "150 mm",
+   "against": "140 mm",
+   "pixels": 425,
+   "share": 2.186,
+   "max": 226
+  },
+  {
+   "axis": "tlen",
+   "option": "155 mm",
+   "against": "140 mm",
+   "pixels": 462,
+   "share": 2.377,
+   "max": 229
+  },
+  {
+   "axis": "tbend",
+   "option": "Straight",
+   "against": "Drop 45°",
+   "pixels": 364,
+   "share": 1.872,
+   "max": 226
+  },
+  {
+   "axis": "tbend",
+   "option": "Drop 25°",
+   "against": "Drop 45°",
+   "pixels": 361,
+   "share": 1.857,
+   "max": 226
+  },
+  {
+   "axis": "tbend",
+   "option": "Drop 70°",
+   "against": "Drop 45°",
+   "pixels": 426,
+   "share": 2.191,
+   "max": 229
+  },
+  {
+   "axis": "tbend",
+   "option": "Full curl",
+   "against": "Drop 45°",
+   "pixels": 362,
+   "share": 1.862,
+   "max": 226
+  },
+  {
+   "axis": "sit",
+   "option": "High",
+   "against": "On the bridge",
+   "pixels": 2421,
+   "share": 6.114,
+   "max": 216
+  },
+  {
+   "axis": "sit",
+   "option": "Down the nose",
+   "against": "On the bridge",
+   "pixels": 2573,
+   "share": 6.497,
+   "max": 215
+  },
+  {
+   "axis": "topline",
+   "option": "One straight line",
+   "against": "Follows the lenses",
+   "pixels": 583,
+   "share": 3.999,
+   "max": 200
+  },
+  {
+   "axis": "topline",
+   "option": "One arc",
+   "against": "Follows the lenses",
+   "pixels": 638,
+   "share": 4.376,
+   "max": 200
+  },
+  {
+   "axis": "topline",
+   "option": "Dips at the centre",
+   "against": "Follows the lenses",
+   "pixels": 557,
+   "share": 3.82,
+   "max": 200
+  },
+  {
+   "axis": "rim",
+   "option": "Brow, wire below",
+   "against": "Full rim",
+   "pixels": 2026,
+   "share": 3.474,
+   "max": 225
+  },
+  {
+   "axis": "rim",
+   "option": "Brow, cord below",
+   "against": "Full rim",
+   "pixels": 2200,
+   "share": 3.772,
+   "max": 225
+  },
+  {
+   "axis": "rim",
+   "option": "Lower rim only",
+   "against": "Full rim",
+   "pixels": 3026,
+   "share": 5.189,
+   "max": 222
+  },
+  {
+   "axis": "rim",
+   "option": "Rimless",
+   "against": "Full rim",
+   "pixels": 5386,
+   "share": 9.235,
+   "max": 225
+  },
+  {
+   "axis": "rimt",
+   "option": "0.9 mm",
+   "against": "3 mm",
+   "pixels": 3815,
+   "share": 6.541,
+   "max": 225
+  },
+  {
+   "axis": "rimt",
+   "option": "1.6 mm",
+   "against": "3 mm",
+   "pixels": 3042,
+   "share": 5.216,
+   "max": 225
+  },
+  {
+   "axis": "rimt",
+   "option": "2.2 mm",
+   "against": "3 mm",
+   "pixels": 2859,
+   "share": 4.902,
+   "max": 205
+  },
+  {
+   "axis": "rimt",
+   "option": "4.5 mm",
+   "against": "3 mm",
+   "pixels": 4114,
+   "share": 7.054,
+   "max": 226
+  },
+  {
+   "axis": "rimt",
+   "option": "6.5 mm",
+   "against": "3 mm",
+   "pixels": 6098,
+   "share": 10.456,
+   "max": 226
+  },
+  {
+   "axis": "rimt",
+   "option": "9 mm",
+   "against": "3 mm",
+   "pixels": 9683,
+   "share": 16.603,
+   "max": 226
+  },
+  {
+   "axis": "rimt",
+   "option": "12 mm",
+   "against": "3 mm",
+   "pixels": 13402,
+   "share": 22.98,
+   "max": 226
+  },
+  {
+   "axis": "rbrow",
+   "option": "Brow ×1.5",
+   "against": "Even",
+   "pixels": 1438,
+   "share": 2.466,
+   "max": 192
+  },
+  {
+   "axis": "rbrow",
+   "option": "Brow ×2.2",
+   "against": "Even",
+   "pixels": 2273,
+   "share": 3.897,
+   "max": 216
+  },
+  {
+   "axis": "rbrow",
+   "option": "Brow ×3",
+   "against": "Even",
+   "pixels": 3683,
+   "share": 6.315,
+   "max": 222
+  },
+  {
+   "axis": "rbrow",
+   "option": "Lower ×1.5",
+   "against": "Even",
+   "pixels": 1416,
+   "share": 2.428,
+   "max": 226
+  },
+  {
+   "axis": "rcorner",
+   "option": "+30%",
+   "against": "None",
+   "pixels": 3196,
+   "share": 3.73,
+   "max": 233
+  },
+  {
+   "axis": "rcorner",
+   "option": "+70%",
+   "against": "None",
+   "pixels": 5100,
+   "share": 5.952,
+   "max": 234
+  },
+  {
+   "axis": "rcorner",
+   "option": "+120%",
+   "against": "None",
+   "pixels": 6253,
+   "share": 7.298,
+   "max": 234
+  },
+  {
+   "axis": "outer",
+   "option": "Squarer",
+   "against": "Follows the lens",
+   "pixels": 2343,
+   "share": 4.017,
+   "max": 225
+  },
+  {
+   "axis": "outer",
+   "option": "Much squarer",
+   "against": "Follows the lens",
+   "pixels": 3505,
+   "share": 6.01,
+   "max": 226
+  },
+  {
+   "axis": "outer",
+   "option": "Rounder",
+   "against": "Follows the lens",
+   "pixels": 3728,
+   "share": 6.392,
+   "max": 226
+  },
+  {
+   "axis": "bbars",
+   "option": "Two",
+   "against": "One",
+   "pixels": 1412,
+   "share": 1.648,
+   "max": 233
+  },
+  {
+   "axis": "bbars",
+   "option": "Three",
+   "against": "One",
+   "pixels": 1686,
+   "share": 1.968,
+   "max": 233
+  },
+  {
+   "axis": "bh",
+   "option": "Top",
+   "against": "Upper third",
+   "pixels": 20760,
+   "share": 24.23,
+   "max": 234
+  },
+  {
+   "axis": "bh",
+   "option": "Middle",
+   "against": "Upper third",
+   "pixels": 24292,
+   "share": 28.352,
+   "max": 234
+  },
+  {
+   "axis": "bh",
+   "option": "Low",
+   "against": "Upper third",
+   "pixels": 21799,
+   "share": 25.442,
+   "max": 234
+  },
+  {
+   "axis": "barch",
+   "option": "Straight",
+   "against": "Gentle",
+   "pixels": 1247,
+   "share": 1.455,
+   "max": 233
+  },
+  {
+   "axis": "barch",
+   "option": "High",
+   "against": "Gentle",
+   "pixels": 1666,
+   "share": 1.944,
+   "max": 233
+  },
+  {
+   "axis": "barch",
+   "option": "Dipped",
+   "against": "Gentle",
+   "pixels": 2141,
+   "share": 2.499,
+   "max": 233
+  },
+  {
+   "axis": "bdepth",
+   "option": "1 mm",
+   "against": "Follows the rim",
+   "pixels": 1429,
+   "share": 1.668,
+   "max": 233
+  },
+  {
+   "axis": "bdepth",
+   "option": "2.5 mm",
+   "against": "Follows the rim",
+   "pixels": 990,
+   "share": 1.155,
+   "max": 233
+  },
+  {
+   "axis": "bdepth",
+   "option": "5 mm",
+   "against": "Follows the rim",
+   "pixels": 350,
+   "share": 0.408,
+   "max": 162
+  },
+  {
+   "axis": "bdepth",
+   "option": "8 mm",
+   "against": "Follows the rim",
+   "pixels": 1317,
+   "share": 1.537,
+   "max": 233
+  },
+  {
+   "axis": "bunder",
+   "option": "Keyhole",
+   "against": "Saddle",
+   "pixels": 2591,
+   "share": 3.024,
+   "max": 233
+  },
+  {
+   "axis": "bunder",
+   "option": "Flat",
+   "against": "Saddle",
+   "pixels": 698,
+   "share": 0.815,
+   "max": 233
+  },
+  {
+   "axis": "mat",
+   "option": "Metal",
+   "against": "Acetate",
+   "pixels": 3057,
+   "share": 3.568,
+   "max": 48
+  },
+  {
+   "axis": "mat",
+   "option": "Injected plastic",
+   "against": "Acetate",
+   "pixels": 2592,
+   "share": 3.025,
+   "max": 25
+  },
+  {
+   "axis": "mat",
+   "option": "Printed nylon",
+   "against": "Acetate",
+   "pixels": 604,
+   "share": 0.705,
+   "max": 85
+  },
+  {
+   "axis": "mat",
+   "option": "Wood",
+   "against": "Acetate",
+   "pixels": 947,
+   "share": 1.105,
+   "max": 77
+  },
+  {
+   "axis": "mat",
+   "option": "Horn",
+   "against": "Acetate",
+   "pixels": 1556,
+   "share": 1.816,
+   "max": 104
+  },
+  {
+   "axis": "mat",
+   "option": "Carbon weave",
+   "against": "Acetate",
+   "pixels": 3209,
+   "share": 3.745,
+   "max": 56
+  },
+  {
+   "axis": "hue",
+   "option": "0° red",
+   "against": "Neutral",
+   "pixels": 1484,
+   "share": 2.545,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "30° orange",
+   "against": "Neutral",
+   "pixels": 1112,
+   "share": 1.907,
+   "max": 15
+  },
+  {
+   "axis": "hue",
+   "option": "60° yellow",
+   "against": "Neutral",
+   "pixels": 1120,
+   "share": 1.92,
+   "max": 15
+  },
+  {
+   "axis": "hue",
+   "option": "90° lime",
+   "against": "Neutral",
+   "pixels": 1117,
+   "share": 1.915,
+   "max": 15
+  },
+  {
+   "axis": "hue",
+   "option": "120° green",
+   "against": "Neutral",
+   "pixels": 1488,
+   "share": 2.551,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "150° spring",
+   "against": "Neutral",
+   "pixels": 1483,
+   "share": 2.543,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "180° cyan",
+   "against": "Neutral",
+   "pixels": 1679,
+   "share": 2.879,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "210° azure",
+   "against": "Neutral",
+   "pixels": 1679,
+   "share": 2.879,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "240° blue",
+   "against": "Neutral",
+   "pixels": 1685,
+   "share": 2.889,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "270° violet",
+   "against": "Neutral",
+   "pixels": 1672,
+   "share": 2.867,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "300° magenta",
+   "against": "Neutral",
+   "pixels": 1675,
+   "share": 2.872,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "330° rose",
+   "against": "Neutral",
+   "pixels": 1480,
+   "share": 2.538,
+   "max": 16
+  },
+  {
+   "axis": "tone",
+   "option": "Dark",
+   "against": "Deep",
+   "pixels": 4039,
+   "share": 6.926,
+   "max": 38
+  },
+  {
+   "axis": "tone",
+   "option": "Mid",
+   "against": "Deep",
+   "pixels": 4405,
+   "share": 7.553,
+   "max": 86
+  },
+  {
+   "axis": "tone",
+   "option": "Light",
+   "against": "Deep",
+   "pixels": 4563,
+   "share": 7.824,
+   "max": 132
+  },
+  {
+   "axis": "tone",
+   "option": "Pale",
+   "against": "Deep",
+   "pixels": 4627,
+   "share": 7.934,
+   "max": 176
+  },
+  {
+   "axis": "tone",
+   "option": "Near white",
+   "against": "Deep",
+   "pixels": 4646,
+   "share": 7.966,
+   "max": 213
+  },
+  {
+   "axis": "sat",
+   "option": "Muted",
+   "against": "Rich",
+   "pixels": 3948,
+   "share": 6.77,
+   "max": 33
+  },
+  {
+   "axis": "sat",
+   "option": "Vivid",
+   "against": "Rich",
+   "pixels": 4047,
+   "share": 6.939,
+   "max": 38
+  },
+  {
+   "axis": "pcon",
+   "option": "Low",
+   "against": "None",
+   "pixels": 2042,
+   "share": 2.383,
+   "max": 56
+  },
+  {
+   "axis": "pcon",
+   "option": "Medium",
+   "against": "None",
+   "pixels": 2899,
+   "share": 3.384,
+   "max": 102
+  },
+  {
+   "axis": "pcon",
+   "option": "High",
+   "against": "None",
+   "pixels": 2071,
+   "share": 2.417,
+   "max": 107
+  },
+  {
+   "axis": "blotch",
+   "option": "0.7 mm",
+   "against": "3 mm",
+   "pixels": 3566,
+   "share": 4.162,
+   "max": 102
+  },
+  {
+   "axis": "blotch",
+   "option": "1.6 mm",
+   "against": "3 mm",
+   "pixels": 4304,
+   "share": 5.023,
+   "max": 109
+  },
+  {
+   "axis": "blotch",
+   "option": "6 mm",
+   "against": "3 mm",
+   "pixels": 3863,
+   "share": 4.509,
+   "max": 102
+  },
+  {
+   "axis": "blotch",
+   "option": "10 mm",
+   "against": "3 mm",
+   "pixels": 3686,
+   "share": 4.302,
+   "max": 102
+  },
+  {
+   "axis": "pdir",
+   "option": "Along ×3",
+   "against": "Round",
+   "pixels": 2740,
+   "share": 3.198,
+   "max": 98
+  },
+  {
+   "axis": "pdir",
+   "option": "Along ×8",
+   "against": "Round",
+   "pixels": 3357,
+   "share": 3.918,
+   "max": 98
+  },
+  {
+   "axis": "pdir",
+   "option": "Diagonal ×3",
+   "against": "Round",
+   "pixels": 2937,
+   "share": 3.428,
+   "max": 98
+  },
+  {
+   "axis": "pdir",
+   "option": "Upright ×3",
+   "against": "Round",
+   "pixels": 3763,
+   "share": 4.392,
+   "max": 118
+  },
+  {
+   "axis": "pcol",
+   "option": "Darker",
+   "against": "Lighter",
+   "pixels": 2958,
+   "share": 3.452,
+   "max": 122
+  },
+  {
+   "axis": "pcol",
+   "option": "Amber",
+   "against": "Lighter",
+   "pixels": 2898,
+   "share": 3.382,
+   "max": 96
+  },
+  {
+   "axis": "pcol",
+   "option": "Opposite hue",
+   "against": "Lighter",
+   "pixels": 2906,
+   "share": 3.392,
+   "max": 102
+  },
+  {
+   "axis": "pcol",
+   "option": "Clear windows",
+   "against": "Lighter",
+   "pixels": 1472,
+   "share": 1.718,
+   "max": 34
+  },
+  {
+   "axis": "lam",
+   "option": "Brow layer",
+   "against": "One layer",
+   "pixels": 1866,
+   "share": 3.2,
+   "max": 103
+  },
+  {
+   "axis": "lam",
+   "option": "Front and back",
+   "against": "One layer",
+   "pixels": 991,
+   "share": 1.699,
+   "max": 85
+  },
+  {
+   "axis": "lam",
+   "option": "Edge stripe",
+   "against": "One layer",
+   "pixels": 669,
+   "share": 1.147,
+   "max": 62
+  },
+  {
+   "axis": "fade",
+   "option": "To lighter",
+   "against": "None",
+   "pixels": 2624,
+   "share": 4.499,
+   "max": 116
+  },
+  {
+   "axis": "fade",
+   "option": "To clear",
+   "against": "None",
+   "pixels": 2339,
+   "share": 4.011,
+   "max": 162
+  },
+  {
+   "axis": "fade",
+   "option": "To the second colour",
+   "against": "None",
+   "pixels": 2259,
+   "share": 3.873,
+   "max": 67
+  },
+  {
+   "axis": "col2",
+   "option": "Darker",
+   "against": "Lighter",
+   "pixels": 2648,
+   "share": 4.54,
+   "max": 130
+  },
+  {
+   "axis": "col2",
+   "option": "Hue +30°",
+   "against": "Lighter",
+   "pixels": 2358,
+   "share": 4.043,
+   "max": 80
+  },
+  {
+   "axis": "col2",
+   "option": "Hue +90°",
+   "against": "Lighter",
+   "pixels": 2490,
+   "share": 4.27,
+   "max": 97
+  },
+  {
+   "axis": "col2",
+   "option": "Hue +180°",
+   "against": "Lighter",
+   "pixels": 2682,
+   "share": 4.599,
+   "max": 146
+  },
+  {
+   "axis": "col2",
+   "option": "Black",
+   "against": "Lighter",
+   "pixels": 2712,
+   "share": 4.65,
+   "max": 163
+  },
+  {
+   "axis": "col2",
+   "option": "White",
+   "against": "Lighter",
+   "pixels": 2409,
+   "share": 4.131,
+   "max": 82
+  },
+  {
+   "axis": "col2",
+   "option": "Clear",
+   "against": "Lighter",
+   "pixels": 2459,
+   "share": 4.216,
+   "max": 92
+  },
+  {
+   "axis": "tdepth",
+   "option": "1.2 mm",
+   "against": "6 mm",
+   "pixels": 2459,
+   "share": 3.162,
+   "max": 229
+  },
+  {
+   "axis": "tdepth",
+   "option": "3 mm",
+   "against": "6 mm",
+   "pixels": 1840,
+   "share": 2.366,
+   "max": 227
+  },
+  {
+   "axis": "tdepth",
+   "option": "9 mm",
+   "against": "6 mm",
+   "pixels": 1876,
+   "share": 2.413,
+   "max": 224
+  },
+  {
+   "axis": "tdepth",
+   "option": "13 mm",
+   "against": "6 mm",
+   "pixels": 3425,
+   "share": 4.405,
+   "max": 230
+  },
+  {
+   "axis": "tdepth",
+   "option": "18 mm",
+   "against": "6 mm",
+   "pixels": 5356,
+   "share": 6.888,
+   "max": 229
+  },
+  {
+   "axis": "ttaper",
+   "option": "None",
+   "against": "Slight",
+   "pixels": 1213,
+   "share": 1.56,
+   "max": 229
+  },
+  {
+   "axis": "ttaper",
+   "option": "Strong",
+   "against": "Slight",
+   "pixels": 1027,
+   "share": 1.321,
+   "max": 225
+  },
+  {
+   "axis": "ttaper",
+   "option": "Widening",
+   "against": "Slight",
+   "pixels": 1925,
+   "share": 2.476,
+   "max": 230
+  },
+  {
+   "axis": "tline",
+   "option": "Arched",
+   "against": "Straight",
+   "pixels": 2249,
+   "share": 2.892,
+   "max": 220
+  },
+  {
+   "axis": "tline",
+   "option": "Dropped",
+   "against": "Straight",
+   "pixels": 4432,
+   "share": 5.7,
+   "max": 229
+  },
+  {
+   "axis": "tline",
+   "option": "Stepped",
+   "against": "Straight",
+   "pixels": 4068,
+   "share": 5.231,
+   "max": 229
+  },
+  {
+   "axis": "tcol",
+   "option": "Hardware metal",
+   "against": "Same as the front",
+   "pixels": 2696,
+   "share": 3.467,
+   "max": 182
+  },
+  {
+   "axis": "tcol",
+   "option": "Contrast tone",
+   "against": "Same as the front",
+   "pixels": 2673,
+   "share": 3.438,
+   "max": 118
+  },
+  {
+   "axis": "tcol",
+   "option": "Contrast tips",
+   "against": "Same as the front",
+   "pixels": 734,
+   "share": 0.944,
+   "max": 127
+  },
+  {
+   "axis": "tintd",
+   "option": "10%",
+   "against": "Clear",
+   "pixels": 25629,
+   "share": 29.912,
+   "max": 20
+  },
+  {
+   "axis": "tintd",
+   "option": "25%",
+   "against": "Clear",
+   "pixels": 29677,
+   "share": 34.637,
+   "max": 48
+  },
+  {
+   "axis": "tintd",
+   "option": "50%",
+   "against": "Clear",
+   "pixels": 29751,
+   "share": 34.723,
+   "max": 96
+  },
+  {
+   "axis": "tintd",
+   "option": "75%",
+   "against": "Clear",
+   "pixels": 29781,
+   "share": 34.758,
+   "max": 144
+  },
+  {
+   "axis": "tintd",
+   "option": "90%",
+   "against": "Clear",
+   "pixels": 29787,
+   "share": 34.765,
+   "max": 172
+  },
+  {
+   "axis": "tinth",
+   "option": "0° red",
+   "against": "Grey",
+   "pixels": 29611,
+   "share": 34.56,
+   "max": 32
+  },
+  {
+   "axis": "tinth",
+   "option": "30° orange",
+   "against": "Grey",
+   "pixels": 29611,
+   "share": 34.56,
+   "max": 32
+  },
+  {
+   "axis": "tinth",
+   "option": "60° yellow",
+   "against": "Grey",
+   "pixels": 29611,
+   "share": 34.56,
+   "max": 32
+  },
+  {
+   "axis": "tinth",
+   "option": "90° lime",
+   "against": "Grey",
+   "pixels": 29595,
+   "share": 34.541,
+   "max": 30
+  },
+  {
+   "axis": "tinth",
+   "option": "120° green",
+   "against": "Grey",
+   "pixels": 29595,
+   "share": 34.541,
+   "max": 30
+  },
+  {
+   "axis": "tinth",
+   "option": "150° spring",
+   "against": "Grey",
+   "pixels": 29595,
+   "share": 34.541,
+   "max": 30
+  },
+  {
+   "axis": "tinth",
+   "option": "180° cyan",
+   "against": "Grey",
+   "pixels": 29595,
+   "share": 34.541,
+   "max": 30
+  },
+  {
+   "axis": "tinth",
+   "option": "210° azure",
+   "against": "Grey",
+   "pixels": 29578,
+   "share": 34.521,
+   "max": 28
+  },
+  {
+   "axis": "tinth",
+   "option": "240° blue",
+   "against": "Grey",
+   "pixels": 29578,
+   "share": 34.521,
+   "max": 28
+  },
+  {
+   "axis": "tinth",
+   "option": "270° violet",
+   "against": "Grey",
+   "pixels": 29578,
+   "share": 34.521,
+   "max": 28
+  },
+  {
+   "axis": "tinth",
+   "option": "300° magenta",
+   "against": "Grey",
+   "pixels": 29611,
+   "share": 34.56,
+   "max": 32
+  },
+  {
+   "axis": "tinth",
+   "option": "330° rose",
+   "against": "Grey",
+   "pixels": 29611,
+   "share": 34.56,
+   "max": 32
+  },
+  {
+   "axis": "tgrad",
+   "option": "Fades down",
+   "against": "Even",
+   "pixels": 25228,
+   "share": 29.444,
+   "max": 74
+  },
+  {
+   "axis": "tgrad",
+   "option": "Fades to clear",
+   "against": "Even",
+   "pixels": 27158,
+   "share": 31.697,
+   "max": 96
+  },
+  {
+   "axis": "tgrad",
+   "option": "Dark top and bottom",
+   "against": "Even",
+   "pixels": 28021,
+   "share": 32.704,
+   "max": 80
+  },
+  {
+   "axis": "hinge",
+   "option": "Hidden",
+   "against": "Barrel",
+   "pixels": 600,
+   "share": 0.7,
+   "max": 202
+  },
+  {
+   "axis": "hinge",
+   "option": "Wire coil",
+   "against": "Barrel",
+   "pixels": 752,
+   "share": 0.878,
+   "max": 194
+  },
+  {
+   "axis": "hinge",
+   "option": "None, flexing metal",
+   "against": "Barrel",
+   "pixels": 2871,
+   "share": 3.351,
+   "max": 194
+  },
+  {
+   "axis": "barrels",
+   "option": "5",
+   "against": "3",
+   "pixels": 930,
+   "share": 1.085,
+   "max": 194
+  },
+  {
+   "axis": "barrels",
+   "option": "7",
+   "against": "3",
+   "pixels": 1226,
+   "share": 1.431,
+   "max": 194
+  },
+  {
+   "axis": "screw",
+   "option": "Cross",
+   "against": "Slot",
+   "pixels": 330,
+   "share": 0.385,
+   "max": 145
+  },
+  {
+   "axis": "screw",
+   "option": "Star",
+   "against": "Slot",
+   "pixels": 448,
+   "share": 0.523,
+   "max": 145
+  },
+  {
+   "axis": "screw",
+   "option": "Hidden",
+   "against": "Slot",
+   "pixels": 297,
+   "share": 0.347,
+   "max": 145
+  },
+  {
+   "axis": "rivn",
+   "option": "None",
+   "against": "2",
+   "pixels": 837,
+   "share": 0.977,
+   "max": 198
+  },
+  {
+   "axis": "rivn",
+   "option": "1",
+   "against": "2",
+   "pixels": 856,
+   "share": 0.999,
+   "max": 189
+  },
+  {
+   "axis": "rivn",
+   "option": "3",
+   "against": "2",
+   "pixels": 1284,
+   "share": 1.499,
+   "max": 183
+  },
+  {
+   "axis": "rivn",
+   "option": "4",
+   "against": "2",
+   "pixels": 837,
+   "share": 0.977,
+   "max": 216
+  },
+  {
+   "axis": "rivs",
+   "option": "Diamond",
+   "against": "Round",
+   "pixels": 543,
+   "share": 0.634,
+   "max": 93
+  },
+  {
+   "axis": "rivs",
+   "option": "Bar",
+   "against": "Round",
+   "pixels": 1139,
+   "share": 1.329,
+   "max": 182
+  },
+  {
+   "axis": "rivs",
+   "option": "Triangle",
+   "against": "Round",
+   "pixels": 895,
+   "share": 1.045,
+   "max": 182
+  },
+  {
+   "axis": "rivs",
+   "option": "Star",
+   "against": "Round",
+   "pixels": 1012,
+   "share": 1.181,
+   "max": 182
+  },
+  {
+   "axis": "pads",
+   "option": "Pads on wire arms",
+   "against": "Moulded into the front",
+   "pixels": 2388,
+   "share": 2.787,
+   "max": 231
+  },
+  {
+   "axis": "pads",
+   "option": "Fixed pads",
+   "against": "Moulded into the front",
+   "pixels": 2314,
+   "share": 2.701,
+   "max": 231
+  },
+  {
+   "axis": "pads",
+   "option": "One-piece saddle strip",
+   "against": "Moulded into the front",
+   "pixels": 2170,
+   "share": 2.533,
+   "max": 233
+  },
+  {
+   "axis": "padsz",
+   "option": "9 mm",
+   "against": "13 mm",
+   "pixels": 1230,
+   "share": 1.436,
+   "max": 87
+  },
+  {
+   "axis": "padsz",
+   "option": "11 mm",
+   "against": "13 mm",
+   "pixels": 1256,
+   "share": 1.466,
+   "max": 87
+  },
+  {
+   "axis": "padsz",
+   "option": "15 mm",
+   "against": "13 mm",
+   "pixels": 1640,
+   "share": 1.914,
+   "max": 88
+  },
+  {
+   "axis": "padsz",
+   "option": "18 mm",
+   "against": "13 mm",
+   "pixels": 2098,
+   "share": 2.449,
+   "max": 88
+  },
+  {
+   "axis": "padr",
+   "option": "Round",
+   "against": "Oval",
+   "pixels": 2015,
+   "share": 2.352,
+   "max": 88
+  },
+  {
+   "axis": "padr",
+   "option": "Long",
+   "against": "Oval",
+   "pixels": 1148,
+   "share": 1.34,
+   "max": 87
+  },
+  {
+   "axis": "mount",
+   "option": "One hole a side",
+   "against": "Two holes a side",
+   "pixels": 567,
+   "share": 0.662,
+   "max": 180
+  },
+  {
+   "axis": "mount",
+   "option": "Notch and clamp",
+   "against": "Two holes a side",
+   "pixels": 1268,
+   "share": 1.48,
+   "max": 182
+  },
+  {
+   "axis": "ledge",
+   "option": "Polished",
+   "against": "Matte",
+   "pixels": 2854,
+   "share": 3.331,
+   "max": 108
+  },
+  {
+   "axis": "ledge",
+   "option": "Faceted",
+   "against": "Matte",
+   "pixels": 3232,
+   "share": 3.772,
+   "max": 135
+  },
+  {
+   "axis": "lthick",
+   "option": "1.2 mm",
+   "against": "2 mm",
+   "pixels": 770,
+   "share": 0.899,
+   "max": 184
+  },
+  {
+   "axis": "lthick",
+   "option": "3.5 mm",
+   "against": "2 mm",
+   "pixels": 860,
+   "share": 1.004,
+   "max": 193
+  },
+  {
+   "axis": "lthick",
+   "option": "5.5 mm",
+   "against": "2 mm",
+   "pixels": 2867,
+   "share": 3.346,
+   "max": 193
+  },
+  {
+   "axis": "lthick",
+   "option": "8 mm",
+   "against": "2 mm",
+   "pixels": 6088,
+   "share": 7.106,
+   "max": 193
+  },
+  {
+   "axis": "bevel",
+   "option": "Flat, sharp edge",
+   "against": "Rounded",
+   "pixels": 3941,
+   "share": 4.6,
+   "max": 80
+  },
+  {
+   "axis": "bevel",
+   "option": "Chamfered",
+   "against": "Rounded",
+   "pixels": 4938,
+   "share": 5.763,
+   "max": 96
+  },
+  {
+   "axis": "bevel",
+   "option": "Knife ridge",
+   "against": "Rounded",
+   "pixels": 2570,
+   "share": 3,
+   "max": 72
+  },
+  {
+   "axis": "finish",
+   "option": "Satin",
+   "against": "Gloss",
+   "pixels": 3589,
+   "share": 4.189,
+   "max": 32
+  },
+  {
+   "axis": "finish",
+   "option": "Matte",
+   "against": "Gloss",
+   "pixels": 4156,
+   "share": 4.851,
+   "max": 58
+  },
+  {
+   "axis": "finish",
+   "option": "Brushed",
+   "against": "Gloss",
+   "pixels": 3045,
+   "share": 3.554,
+   "max": 84
+  },
+  {
+   "axis": "finish",
+   "option": "Hammered",
+   "against": "Gloss",
+   "pixels": 3736,
+   "share": 4.36,
+   "max": 125
+  },
+  {
+   "axis": "hw",
+   "option": "Gold",
+   "against": "Silver",
+   "pixels": 841,
+   "share": 0.982,
+   "max": 128
+  },
+  {
+   "axis": "hw",
+   "option": "Rose gold",
+   "against": "Silver",
+   "pixels": 827,
+   "share": 0.965,
+   "max": 74
+  },
+  {
+   "axis": "hw",
+   "option": "Gunmetal",
+   "against": "Silver",
+   "pixels": 837,
+   "share": 0.977,
+   "max": 99
+  },
+  {
+   "axis": "hw",
+   "option": "Black",
+   "against": "Silver",
+   "pixels": 847,
+   "share": 0.989,
+   "max": 160
+  },
+  {
+   "axis": "hw",
+   "option": "Copper",
+   "against": "Silver",
+   "pixels": 844,
+   "share": 0.985,
+   "max": 141
+  },
+  {
+   "axis": "core",
+   "option": "Plain",
+   "against": "Not shown",
+   "pixels": 2171,
+   "share": 2.534,
+   "max": 74
+  },
+  {
+   "axis": "core",
+   "option": "Engraved",
+   "against": "Not shown",
+   "pixels": 2171,
+   "share": 2.534,
+   "max": 74
+  },
+  {
+   "axis": "engr",
+   "option": "Line",
+   "against": "None",
+   "pixels": 274,
+   "share": 0.32,
+   "max": 86
+  },
+  {
+   "axis": "engr",
+   "option": "Double line",
+   "against": "None",
+   "pixels": 548,
+   "share": 0.64,
+   "max": 86
+  },
+  {
+   "axis": "engr",
+   "option": "Wave",
+   "against": "None",
+   "pixels": 318,
+   "share": 0.371,
+   "max": 115
+  },
+  {
+   "axis": "engr",
+   "option": "Dots",
+   "against": "None",
+   "pixels": 194,
+   "share": 0.226,
+   "max": 115
+  },
+  {
+   "axis": "print",
+   "option": "Size",
+   "against": "None",
+   "pixels": 267,
+   "share": 0.312,
+   "max": 195
+  },
+  {
+   "axis": "print",
+   "option": "Size and rule",
+   "against": "None",
+   "pixels": 460,
+   "share": 0.537,
+   "max": 195
+  },
+  {
+   "axis": "tipn",
+   "option": "Paddle",
+   "against": "Plain",
+   "pixels": 2563,
+   "share": 2.991,
+   "max": 233
+  },
+  {
+   "axis": "tipn",
+   "option": "Ball",
+   "against": "Plain",
+   "pixels": 157,
+   "share": 0.183,
+   "max": 234
+  },
+  {
+   "axis": "tipn",
+   "option": "Hook",
+   "against": "Plain",
+   "pixels": 760,
+   "share": 0.887,
+   "max": 234
+  },
+  {
+   "axis": "tcut",
+   "option": "One slot",
+   "against": "Solid",
+   "pixels": 1010,
+   "share": 1.179,
+   "max": 220
+  },
+  {
+   "axis": "tcut",
+   "option": "Row of holes",
+   "against": "Solid",
+   "pixels": 560,
+   "share": 0.654,
+   "max": 220
+  },
+  {
+   "axis": "tcut",
+   "option": "Open outline",
+   "against": "Solid",
+   "pixels": 1902,
+   "share": 2.22,
+   "max": 220
+  },
+  {
+   "axis": "mirror",
+   "option": "30%",
+   "against": "None",
+   "pixels": 20991,
+   "share": 24.499,
+   "max": 38
+  },
+  {
+   "axis": "mirror",
+   "option": "70%",
+   "against": "None",
+   "pixels": 28185,
+   "share": 32.896,
+   "max": 90
+  },
+  {
+   "axis": "mirror",
+   "option": "100%",
+   "against": "None",
+   "pixels": 29372,
+   "share": 34.281,
+   "max": 128
+  },
+  {
+   "axis": "mirh",
+   "option": "Gold",
+   "against": "Silver",
+   "pixels": 29587,
+   "share": 34.532,
+   "max": 37
+  },
+  {
+   "axis": "mirh",
+   "option": "Red",
+   "against": "Silver",
+   "pixels": 29392,
+   "share": 34.304,
+   "max": 37
+  },
+  {
+   "axis": "mirh",
+   "option": "Green",
+   "against": "Silver",
+   "pixels": 29567,
+   "share": 34.509,
+   "max": 34
+  },
+  {
+   "axis": "mirh",
+   "option": "Blue",
+   "against": "Silver",
+   "pixels": 28631,
+   "share": 33.416,
+   "max": 30
+  },
+  {
+   "axis": "mirh",
+   "option": "Violet",
+   "against": "Silver",
+   "pixels": 29381,
+   "share": 34.292,
+   "max": 34
+  },
+  {
+   "axis": "mirh",
+   "option": "Pink",
+   "against": "Silver",
+   "pixels": 29381,
+   "share": 34.292,
+   "max": 34
+  },
+  {
+   "axis": "coat",
+   "option": "Green",
+   "against": "Uncoated",
+   "pixels": 5271,
+   "share": 6.152,
+   "max": 34
+  },
+  {
+   "axis": "coat",
+   "option": "Blue",
+   "against": "Uncoated",
+   "pixels": 5227,
+   "share": 6.101,
+   "max": 30
+  },
+  {
+   "axis": "coat",
+   "option": "Violet",
+   "against": "Uncoated",
+   "pixels": 5126,
+   "share": 5.983,
+   "max": 23
+  },
+  {
+   "axis": "coat",
+   "option": "Gold",
+   "against": "Uncoated",
+   "pixels": 5246,
+   "share": 6.123,
+   "max": 31
+  },
+  {
+   "axis": "clarity",
+   "option": "Translucent",
+   "against": "Opaque",
+   "pixels": 8561,
+   "share": 9.992,
+   "max": 62
+  },
+  {
+   "axis": "clarity",
+   "option": "Clear",
+   "against": "Opaque",
+   "pixels": 8736,
+   "share": 10.196,
+   "max": 133
+  },
+  {
+   "axis": "adapt",
+   "option": "Darkens in sun",
+   "against": "Fixed",
+   "pixels": 9180,
+   "share": 5.795,
+   "max": 141
+  },
+  {
+   "axis": "adapt",
+   "option": "Switched on command",
+   "against": "Fixed",
+   "pixels": 9180,
+   "share": 5.795,
+   "max": 146
+  },
+  {
+   "axis": "glow",
+   "option": "Glows in the dark",
+   "against": "None",
+   "pixels": 5398,
+   "share": 3.946,
+   "max": 70
+  },
+  {
+   "axis": "glow",
+   "option": "Reading lights",
+   "against": "None",
+   "pixels": 2326,
+   "share": 1.7,
+   "max": 71
+  },
+  {
+   "axis": "fold",
+   "option": "Fold crossed",
+   "against": "Fold flat",
+   "pixels": 511,
+   "share": 0.374,
+   "max": 107
+  },
+  {
+   "axis": "fold",
+   "option": "Front folds in half too",
+   "against": "Fold flat",
+   "pixels": 78,
+   "share": 0.057,
+   "max": 187
+  },
+  {
+   "axis": "seg",
+   "option": "D segment",
+   "against": "Single vision",
+   "pixels": 541,
+   "share": 0.631,
+   "max": 91
+  },
+  {
+   "axis": "seg",
+   "option": "Round segment",
+   "against": "Single vision",
+   "pixels": 353,
+   "share": 0.412,
+   "max": 91
+  },
+  {
+   "axis": "seg",
+   "option": "Full-width line",
+   "against": "Single vision",
+   "pixels": 848,
+   "share": 0.99,
+   "max": 107
+  },
+  {
+   "axis": "seg",
+   "option": "Three zones",
+   "against": "Single vision",
+   "pixels": 933,
+   "share": 1.089,
+   "max": 91
+  },
+  {
+   "axis": "seg",
+   "option": "Electronic focus zone",
+   "against": "Single vision",
+   "pixels": 1313,
+   "share": 1.532,
+   "max": 108
+  },
+  {
+   "axis": "seg",
+   "option": "Set by a dial",
+   "against": "Single vision",
+   "pixels": 804,
+   "share": 0.938,
+   "max": 194
+  },
+  {
+   "axis": "clip",
+   "option": "Clip-on, down",
+   "against": "None",
+   "pixels": 11376,
+   "share": 19.506,
+   "max": 186
+  },
+  {
+   "axis": "clip",
+   "option": "Clip-on, flipped up",
+   "against": "None",
+   "pixels": 59400,
+   "share": 101.852,
+   "max": 255
+  },
+  {
+   "axis": "side",
+   "option": "Soft cups",
+   "against": "None",
+   "pixels": 12263,
+   "share": 14.313,
+   "max": 220
+  },
+  {
+   "axis": "side",
+   "option": "Clear",
+   "against": "None",
+   "pixels": 1290,
+   "share": 1.506,
+   "max": 149
+  },
+  {
+   "axis": "side",
+   "option": "Mesh",
+   "against": "None",
+   "pixels": 12280,
+   "share": 14.332,
+   "max": 194
+  },
+  {
+   "axis": "cord",
+   "option": "Cord",
+   "against": "None",
+   "pixels": 94680,
+   "share": 121.759,
+   "max": 255
+  },
+  {
+   "axis": "cord",
+   "option": "Chain",
+   "against": "None",
+   "pixels": 94680,
+   "share": 121.759,
+   "max": 255
+  },
+  {
+   "axis": "audio",
+   "option": "Open-ear speakers",
+   "against": "None",
+   "pixels": 1411,
+   "share": 1.647,
+   "max": 238
+  },
+  {
+   "axis": "audio",
+   "option": "Bone conduction",
+   "against": "None",
+   "pixels": 346,
+   "share": 0.404,
+   "max": 233
+  },
+  {
+   "axis": "disp",
+   "option": "One eye",
+   "against": "None",
+   "pixels": 687,
+   "share": 0.802,
+   "max": 82
+  },
+  {
+   "axis": "disp",
+   "option": "Both eyes",
+   "against": "None",
+   "pixels": 1352,
+   "share": 1.578,
+   "max": 82
+  },
+  {
+   "axis": "cam",
+   "option": "One corner",
+   "against": "None",
+   "pixels": 200,
+   "share": 0.233,
+   "max": 218
+  },
+  {
+   "axis": "cam",
+   "option": "Both corners",
+   "against": "None",
+   "pixels": 274,
+   "share": 0.32,
+   "max": 219
+  },
+  {
+   "axis": "vent",
+   "option": "Slots at the top",
+   "against": "None",
+   "pixels": 252,
+   "share": 0.294,
+   "max": 152
+  },
+  {
+   "axis": "vent",
+   "option": "Holes at the side",
+   "against": "None",
+   "pixels": 135,
+   "share": 0.158,
+   "max": 146
+  },
+  {
+   "axis": "adj",
+   "option": "Telescoping length",
+   "against": "None",
+   "pixels": 470,
+   "share": 0.604,
+   "max": 172
+  },
+  {
+   "axis": "adj",
+   "option": "Ratchet tilt",
+   "against": "None",
+   "pixels": 141,
+   "share": 0.181,
+   "max": 182
+  },
+  {
+   "axis": "padm",
+   "option": "Clear, hard",
+   "against": "Clear, soft",
+   "pixels": 2765,
+   "share": 3.227,
+   "max": 48
+  },
+  {
+   "axis": "padm",
+   "option": "Metal",
+   "against": "Clear, soft",
+   "pixels": 9003,
+   "share": 10.508,
+   "max": 73
+  },
+  {
+   "axis": "padm",
+   "option": "Frame material",
+   "against": "Clear, soft",
+   "pixels": 9216,
+   "share": 10.756,
+   "max": 220
+  },
+  {
+   "axis": "tipg",
+   "option": "Sleeve",
+   "against": "Bare",
+   "pixels": 5040,
+   "share": 5.882,
+   "max": 229
+  },
+  {
+   "axis": "tipg",
+   "option": "Ribbed rubber",
+   "against": "Bare",
+   "pixels": 4512,
+   "share": 5.266,
+   "max": 229
+  },
+  {
+   "axis": "tipg",
+   "option": "Wrapped cord",
+   "against": "Bare",
+   "pixels": 5225,
+   "share": 6.098,
+   "max": 230
+  },
+  {
+   "axis": "spring",
+   "option": "Springs 10°",
+   "against": "Firm stop",
+   "pixels": 797,
+   "share": 0.93,
+   "max": 187
+  },
+  {
+   "axis": "spring",
+   "option": "Springs 25°",
+   "against": "Firm stop",
+   "pixels": 820,
+   "share": 0.957,
+   "max": 187
+  },
+  {
+   "axis": "tthick",
+   "option": "1 mm",
+   "against": "3.5 mm",
+   "pixels": 3813,
+   "share": 2.787,
+   "max": 230
+  },
+  {
+   "axis": "tthick",
+   "option": "2 mm",
+   "against": "3.5 mm",
+   "pixels": 2926,
+   "share": 2.139,
+   "max": 230
+  },
+  {
+   "axis": "tthick",
+   "option": "5 mm",
+   "against": "3.5 mm",
+   "pixels": 2967,
+   "share": 2.169,
+   "max": 230
+  },
+  {
+   "axis": "tthick",
+   "option": "7 mm",
+   "against": "3.5 mm",
+   "pixels": 4751,
+   "share": 3.473,
+   "max": 230
+  },
+  {
+   "axis": "snap",
+   "option": "Soft click",
+   "against": "Quiet",
+   "pixels": 245,
+   "share": 0.286,
+   "max": 138
+  },
+  {
+   "axis": "snap",
+   "option": "Sharp snap",
+   "against": "Quiet",
+   "pixels": 1223,
+   "share": 1.427,
+   "max": 138
+  }
+ ],
+ "random24": [
+  "2398823161289582222707619694583168665014503560653980186",
+  "4166840056524823342676024298440839845856714513813912137",
+  "130872989507541499024185003825152813521190122301966796",
+  "4786704387267940601611743043015599252471948391175302917",
+  "4429426531591775659018051315962665857873474668907701369",
+  "4247363482224263861638700722151553431534139237637771348",
+  "3770078300587613246722224397439862266182391219830045144",
+  "4700611215413591319145246295540797807309375241753244697",
+  "3993799950319947361437673751489246162047605933486287548",
+  "4672754852337317421199124107317335496988885051533393631",
+  "16739408689817306897352112225313628680823160391182898",
+  "1717198533932800972161044806593700443194532603428995385",
+  "2815501609845869297321163497382677223814291132993459951",
+  "3846799036021198230590228023518027896235978808416455392",
+  "2255693505130524032019622769512964105282316503132264672",
+  "1900003795585064936012518801413232336167517460694019908",
+  "3676023950999583714876738807495939017892575069315342643",
+  "3121113363281369978672910192871150848339850911675890257",
+  "1420019220142224033405792395944364535881010288476815805",
+  "1179148138615106463342313084194760803042012965091362668",
+  "708071900441345475669043308472739801178904675439020951",
+  "104692505485731419561575231794842733053340538537542125",
+  "680748601573962070990829571922112787065374666909966703",
+  "4240902532444857494500013831295216703260086876721046846"
+ ],
+ "sheets": [
+  {
+   "file": "axis-1-01.png",
+   "axes": [
+    "lenses",
+    "lw",
+    "lh",
+    "sides"
+   ]
+  },
+  {
+   "file": "axis-1-02.png",
+   "axes": [
+    "soft",
+    "taper",
+    "droop",
+    "sweep"
+   ]
+  },
+  {
+   "file": "axis-1-03.png",
+   "axes": [
+    "brow",
+    "ncut",
+    "tilt",
+    "dbl"
+   ]
+  },
+  {
+   "file": "axis-1-04.png",
+   "axes": [
+    "wrap",
+    "base",
+    "panto",
+    "fthick"
+   ]
+  },
+  {
+   "file": "axis-1-05.png",
+   "axes": [
+    "hold",
+    "epos",
+    "endr",
+    "tlen"
+   ]
+  },
+  {
+   "file": "axis-1-06.png",
+   "axes": [
+    "tbend",
+    "sit",
+    "topline"
+   ]
+  },
+  {
+   "file": "axis-2-01.png",
+   "axes": [
+    "rim",
+    "rimt",
+    "rbrow",
+    "rcorner"
+   ]
+  },
+  {
+   "file": "axis-2-02.png",
+   "axes": [
+    "outer",
+    "bbars",
+    "bh",
+    "barch"
+   ]
+  },
+  {
+   "file": "axis-2-03.png",
+   "axes": [
+    "bdepth",
+    "bunder",
+    "mat",
+    "hue"
+   ]
+  },
+  {
+   "file": "axis-2-04.png",
+   "axes": [
+    "tone",
+    "sat",
+    "pcon",
+    "blotch"
+   ]
+  },
+  {
+   "file": "axis-2-05.png",
+   "axes": [
+    "pdir",
+    "pcol",
+    "lam",
+    "fade"
+   ]
+  },
+  {
+   "file": "axis-2-06.png",
+   "axes": [
+    "col2",
+    "tdepth",
+    "ttaper",
+    "tline"
+   ]
+  },
+  {
+   "file": "axis-2-07.png",
+   "axes": [
+    "tcol",
+    "tintd",
+    "tinth",
+    "tgrad"
+   ]
+  },
+  {
+   "file": "axis-3-01.png",
+   "axes": [
+    "hinge",
+    "barrels",
+    "screw",
+    "rivn"
+   ]
+  },
+  {
+   "file": "axis-3-02.png",
+   "axes": [
+    "rivs",
+    "pads",
+    "padsz",
+    "padr"
+   ]
+  },
+  {
+   "file": "axis-3-03.png",
+   "axes": [
+    "mount",
+    "ledge",
+    "lthick",
+    "bevel"
+   ]
+  },
+  {
+   "file": "axis-3-04.png",
+   "axes": [
+    "finish",
+    "hw",
+    "core",
+    "engr"
+   ]
+  },
+  {
+   "file": "axis-3-05.png",
+   "axes": [
+    "print",
+    "tipn",
+    "tcut"
+   ]
+  },
+  {
+   "file": "axis-4-01.png",
+   "axes": [
+    "mirror",
+    "mirh",
+    "coat",
+    "clarity"
+   ]
+  },
+  {
+   "file": "axis-4-02.png",
+   "axes": [
+    "adapt",
+    "glow",
+    "fold"
+   ]
+  },
+  {
+   "file": "axis-5-01.png",
+   "axes": [
+    "seg",
+    "clip",
+    "side",
+    "cord"
+   ]
+  },
+  {
+   "file": "axis-5-02.png",
+   "axes": [
+    "audio",
+    "disp",
+    "cam",
+    "vent"
+   ]
+  },
+  {
+   "file": "axis-5-03.png",
+   "axes": [
+    "adj"
+   ]
+  },
+  {
+   "file": "axis-6-01.png",
+   "axes": [
+    "padm",
+    "tipg",
+    "spring",
+    "tthick"
+   ]
+  },
+  {
+   "file": "axis-7-01.png",
+   "axes": [
+    "snap"
+   ]
+  },
+  {
+   "file": "random-24-front.png"
+  },
+  {
+   "file": "random-24-side.png"
+  },
+  {
+   "file": "random-24-top.png"
+  },
+  {
+   "file": "random-24-worn.png"
+  }
+ ],
+ "consoleErrors": [],
+ "pass": true
+}
