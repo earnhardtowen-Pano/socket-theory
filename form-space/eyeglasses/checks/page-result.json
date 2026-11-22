@@ -1,0 +1,104 @@
+{
+ "when": "2026-11-22T20:10:45.314Z",
+ "width": 390,
+ "steps": [
+  {
+   "name": "opens on a drawing",
+   "ok": true
+  },
+  {
+   "name": "no sideways scroll",
+   "ok": true
+  },
+  {
+   "name": "next and previous change the number",
+   "ok": true
+  },
+  {
+   "name": "go to a typed number",
+   "ok": true
+  },
+  {
+   "name": "a bad number shows a message, no dialog",
+   "ok": true
+  },
+  {
+   "name": "Anywhere jumps",
+   "ok": true
+  },
+  {
+   "name": "views: side, top",
+   "ok": true
+  },
+  {
+   "name": "distance: room shows it worn",
+   "ok": true
+  },
+  {
+   "name": "distance: loupe can be dragged",
+   "ok": true
+  },
+  {
+   "name": "every axis has a row under its distance",
+   "ok": true
+  },
+  {
+   "name": "arrows step an axis and its strip draws",
+   "ok": true
+  },
+  {
+   "name": "tapping a strip picture picks that option",
+   "ok": true
+  },
+  {
+   "name": "an axis in another view switches the view on, the next one off",
+   "ok": true
+  },
+  {
+   "name": "Hold keeps an axis through Anywhere",
+   "ok": true
+  },
+  {
+   "name": "Drift walks and stops",
+   "ok": true
+  },
+  {
+   "name": "a closed distance opens",
+   "ok": true
+  },
+  {
+   "name": "a rule greys an axis and says why",
+   "ok": true
+  },
+  {
+   "name": "Sheet: two axes as a grid, tap to go",
+   "ok": true
+  },
+  {
+   "name": "Language: roll, hold, release",
+   "ok": true
+  },
+  {
+   "name": "Keep, the pile, Near my keeps, Remove",
+   "ok": true
+  },
+  {
+   "name": "state is saved on the device",
+   "ok": true
+  },
+  {
+   "name": "About opens in the page",
+   "ok": true
+  },
+  {
+   "name": "the hinge sound plays without error",
+   "ok": true
+  },
+  {
+   "name": "still no sideways scroll",
+   "ok": true
+  }
+ ],
+ "consoleErrors": [],
+ "pass": true
+}

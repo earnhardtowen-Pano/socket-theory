@@ -1,11 +1,11 @@
 {
  "version": "eyeglasses-1.0",
- "when": "2026-11-22T20:00:23.855Z",
+ "when": "2026-11-22T20:10:02.824Z",
  "random": {
   "addresses": 3000,
   "drawings": 24000,
   "failures": [],
-  "ms": 10275
+  "ms": 10650
  },
  "xml": {
   "parsed": 4000,
@@ -23,9 +23,9 @@
    "axis": "lenses",
    "option": "One shield",
    "against": "Two lenses",
-   "pixels": 760,
-   "share": 5.213,
-   "max": 224
+   "pixels": 761,
+   "share": 5.219,
+   "max": 225
   },
   {
    "axis": "lw",
@@ -33,7 +33,7 @@
    "against": "50 mm",
    "pixels": 1350,
    "share": 9.259,
-   "max": 224
+   "max": 222
   },
   {
    "axis": "lw",
@@ -49,7 +49,7 @@
    "against": "50 mm",
    "pixels": 873,
    "share": 5.988,
-   "max": 222
+   "max": 223
   },
   {
    "axis": "lw",
@@ -57,47 +57,47 @@
    "against": "50 mm",
    "pixels": 867,
    "share": 5.947,
-   "max": 224
+   "max": 222
   },
   {
    "axis": "lw",
    "option": "56 mm",
    "against": "50 mm",
-   "pixels": 1204,
-   "share": 8.258,
-   "max": 224
+   "pixels": 1202,
+   "share": 8.244,
+   "max": 225
   },
   {
    "axis": "lw",
    "option": "59 mm",
    "against": "50 mm",
-   "pixels": 1402,
-   "share": 9.616,
-   "max": 223
+   "pixels": 1404,
+   "share": 9.63,
+   "max": 224
   },
   {
    "axis": "lw",
    "option": "62 mm",
    "against": "50 mm",
-   "pixels": 1492,
-   "share": 10.233,
+   "pixels": 1493,
+   "share": 10.24,
    "max": 223
   },
   {
    "axis": "lw",
    "option": "34 mm",
    "against": "50 mm",
-   "pixels": 1447,
-   "share": 9.925,
-   "max": 224
+   "pixels": 1448,
+   "share": 9.931,
+   "max": 222
   },
   {
    "axis": "lw",
    "option": "70 mm",
    "against": "50 mm",
-   "pixels": 1723,
-   "share": 11.818,
-   "max": 224
+   "pixels": 1719,
+   "share": 11.79,
+   "max": 222
   },
   {
    "axis": "lh",
@@ -105,167 +105,167 @@
    "against": "38 mm",
    "pixels": 1987,
    "share": 13.628,
-   "max": 225
+   "max": 223
   },
   {
    "axis": "lh",
    "option": "29 mm",
    "against": "38 mm",
-   "pixels": 1805,
-   "share": 12.38,
+   "pixels": 1804,
+   "share": 12.373,
    "max": 225
   },
   {
    "axis": "lh",
    "option": "33 mm",
    "against": "38 mm",
-   "pixels": 1419,
-   "share": 9.733,
-   "max": 224
+   "pixels": 1420,
+   "share": 9.739,
+   "max": 225
   },
   {
    "axis": "lh",
    "option": "42 mm",
    "against": "38 mm",
-   "pixels": 1303,
-   "share": 8.937,
+   "pixels": 1302,
+   "share": 8.93,
    "max": 219
   },
   {
    "axis": "lh",
    "option": "46 mm",
    "against": "38 mm",
-   "pixels": 1749,
-   "share": 11.996,
+   "pixels": 1748,
+   "share": 11.989,
    "max": 225
   },
   {
    "axis": "lh",
    "option": "50 mm",
    "against": "38 mm",
-   "pixels": 2052,
-   "share": 14.074,
+   "pixels": 2053,
+   "share": 14.081,
    "max": 225
   },
   {
    "axis": "lh",
    "option": "55 mm",
    "against": "38 mm",
-   "pixels": 2238,
-   "share": 15.35,
+   "pixels": 2240,
+   "share": 15.364,
    "max": 225
   },
   {
    "axis": "lh",
    "option": "18 mm",
    "against": "38 mm",
-   "pixels": 2113,
-   "share": 14.492,
-   "max": 225
+   "pixels": 2112,
+   "share": 14.486,
+   "max": 223
   },
   {
    "axis": "lh",
    "option": "62 mm",
    "against": "38 mm",
-   "pixels": 2396,
-   "share": 16.433,
+   "pixels": 2394,
+   "share": 16.42,
    "max": 225
   },
   {
    "axis": "sides",
    "option": "Two",
    "against": "Four",
-   "pixels": 1539,
-   "share": 10.556,
+   "pixels": 1540,
+   "share": 10.562,
    "max": 224
   },
   {
    "axis": "sides",
    "option": "Three",
    "against": "Four",
-   "pixels": 1324,
-   "share": 9.081,
-   "max": 224
+   "pixels": 1323,
+   "share": 9.074,
+   "max": 223
   },
   {
    "axis": "sides",
    "option": "Five",
    "against": "Four",
-   "pixels": 1236,
-   "share": 8.477,
-   "max": 224
+   "pixels": 1235,
+   "share": 8.471,
+   "max": 223
   },
   {
    "axis": "sides",
    "option": "Six",
    "against": "Four",
-   "pixels": 1179,
-   "share": 8.086,
-   "max": 224
+   "pixels": 1178,
+   "share": 8.08,
+   "max": 225
   },
   {
    "axis": "sides",
    "option": "Eight",
    "against": "Four",
-   "pixels": 1128,
-   "share": 7.737,
-   "max": 223
+   "pixels": 1127,
+   "share": 7.73,
+   "max": 224
   },
   {
    "axis": "soft",
    "option": "100%",
    "against": "60%",
-   "pixels": 1226,
-   "share": 8.409,
-   "max": 223
+   "pixels": 1227,
+   "share": 8.416,
+   "max": 224
   },
   {
    "axis": "soft",
    "option": "80%",
    "against": "60%",
-   "pixels": 1139,
-   "share": 7.812,
-   "max": 224
+   "pixels": 1136,
+   "share": 7.791,
+   "max": 225
   },
   {
    "axis": "soft",
    "option": "40%",
    "against": "60%",
-   "pixels": 1141,
-   "share": 7.826,
-   "max": 224
+   "pixels": 1144,
+   "share": 7.846,
+   "max": 225
   },
   {
    "axis": "soft",
    "option": "20%",
    "against": "60%",
-   "pixels": 1251,
-   "share": 8.58,
+   "pixels": 1252,
+   "share": 8.587,
    "max": 225
   },
   {
    "axis": "soft",
    "option": "5%",
    "against": "60%",
-   "pixels": 1337,
-   "share": 9.17,
-   "max": 224
+   "pixels": 1339,
+   "share": 9.184,
+   "max": 225
   },
   {
    "axis": "taper",
    "option": "Brow wider 6%",
    "against": "Even",
-   "pixels": 722,
-   "share": 4.952,
-   "max": 157
+   "pixels": 725,
+   "share": 4.973,
+   "max": 156
   },
   {
    "axis": "taper",
    "option": "Brow wider 12%",
    "against": "Even",
-   "pixels": 944,
-   "share": 6.475,
-   "max": 223
+   "pixels": 942,
+   "share": 6.461,
+   "max": 224
   },
   {
    "axis": "taper",
@@ -281,86 +281,86 @@
    "against": "Even",
    "pixels": 864,
    "share": 5.926,
-   "max": 183
+   "max": 181
   },
   {
    "axis": "droop",
    "option": "8%",
    "against": "None",
-   "pixels": 344,
-   "share": 2.359,
-   "max": 105
+   "pixels": 345,
+   "share": 2.366,
+   "max": 104
   },
   {
    "axis": "droop",
    "option": "16%",
    "against": "None",
-   "pixels": 555,
-   "share": 3.807,
-   "max": 157
+   "pixels": 556,
+   "share": 3.813,
+   "max": 158
   },
   {
    "axis": "droop",
    "option": "26%",
    "against": "None",
-   "pixels": 645,
-   "share": 4.424,
-   "max": 220
+   "pixels": 643,
+   "share": 4.41,
+   "max": 218
   },
   {
    "axis": "droop",
    "option": "40%",
    "against": "None",
-   "pixels": 802,
-   "share": 5.501,
-   "max": 223
+   "pixels": 799,
+   "share": 5.48,
+   "max": 224
   },
   {
    "axis": "sweep",
    "option": "Up 10%",
    "against": "None",
-   "pixels": 542,
-   "share": 3.717,
-   "max": 197
+   "pixels": 543,
+   "share": 3.724,
+   "max": 198
   },
   {
    "axis": "sweep",
    "option": "Up 20%",
    "against": "None",
-   "pixels": 874,
-   "share": 5.995,
-   "max": 217
+   "pixels": 878,
+   "share": 6.022,
+   "max": 218
   },
   {
    "axis": "sweep",
    "option": "Up 35%",
    "against": "None",
-   "pixels": 1260,
-   "share": 8.642,
-   "max": 223
+   "pixels": 1255,
+   "share": 8.608,
+   "max": 224
   },
   {
    "axis": "sweep",
    "option": "Up 55%",
    "against": "None",
-   "pixels": 1603,
-   "share": 10.995,
-   "max": 224
+   "pixels": 1604,
+   "share": 11.001,
+   "max": 222
   },
   {
    "axis": "sweep",
    "option": "Down 15%",
    "against": "None",
-   "pixels": 604,
-   "share": 4.143,
-   "max": 220
+   "pixels": 605,
+   "share": 4.15,
+   "max": 218
   },
   {
    "axis": "brow",
    "option": "Flatter",
    "against": "Natural",
-   "pixels": 308,
-   "share": 2.112,
+   "pixels": 310,
+   "share": 2.126,
    "max": 130
   },
   {
@@ -375,33 +375,33 @@
    "axis": "brow",
    "option": "Arched",
    "against": "Natural",
-   "pixels": 389,
-   "share": 2.668,
-   "max": 141
+   "pixels": 387,
+   "share": 2.654,
+   "max": 142
   },
   {
    "axis": "ncut",
    "option": "8%",
    "against": "None",
-   "pixels": 531,
-   "share": 3.642,
+   "pixels": 529,
+   "share": 3.628,
    "max": 223
   },
   {
    "axis": "ncut",
    "option": "16%",
    "against": "None",
-   "pixels": 718,
-   "share": 4.925,
+   "pixels": 716,
+   "share": 4.911,
    "max": 224
   },
   {
    "axis": "ncut",
    "option": "26%",
    "against": "None",
-   "pixels": 850,
-   "share": 5.83,
-   "max": 225
+   "pixels": 848,
+   "share": 5.816,
+   "max": 223
   },
   {
    "axis": "tilt",
@@ -415,33 +415,33 @@
    "axis": "tilt",
    "option": "Outer up 10°",
    "against": "Level",
-   "pixels": 1113,
-   "share": 7.634,
-   "max": 223
+   "pixels": 1111,
+   "share": 7.62,
+   "max": 224
   },
   {
    "axis": "tilt",
    "option": "Outer down 5°",
    "against": "Level",
-   "pixels": 861,
-   "share": 5.905,
-   "max": 170
+   "pixels": 862,
+   "share": 5.912,
+   "max": 171
   },
   {
    "axis": "tilt",
    "option": "Outer down 10°",
    "against": "Level",
-   "pixels": 1122,
-   "share": 7.695,
-   "max": 222
+   "pixels": 1126,
+   "share": 7.723,
+   "max": 223
   },
   {
    "axis": "dbl",
    "option": "14 mm",
    "against": "18 mm",
-   "pixels": 1210,
-   "share": 8.299,
-   "max": 223
+   "pixels": 1208,
+   "share": 8.285,
+   "max": 221
   },
   {
    "axis": "dbl",
@@ -449,7 +449,7 @@
    "against": "18 mm",
    "pixels": 986,
    "share": 6.763,
-   "max": 171
+   "max": 169
   },
   {
    "axis": "dbl",
@@ -457,31 +457,31 @@
    "against": "18 mm",
    "pixels": 996,
    "share": 6.831,
-   "max": 174
+   "max": 173
   },
   {
    "axis": "dbl",
    "option": "22 mm",
    "against": "18 mm",
-   "pixels": 1223,
-   "share": 8.388,
-   "max": 220
+   "pixels": 1224,
+   "share": 8.395,
+   "max": 218
   },
   {
    "axis": "dbl",
    "option": "24 mm",
    "against": "18 mm",
-   "pixels": 1434,
-   "share": 9.835,
+   "pixels": 1435,
+   "share": 9.842,
    "max": 223
   },
   {
    "axis": "dbl",
    "option": "10 mm",
    "against": "18 mm",
-   "pixels": 1591,
-   "share": 10.912,
-   "max": 223
+   "pixels": 1592,
+   "share": 10.919,
+   "max": 224
   },
   {
    "axis": "dbl",
@@ -489,15 +489,15 @@
    "against": "18 mm",
    "pixels": 1921,
    "share": 13.176,
-   "max": 224
+   "max": 223
   },
   {
    "axis": "wrap",
    "option": "0°",
    "against": "5°",
-   "pixels": 1150,
-   "share": 3.363,
-   "max": 225
+   "pixels": 1146,
+   "share": 3.351,
+   "max": 223
   },
   {
    "axis": "wrap",
@@ -505,7 +505,7 @@
    "against": "5°",
    "pixels": 1409,
    "share": 4.12,
-   "max": 229
+   "max": 227
   },
   {
    "axis": "wrap",
@@ -513,7 +513,7 @@
    "against": "5°",
    "pixels": 2009,
    "share": 5.874,
-   "max": 228
+   "max": 226
   },
   {
    "axis": "wrap",
@@ -521,7 +521,7 @@
    "against": "5°",
    "pixels": 2251,
    "share": 6.582,
-   "max": 230
+   "max": 228
   },
   {
    "axis": "wrap",
@@ -529,39 +529,39 @@
    "against": "5°",
    "pixels": 2543,
    "share": 7.436,
-   "max": 229
+   "max": 227
   },
   {
    "axis": "base",
    "option": "Flat",
    "against": "Base 4",
-   "pixels": 495,
-   "share": 1.447,
-   "max": 216
+   "pixels": 498,
+   "share": 1.456,
+   "max": 214
   },
   {
    "axis": "base",
    "option": "Base 2",
    "against": "Base 4",
-   "pixels": 397,
-   "share": 1.161,
-   "max": 119
+   "pixels": 399,
+   "share": 1.167,
+   "max": 118
   },
   {
    "axis": "base",
    "option": "Base 6",
    "against": "Base 4",
-   "pixels": 927,
-   "share": 2.711,
-   "max": 175
+   "pixels": 923,
+   "share": 2.699,
+   "max": 174
   },
   {
    "axis": "base",
    "option": "Base 8",
    "against": "Base 4",
-   "pixels": 1127,
-   "share": 3.295,
-   "max": 222
+   "pixels": 1122,
+   "share": 3.281,
+   "max": 220
   },
   {
    "axis": "panto",
@@ -569,63 +569,63 @@
    "against": "8°",
    "pixels": 758,
    "share": 3.899,
-   "max": 226
+   "max": 224
   },
   {
    "axis": "panto",
    "option": "4°",
    "against": "8°",
-   "pixels": 629,
-   "share": 3.236,
-   "max": 226
+   "pixels": 628,
+   "share": 3.23,
+   "max": 224
   },
   {
    "axis": "panto",
    "option": "12°",
    "against": "8°",
-   "pixels": 605,
-   "share": 3.112,
-   "max": 226
+   "pixels": 604,
+   "share": 3.107,
+   "max": 224
   },
   {
    "axis": "panto",
    "option": "18°",
    "against": "8°",
-   "pixels": 864,
-   "share": 4.444,
-   "max": 226
+   "pixels": 863,
+   "share": 4.439,
+   "max": 224
   },
   {
    "axis": "fthick",
    "option": "1 mm",
    "against": "4 mm",
-   "pixels": 1048,
-   "share": 3.064,
-   "max": 228
+   "pixels": 1044,
+   "share": 3.053,
+   "max": 226
   },
   {
    "axis": "fthick",
    "option": "2.5 mm",
    "against": "4 mm",
-   "pixels": 873,
-   "share": 2.553,
-   "max": 195
+   "pixels": 864,
+   "share": 2.526,
+   "max": 193
   },
   {
    "axis": "fthick",
    "option": "6 mm",
    "against": "4 mm",
-   "pixels": 939,
-   "share": 2.746,
-   "max": 221
+   "pixels": 936,
+   "share": 2.737,
+   "max": 219
   },
   {
    "axis": "fthick",
    "option": "9 mm",
    "against": "4 mm",
-   "pixels": 1362,
-   "share": 3.982,
-   "max": 229
+   "pixels": 1357,
+   "share": 3.968,
+   "max": 227
   },
   {
    "axis": "hold",
@@ -633,15 +633,15 @@
    "against": "Temples",
    "pixels": 805,
    "share": 4.141,
-   "max": 226
+   "max": 224
   },
   {
    "axis": "hold",
    "option": "Strap band",
    "against": "Temples",
-   "pixels": 2361,
-   "share": 12.145,
-   "max": 226
+   "pixels": 2360,
+   "share": 12.14,
+   "max": 224
   },
   {
    "axis": "hold",
@@ -657,7 +657,7 @@
    "against": "Upper third",
    "pixels": 154,
    "share": 1.056,
-   "max": 220
+   "max": 218
   },
   {
    "axis": "epos",
@@ -665,7 +665,7 @@
    "against": "Upper third",
    "pixels": 148,
    "share": 1.015,
-   "max": 220
+   "max": 218
   },
   {
    "axis": "epos",
@@ -681,31 +681,31 @@
    "against": "3 mm",
    "pixels": 70,
    "share": 0.48,
-   "max": 220
+   "max": 218
   },
   {
    "axis": "endr",
    "option": "6 mm",
    "against": "3 mm",
-   "pixels": 64,
-   "share": 0.439,
-   "max": 220
+   "pixels": 65,
+   "share": 0.446,
+   "max": 218
   },
   {
    "axis": "endr",
    "option": "10 mm",
    "against": "3 mm",
-   "pixels": 128,
-   "share": 0.878,
-   "max": 220
+   "pixels": 129,
+   "share": 0.885,
+   "max": 218
   },
   {
    "axis": "endr",
    "option": "15 mm",
    "against": "3 mm",
-   "pixels": 196,
-   "share": 1.344,
-   "max": 220
+   "pixels": 197,
+   "share": 1.351,
+   "max": 218
   },
   {
    "axis": "tlen",
@@ -713,7 +713,7 @@
    "against": "140 mm",
    "pixels": 428,
    "share": 2.202,
-   "max": 226
+   "max": 224
   },
   {
    "axis": "tlen",
@@ -721,31 +721,31 @@
    "against": "140 mm",
    "pixels": 310,
    "share": 1.595,
-   "max": 229
+   "max": 227
   },
   {
    "axis": "tlen",
    "option": "145 mm",
    "against": "140 mm",
-   "pixels": 343,
-   "share": 1.764,
-   "max": 229
+   "pixels": 342,
+   "share": 1.759,
+   "max": 227
   },
   {
    "axis": "tlen",
    "option": "150 mm",
    "against": "140 mm",
-   "pixels": 425,
-   "share": 2.186,
-   "max": 226
+   "pixels": 426,
+   "share": 2.191,
+   "max": 224
   },
   {
    "axis": "tlen",
    "option": "155 mm",
    "against": "140 mm",
-   "pixels": 462,
-   "share": 2.377,
-   "max": 229
+   "pixels": 461,
+   "share": 2.371,
+   "max": 227
   },
   {
    "axis": "tbend",
@@ -753,7 +753,7 @@
    "against": "Drop 45°",
    "pixels": 364,
    "share": 1.872,
-   "max": 226
+   "max": 224
   },
   {
    "axis": "tbend",
@@ -761,7 +761,7 @@
    "against": "Drop 45°",
    "pixels": 361,
    "share": 1.857,
-   "max": 226
+   "max": 224
   },
   {
    "axis": "tbend",
@@ -769,15 +769,15 @@
    "against": "Drop 45°",
    "pixels": 426,
    "share": 2.191,
-   "max": 229
+   "max": 227
   },
   {
    "axis": "tbend",
    "option": "Full curl",
    "against": "Drop 45°",
-   "pixels": 362,
-   "share": 1.862,
-   "max": 226
+   "pixels": 361,
+   "share": 1.857,
+   "max": 224
   },
   {
    "axis": "sit",
@@ -799,113 +799,113 @@
    "axis": "topline",
    "option": "One straight line",
    "against": "Follows the lenses",
-   "pixels": 583,
-   "share": 3.999,
-   "max": 200
+   "pixels": 591,
+   "share": 4.053,
+   "max": 198
   },
   {
    "axis": "topline",
    "option": "One arc",
    "against": "Follows the lenses",
-   "pixels": 638,
-   "share": 4.376,
-   "max": 200
+   "pixels": 647,
+   "share": 4.438,
+   "max": 198
   },
   {
    "axis": "topline",
    "option": "Dips at the centre",
    "against": "Follows the lenses",
-   "pixels": 557,
-   "share": 3.82,
-   "max": 200
+   "pixels": 566,
+   "share": 3.882,
+   "max": 198
   },
   {
    "axis": "rim",
    "option": "Brow, wire below",
    "against": "Full rim",
-   "pixels": 2026,
-   "share": 3.474,
-   "max": 225
+   "pixels": 2024,
+   "share": 3.471,
+   "max": 223
   },
   {
    "axis": "rim",
    "option": "Brow, cord below",
    "against": "Full rim",
-   "pixels": 2200,
-   "share": 3.772,
-   "max": 225
+   "pixels": 2197,
+   "share": 3.767,
+   "max": 223
   },
   {
    "axis": "rim",
    "option": "Lower rim only",
    "against": "Full rim",
-   "pixels": 3026,
-   "share": 5.189,
-   "max": 222
+   "pixels": 3024,
+   "share": 5.185,
+   "max": 220
   },
   {
    "axis": "rim",
    "option": "Rimless",
    "against": "Full rim",
-   "pixels": 5386,
-   "share": 9.235,
-   "max": 225
+   "pixels": 5384,
+   "share": 9.232,
+   "max": 223
   },
   {
    "axis": "rimt",
    "option": "0.9 mm",
    "against": "3 mm",
-   "pixels": 3815,
-   "share": 6.541,
-   "max": 225
+   "pixels": 3816,
+   "share": 6.543,
+   "max": 223
   },
   {
    "axis": "rimt",
    "option": "1.6 mm",
    "against": "3 mm",
-   "pixels": 3042,
-   "share": 5.216,
-   "max": 225
+   "pixels": 3015,
+   "share": 5.17,
+   "max": 223
   },
   {
    "axis": "rimt",
    "option": "2.2 mm",
    "against": "3 mm",
-   "pixels": 2859,
-   "share": 4.902,
-   "max": 205
+   "pixels": 2856,
+   "share": 4.897,
+   "max": 203
   },
   {
    "axis": "rimt",
    "option": "4.5 mm",
    "against": "3 mm",
-   "pixels": 4114,
-   "share": 7.054,
-   "max": 226
+   "pixels": 4101,
+   "share": 7.032,
+   "max": 224
   },
   {
    "axis": "rimt",
    "option": "6.5 mm",
    "against": "3 mm",
-   "pixels": 6098,
-   "share": 10.456,
-   "max": 226
+   "pixels": 6087,
+   "share": 10.437,
+   "max": 224
   },
   {
    "axis": "rimt",
    "option": "9 mm",
    "against": "3 mm",
-   "pixels": 9683,
-   "share": 16.603,
-   "max": 226
+   "pixels": 9681,
+   "share": 16.6,
+   "max": 224
   },
   {
    "axis": "rimt",
    "option": "12 mm",
    "against": "3 mm",
-   "pixels": 13402,
-   "share": 22.98,
-   "max": 226
+   "pixels": 13399,
+   "share": 22.975,
+   "max": 224
   },
   {
    "axis": "rbrow",
@@ -913,39 +913,39 @@
    "against": "Even",
    "pixels": 1438,
    "share": 2.466,
-   "max": 192
+   "max": 190
   },
   {
    "axis": "rbrow",
    "option": "Brow ×2.2",
    "against": "Even",
-   "pixels": 2273,
-   "share": 3.897,
-   "max": 216
+   "pixels": 2272,
+   "share": 3.896,
+   "max": 214
   },
   {
    "axis": "rbrow",
    "option": "Brow ×3",
    "against": "Even",
-   "pixels": 3683,
-   "share": 6.315,
-   "max": 222
+   "pixels": 3681,
+   "share": 6.312,
+   "max": 220
   },
   {
    "axis": "rbrow",
    "option": "Lower ×1.5",
    "against": "Even",
-   "pixels": 1416,
-   "share": 2.428,
-   "max": 226
+   "pixels": 1415,
+   "share": 2.426,
+   "max": 224
   },
   {
    "axis": "rcorner",
    "option": "+30%",
    "against": "None",
-   "pixels": 3196,
-   "share": 3.73,
-   "max": 233
+   "pixels": 3197,
+   "share": 3.731,
+   "max": 231
   },
   {
    "axis": "rcorner",
@@ -953,39 +953,39 @@
    "against": "None",
    "pixels": 5100,
    "share": 5.952,
-   "max": 234
+   "max": 232
   },
   {
    "axis": "rcorner",
    "option": "+120%",
    "against": "None",
-   "pixels": 6253,
-   "share": 7.298,
-   "max": 234
+   "pixels": 6251,
+   "share": 7.296,
+   "max": 232
   },
   {
    "axis": "outer",
    "option": "Squarer",
    "against": "Follows the lens",
-   "pixels": 2343,
-   "share": 4.017,
-   "max": 225
+   "pixels": 2342,
+   "share": 4.016,
+   "max": 223
   },
   {
    "axis": "outer",
    "option": "Much squarer",
    "against": "Follows the lens",
-   "pixels": 3505,
-   "share": 6.01,
-   "max": 226
+   "pixels": 3500,
+   "share": 6.001,
+   "max": 224
   },
   {
    "axis": "outer",
    "option": "Rounder",
    "against": "Follows the lens",
-   "pixels": 3728,
-   "share": 6.392,
-   "max": 226
+   "pixels": 3726,
+   "share": 6.389,
+   "max": 224
   },
   {
    "axis": "bbars",
@@ -993,7 +993,7 @@
    "against": "One",
    "pixels": 1412,
    "share": 1.648,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "bbars",
@@ -1001,30 +1001,30 @@
    "against": "One",
    "pixels": 1686,
    "share": 1.968,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "bh",
    "option": "Top",
    "against": "Upper third",
-   "pixels": 20760,
-   "share": 24.23,
+   "pixels": 20757,
+   "share": 24.226,
    "max": 234
   },
   {
    "axis": "bh",
    "option": "Middle",
    "against": "Upper third",
-   "pixels": 24292,
-   "share": 28.352,
+   "pixels": 24291,
+   "share": 28.351,
    "max": 234
   },
   {
    "axis": "bh",
    "option": "Low",
    "against": "Upper third",
-   "pixels": 21799,
-   "share": 25.442,
+   "pixels": 21796,
+   "share": 25.439,
    "max": 234
   },
   {
@@ -1033,7 +1033,7 @@
    "against": "Gentle",
    "pixels": 1247,
    "share": 1.455,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "barch",
@@ -1041,7 +1041,7 @@
    "against": "Gentle",
    "pixels": 1666,
    "share": 1.944,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "barch",
@@ -1049,15 +1049,15 @@
    "against": "Gentle",
    "pixels": 2141,
    "share": 2.499,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "bdepth",
    "option": "1 mm",
    "against": "Follows the rim",
-   "pixels": 1429,
-   "share": 1.668,
-   "max": 233
+   "pixels": 1431,
+   "share": 1.67,
+   "max": 231
   },
   {
    "axis": "bdepth",
@@ -1065,7 +1065,7 @@
    "against": "Follows the rim",
    "pixels": 990,
    "share": 1.155,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "bdepth",
@@ -1073,7 +1073,7 @@
    "against": "Follows the rim",
    "pixels": 350,
    "share": 0.408,
-   "max": 162
+   "max": 161
   },
   {
    "axis": "bdepth",
@@ -1081,7 +1081,7 @@
    "against": "Follows the rim",
    "pixels": 1317,
    "share": 1.537,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "bunder",
@@ -1089,7 +1089,7 @@
    "against": "Saddle",
    "pixels": 2591,
    "share": 3.024,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "bunder",
@@ -1097,22 +1097,22 @@
    "against": "Saddle",
    "pixels": 698,
    "share": 0.815,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "mat",
    "option": "Metal",
    "against": "Acetate",
-   "pixels": 3057,
-   "share": 3.568,
+   "pixels": 3056,
+   "share": 3.567,
    "max": 48
   },
   {
    "axis": "mat",
    "option": "Injected plastic",
    "against": "Acetate",
-   "pixels": 2592,
-   "share": 3.025,
+   "pixels": 2591,
+   "share": 3.024,
    "max": 25
   },
   {
@@ -1127,16 +1127,16 @@
    "axis": "mat",
    "option": "Wood",
    "against": "Acetate",
-   "pixels": 947,
-   "share": 1.105,
+   "pixels": 948,
+   "share": 1.106,
    "max": 77
   },
   {
    "axis": "mat",
    "option": "Horn",
    "against": "Acetate",
-   "pixels": 1556,
-   "share": 1.816,
+   "pixels": 1555,
+   "share": 1.815,
    "max": 104
   },
   {
@@ -1151,48 +1151,48 @@
    "axis": "hue",
    "option": "0° red",
    "against": "Neutral",
-   "pixels": 1484,
-   "share": 2.545,
+   "pixels": 1485,
+   "share": 2.546,
    "max": 16
   },
   {
    "axis": "hue",
    "option": "30° orange",
    "against": "Neutral",
-   "pixels": 1112,
-   "share": 1.907,
+   "pixels": 1110,
+   "share": 1.903,
    "max": 15
   },
   {
    "axis": "hue",
    "option": "60° yellow",
    "against": "Neutral",
-   "pixels": 1120,
-   "share": 1.92,
+   "pixels": 1113,
+   "share": 1.908,
    "max": 15
   },
   {
    "axis": "hue",
    "option": "90° lime",
    "against": "Neutral",
-   "pixels": 1117,
-   "share": 1.915,
+   "pixels": 1110,
+   "share": 1.903,
    "max": 15
   },
   {
    "axis": "hue",
    "option": "120° green",
    "against": "Neutral",
-   "pixels": 1488,
-   "share": 2.551,
+   "pixels": 1486,
+   "share": 2.548,
    "max": 16
   },
   {
    "axis": "hue",
    "option": "150° spring",
    "against": "Neutral",
-   "pixels": 1483,
-   "share": 2.543,
+   "pixels": 1485,
+   "share": 2.546,
    "max": 16
   },
   {
@@ -1207,48 +1207,48 @@
    "axis": "hue",
    "option": "210° azure",
    "against": "Neutral",
-   "pixels": 1679,
-   "share": 2.879,
-   "max": 16
-  },
-  {
-   "axis": "hue",
-   "option": "240° blue",
-   "against": "Neutral",
-   "pixels": 1685,
-   "share": 2.889,
-   "max": 16
-  },
-  {
-   "axis": "hue",
-   "option": "270° violet",
-   "against": "Neutral",
-   "pixels": 1672,
-   "share": 2.867,
-   "max": 16
-  },
-  {
-   "axis": "hue",
-   "option": "300° magenta",
-   "against": "Neutral",
    "pixels": 1675,
    "share": 2.872,
    "max": 16
   },
   {
    "axis": "hue",
+   "option": "240° blue",
+   "against": "Neutral",
+   "pixels": 1683,
+   "share": 2.886,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "270° violet",
+   "against": "Neutral",
+   "pixels": 1674,
+   "share": 2.87,
+   "max": 16
+  },
+  {
+   "axis": "hue",
+   "option": "300° magenta",
+   "against": "Neutral",
+   "pixels": 1677,
+   "share": 2.876,
+   "max": 16
+  },
+  {
+   "axis": "hue",
    "option": "330° rose",
    "against": "Neutral",
-   "pixels": 1480,
-   "share": 2.538,
+   "pixels": 1482,
+   "share": 2.541,
    "max": 16
   },
   {
    "axis": "tone",
    "option": "Dark",
    "against": "Deep",
-   "pixels": 4039,
-   "share": 6.926,
+   "pixels": 4038,
+   "share": 6.924,
    "max": 38
   },
   {
@@ -1287,32 +1287,32 @@
    "axis": "sat",
    "option": "Muted",
    "against": "Rich",
-   "pixels": 3948,
-   "share": 6.77,
+   "pixels": 3945,
+   "share": 6.764,
    "max": 33
   },
   {
    "axis": "sat",
    "option": "Vivid",
    "against": "Rich",
-   "pixels": 4047,
-   "share": 6.939,
+   "pixels": 4046,
+   "share": 6.938,
    "max": 38
   },
   {
    "axis": "pcon",
    "option": "Low",
    "against": "None",
-   "pixels": 2042,
-   "share": 2.383,
+   "pixels": 2040,
+   "share": 2.381,
    "max": 56
   },
   {
    "axis": "pcon",
    "option": "Medium",
    "against": "None",
-   "pixels": 2899,
-   "share": 3.384,
+   "pixels": 2896,
+   "share": 3.38,
    "max": 102
   },
   {
@@ -1327,48 +1327,48 @@
    "axis": "blotch",
    "option": "0.7 mm",
    "against": "3 mm",
-   "pixels": 3566,
-   "share": 4.162,
+   "pixels": 3564,
+   "share": 4.16,
    "max": 102
   },
   {
    "axis": "blotch",
    "option": "1.6 mm",
    "against": "3 mm",
-   "pixels": 4304,
-   "share": 5.023,
+   "pixels": 4302,
+   "share": 5.021,
    "max": 109
   },
   {
    "axis": "blotch",
    "option": "6 mm",
    "against": "3 mm",
-   "pixels": 3863,
-   "share": 4.509,
+   "pixels": 3865,
+   "share": 4.511,
    "max": 102
   },
   {
    "axis": "blotch",
    "option": "10 mm",
    "against": "3 mm",
-   "pixels": 3686,
-   "share": 4.302,
+   "pixels": 3685,
+   "share": 4.301,
    "max": 102
   },
   {
    "axis": "pdir",
    "option": "Along ×3",
    "against": "Round",
-   "pixels": 2740,
-   "share": 3.198,
+   "pixels": 2739,
+   "share": 3.197,
    "max": 98
   },
   {
    "axis": "pdir",
    "option": "Along ×8",
    "against": "Round",
-   "pixels": 3357,
-   "share": 3.918,
+   "pixels": 3356,
+   "share": 3.917,
    "max": 98
   },
   {
@@ -1391,24 +1391,24 @@
    "axis": "pcol",
    "option": "Darker",
    "against": "Lighter",
-   "pixels": 2958,
-   "share": 3.452,
+   "pixels": 2959,
+   "share": 3.454,
    "max": 122
   },
   {
    "axis": "pcol",
    "option": "Amber",
    "against": "Lighter",
-   "pixels": 2898,
-   "share": 3.382,
+   "pixels": 2899,
+   "share": 3.384,
    "max": 96
   },
   {
    "axis": "pcol",
    "option": "Opposite hue",
    "against": "Lighter",
-   "pixels": 2906,
-   "share": 3.392,
+   "pixels": 2905,
+   "share": 3.391,
    "max": 102
   },
   {
@@ -1425,54 +1425,54 @@
    "against": "One layer",
    "pixels": 1866,
    "share": 3.2,
-   "max": 103
+   "max": 102
   },
   {
    "axis": "lam",
    "option": "Front and back",
    "against": "One layer",
-   "pixels": 991,
-   "share": 1.699,
+   "pixels": 993,
+   "share": 1.703,
    "max": 85
   },
   {
    "axis": "lam",
    "option": "Edge stripe",
    "against": "One layer",
-   "pixels": 669,
-   "share": 1.147,
+   "pixels": 671,
+   "share": 1.151,
    "max": 62
   },
   {
    "axis": "fade",
    "option": "To lighter",
    "against": "None",
-   "pixels": 2624,
-   "share": 4.499,
+   "pixels": 2625,
+   "share": 4.501,
    "max": 116
   },
   {
    "axis": "fade",
    "option": "To clear",
    "against": "None",
-   "pixels": 2339,
-   "share": 4.011,
-   "max": 162
+   "pixels": 2341,
+   "share": 4.014,
+   "max": 160
   },
   {
    "axis": "fade",
    "option": "To the second colour",
    "against": "None",
-   "pixels": 2259,
-   "share": 3.873,
+   "pixels": 2262,
+   "share": 3.879,
    "max": 67
   },
   {
    "axis": "col2",
    "option": "Darker",
    "against": "Lighter",
-   "pixels": 2648,
-   "share": 4.54,
+   "pixels": 2646,
+   "share": 4.537,
    "max": 130
   },
   {
@@ -1487,16 +1487,16 @@
    "axis": "col2",
    "option": "Hue +90°",
    "against": "Lighter",
-   "pixels": 2490,
-   "share": 4.27,
+   "pixels": 2486,
+   "share": 4.263,
    "max": 97
   },
   {
    "axis": "col2",
    "option": "Hue +180°",
    "against": "Lighter",
-   "pixels": 2682,
-   "share": 4.599,
+   "pixels": 2681,
+   "share": 4.597,
    "max": 146
   },
   {
@@ -1511,8 +1511,8 @@
    "axis": "col2",
    "option": "White",
    "against": "Lighter",
-   "pixels": 2409,
-   "share": 4.131,
+   "pixels": 2407,
+   "share": 4.127,
    "max": 82
   },
   {
@@ -1527,9 +1527,9 @@
    "axis": "tdepth",
    "option": "1.2 mm",
    "against": "6 mm",
-   "pixels": 2459,
-   "share": 3.162,
-   "max": 229
+   "pixels": 2457,
+   "share": 3.16,
+   "max": 227
   },
   {
    "axis": "tdepth",
@@ -1537,7 +1537,7 @@
    "against": "6 mm",
    "pixels": 1840,
    "share": 2.366,
-   "max": 227
+   "max": 225
   },
   {
    "axis": "tdepth",
@@ -1545,7 +1545,7 @@
    "against": "6 mm",
    "pixels": 1876,
    "share": 2.413,
-   "max": 224
+   "max": 222
   },
   {
    "axis": "tdepth",
@@ -1553,7 +1553,7 @@
    "against": "6 mm",
    "pixels": 3425,
    "share": 4.405,
-   "max": 230
+   "max": 228
   },
   {
    "axis": "tdepth",
@@ -1561,7 +1561,7 @@
    "against": "6 mm",
    "pixels": 5356,
    "share": 6.888,
-   "max": 229
+   "max": 227
   },
   {
    "axis": "ttaper",
@@ -1569,7 +1569,7 @@
    "against": "Slight",
    "pixels": 1213,
    "share": 1.56,
-   "max": 229
+   "max": 227
   },
   {
    "axis": "ttaper",
@@ -1577,7 +1577,7 @@
    "against": "Slight",
    "pixels": 1027,
    "share": 1.321,
-   "max": 225
+   "max": 223
   },
   {
    "axis": "ttaper",
@@ -1585,7 +1585,7 @@
    "against": "Slight",
    "pixels": 1925,
    "share": 2.476,
-   "max": 230
+   "max": 228
   },
   {
    "axis": "tline",
@@ -1593,15 +1593,15 @@
    "against": "Straight",
    "pixels": 2249,
    "share": 2.892,
-   "max": 220
+   "max": 218
   },
   {
    "axis": "tline",
    "option": "Dropped",
    "against": "Straight",
-   "pixels": 4432,
-   "share": 5.7,
-   "max": 229
+   "pixels": 4433,
+   "share": 5.701,
+   "max": 227
   },
   {
    "axis": "tline",
@@ -1609,7 +1609,7 @@
    "against": "Straight",
    "pixels": 4068,
    "share": 5.231,
-   "max": 229
+   "max": 227
   },
   {
    "axis": "tcol",
@@ -1631,104 +1631,104 @@
    "axis": "tcol",
    "option": "Contrast tips",
    "against": "Same as the front",
-   "pixels": 734,
-   "share": 0.944,
+   "pixels": 736,
+   "share": 0.947,
    "max": 127
   },
   {
    "axis": "tintd",
    "option": "10%",
    "against": "Clear",
-   "pixels": 25629,
-   "share": 29.912,
-   "max": 20
+   "pixels": 25604,
+   "share": 29.883,
+   "max": 19
   },
   {
    "axis": "tintd",
    "option": "25%",
    "against": "Clear",
-   "pixels": 29677,
-   "share": 34.637,
+   "pixels": 29669,
+   "share": 34.628,
    "max": 48
   },
   {
    "axis": "tintd",
    "option": "50%",
    "against": "Clear",
-   "pixels": 29751,
-   "share": 34.723,
-   "max": 96
+   "pixels": 29750,
+   "share": 34.722,
+   "max": 95
   },
   {
    "axis": "tintd",
    "option": "75%",
    "against": "Clear",
-   "pixels": 29781,
-   "share": 34.758,
-   "max": 144
+   "pixels": 29780,
+   "share": 34.757,
+   "max": 143
   },
   {
    "axis": "tintd",
    "option": "90%",
    "against": "Clear",
-   "pixels": 29787,
-   "share": 34.765,
-   "max": 172
+   "pixels": 29786,
+   "share": 34.764,
+   "max": 171
   },
   {
    "axis": "tinth",
    "option": "0° red",
    "against": "Grey",
-   "pixels": 29611,
-   "share": 34.56,
+   "pixels": 29610,
+   "share": 34.559,
    "max": 32
   },
   {
    "axis": "tinth",
    "option": "30° orange",
    "against": "Grey",
-   "pixels": 29611,
-   "share": 34.56,
+   "pixels": 29610,
+   "share": 34.559,
    "max": 32
   },
   {
    "axis": "tinth",
    "option": "60° yellow",
    "against": "Grey",
-   "pixels": 29611,
-   "share": 34.56,
+   "pixels": 29610,
+   "share": 34.559,
    "max": 32
   },
   {
    "axis": "tinth",
    "option": "90° lime",
    "against": "Grey",
-   "pixels": 29595,
-   "share": 34.541,
+   "pixels": 29598,
+   "share": 34.545,
    "max": 30
   },
   {
    "axis": "tinth",
    "option": "120° green",
    "against": "Grey",
-   "pixels": 29595,
-   "share": 34.541,
+   "pixels": 29598,
+   "share": 34.545,
    "max": 30
   },
   {
    "axis": "tinth",
    "option": "150° spring",
    "against": "Grey",
-   "pixels": 29595,
-   "share": 34.541,
+   "pixels": 29598,
+   "share": 34.545,
    "max": 30
   },
   {
    "axis": "tinth",
    "option": "180° cyan",
    "against": "Grey",
-   "pixels": 29595,
-   "share": 34.541,
+   "pixels": 29598,
+   "share": 34.545,
    "max": 30
   },
   {
@@ -1759,64 +1759,64 @@
    "axis": "tinth",
    "option": "300° magenta",
    "against": "Grey",
-   "pixels": 29611,
-   "share": 34.56,
+   "pixels": 29610,
+   "share": 34.559,
    "max": 32
   },
   {
    "axis": "tinth",
    "option": "330° rose",
    "against": "Grey",
-   "pixels": 29611,
-   "share": 34.56,
+   "pixels": 29610,
+   "share": 34.559,
    "max": 32
   },
   {
    "axis": "tgrad",
    "option": "Fades down",
    "against": "Even",
-   "pixels": 25228,
-   "share": 29.444,
+   "pixels": 25330,
+   "share": 29.563,
    "max": 74
   },
   {
    "axis": "tgrad",
    "option": "Fades to clear",
    "against": "Even",
-   "pixels": 27158,
-   "share": 31.697,
-   "max": 96
+   "pixels": 27155,
+   "share": 31.694,
+   "max": 95
   },
   {
    "axis": "tgrad",
    "option": "Dark top and bottom",
    "against": "Even",
-   "pixels": 28021,
-   "share": 32.704,
+   "pixels": 28036,
+   "share": 32.722,
    "max": 80
   },
   {
    "axis": "hinge",
    "option": "Hidden",
    "against": "Barrel",
-   "pixels": 600,
-   "share": 0.7,
+   "pixels": 599,
+   "share": 0.699,
    "max": 202
   },
   {
    "axis": "hinge",
    "option": "Wire coil",
    "against": "Barrel",
-   "pixels": 752,
-   "share": 0.878,
+   "pixels": 751,
+   "share": 0.877,
    "max": 194
   },
   {
    "axis": "hinge",
    "option": "None, flexing metal",
    "against": "Barrel",
-   "pixels": 2871,
-   "share": 3.351,
+   "pixels": 2870,
+   "share": 3.35,
    "max": 194
   },
   {
@@ -1927,73 +1927,73 @@
    "axis": "pads",
    "option": "Pads on wire arms",
    "against": "Moulded into the front",
-   "pixels": 2388,
-   "share": 2.787,
-   "max": 231
+   "pixels": 2371,
+   "share": 2.767,
+   "max": 232
   },
   {
    "axis": "pads",
    "option": "Fixed pads",
    "against": "Moulded into the front",
-   "pixels": 2314,
-   "share": 2.701,
-   "max": 231
+   "pixels": 2292,
+   "share": 2.675,
+   "max": 232
   },
   {
    "axis": "pads",
    "option": "One-piece saddle strip",
    "against": "Moulded into the front",
-   "pixels": 2170,
-   "share": 2.533,
+   "pixels": 2158,
+   "share": 2.519,
    "max": 233
   },
   {
    "axis": "padsz",
    "option": "9 mm",
    "against": "13 mm",
-   "pixels": 1230,
-   "share": 1.436,
-   "max": 87
+   "pixels": 1209,
+   "share": 1.411,
+   "max": 84
   },
   {
    "axis": "padsz",
    "option": "11 mm",
    "against": "13 mm",
-   "pixels": 1256,
-   "share": 1.466,
-   "max": 87
+   "pixels": 1220,
+   "share": 1.424,
+   "max": 84
   },
   {
    "axis": "padsz",
    "option": "15 mm",
    "against": "13 mm",
-   "pixels": 1640,
-   "share": 1.914,
-   "max": 88
+   "pixels": 1602,
+   "share": 1.87,
+   "max": 85
   },
   {
    "axis": "padsz",
    "option": "18 mm",
    "against": "13 mm",
-   "pixels": 2098,
-   "share": 2.449,
-   "max": 88
+   "pixels": 2025,
+   "share": 2.363,
+   "max": 85
   },
   {
    "axis": "padr",
    "option": "Round",
    "against": "Oval",
-   "pixels": 2015,
-   "share": 2.352,
-   "max": 88
+   "pixels": 1970,
+   "share": 2.299,
+   "max": 85
   },
   {
    "axis": "padr",
    "option": "Long",
    "against": "Oval",
-   "pixels": 1148,
-   "share": 1.34,
-   "max": 87
+   "pixels": 1129,
+   "share": 1.318,
+   "max": 84
   },
   {
    "axis": "mount",
@@ -2015,17 +2015,17 @@
    "axis": "ledge",
    "option": "Polished",
    "against": "Matte",
-   "pixels": 2854,
-   "share": 3.331,
-   "max": 108
+   "pixels": 2860,
+   "share": 3.338,
+   "max": 109
   },
   {
    "axis": "ledge",
    "option": "Faceted",
    "against": "Matte",
-   "pixels": 3232,
-   "share": 3.772,
-   "max": 135
+   "pixels": 3216,
+   "share": 3.754,
+   "max": 133
   },
   {
    "axis": "lthick",
@@ -2047,24 +2047,24 @@
    "axis": "lthick",
    "option": "5.5 mm",
    "against": "2 mm",
-   "pixels": 2867,
-   "share": 3.346,
+   "pixels": 2857,
+   "share": 3.335,
    "max": 193
   },
   {
    "axis": "lthick",
    "option": "8 mm",
    "against": "2 mm",
-   "pixels": 6088,
-   "share": 7.106,
+   "pixels": 6071,
+   "share": 7.086,
    "max": 193
   },
   {
    "axis": "bevel",
    "option": "Flat, sharp edge",
    "against": "Rounded",
-   "pixels": 3941,
-   "share": 4.6,
+   "pixels": 3940,
+   "share": 4.599,
    "max": 80
   },
   {
@@ -2111,8 +2111,8 @@
    "axis": "finish",
    "option": "Hammered",
    "against": "Gloss",
-   "pixels": 3736,
-   "share": 4.36,
+   "pixels": 3735,
+   "share": 4.359,
    "max": 125
   },
   {
@@ -2161,7 +2161,7 @@
    "against": "Not shown",
    "pixels": 2171,
    "share": 2.534,
-   "max": 74
+   "max": 73
   },
   {
    "axis": "core",
@@ -2169,7 +2169,7 @@
    "against": "Not shown",
    "pixels": 2171,
    "share": 2.534,
-   "max": 74
+   "max": 73
   },
   {
    "axis": "engr",
@@ -2223,9 +2223,9 @@
    "axis": "tipn",
    "option": "Paddle",
    "against": "Plain",
-   "pixels": 2563,
-   "share": 2.991,
-   "max": 233
+   "pixels": 2564,
+   "share": 2.993,
+   "max": 231
   },
   {
    "axis": "tipn",
@@ -2233,31 +2233,31 @@
    "against": "Plain",
    "pixels": 157,
    "share": 0.183,
-   "max": 234
+   "max": 232
   },
   {
    "axis": "tipn",
    "option": "Hook",
    "against": "Plain",
-   "pixels": 760,
-   "share": 0.887,
-   "max": 234
+   "pixels": 759,
+   "share": 0.886,
+   "max": 232
   },
   {
    "axis": "tcut",
    "option": "One slot",
    "against": "Solid",
-   "pixels": 1010,
-   "share": 1.179,
-   "max": 220
+   "pixels": 1011,
+   "share": 1.18,
+   "max": 218
   },
   {
    "axis": "tcut",
    "option": "Row of holes",
    "against": "Solid",
-   "pixels": 560,
-   "share": 0.654,
-   "max": 220
+   "pixels": 564,
+   "share": 0.658,
+   "max": 218
   },
   {
    "axis": "tcut",
@@ -2265,46 +2265,46 @@
    "against": "Solid",
    "pixels": 1902,
    "share": 2.22,
-   "max": 220
+   "max": 218
   },
   {
    "axis": "mirror",
    "option": "30%",
    "against": "None",
-   "pixels": 20991,
-   "share": 24.499,
+   "pixels": 20450,
+   "share": 23.868,
    "max": 38
   },
   {
    "axis": "mirror",
    "option": "70%",
    "against": "None",
-   "pixels": 28185,
-   "share": 32.896,
-   "max": 90
+   "pixels": 27829,
+   "share": 32.48,
+   "max": 89
   },
   {
    "axis": "mirror",
    "option": "100%",
    "against": "None",
-   "pixels": 29372,
-   "share": 34.281,
-   "max": 128
+   "pixels": 29024,
+   "share": 33.875,
+   "max": 126
   },
   {
    "axis": "mirh",
    "option": "Gold",
    "against": "Silver",
-   "pixels": 29587,
-   "share": 34.532,
+   "pixels": 29589,
+   "share": 34.534,
    "max": 37
   },
   {
    "axis": "mirh",
    "option": "Red",
    "against": "Silver",
-   "pixels": 29392,
-   "share": 34.304,
+   "pixels": 29390,
+   "share": 34.302,
    "max": 37
   },
   {
@@ -2319,73 +2319,73 @@
    "axis": "mirh",
    "option": "Blue",
    "against": "Silver",
-   "pixels": 28631,
-   "share": 33.416,
+   "pixels": 28621,
+   "share": 33.405,
    "max": 30
   },
   {
    "axis": "mirh",
    "option": "Violet",
    "against": "Silver",
-   "pixels": 29381,
-   "share": 34.292,
+   "pixels": 29379,
+   "share": 34.289,
    "max": 34
   },
   {
    "axis": "mirh",
    "option": "Pink",
    "against": "Silver",
-   "pixels": 29381,
-   "share": 34.292,
+   "pixels": 29379,
+   "share": 34.289,
    "max": 34
   },
   {
    "axis": "coat",
    "option": "Green",
    "against": "Uncoated",
-   "pixels": 5271,
-   "share": 6.152,
+   "pixels": 5289,
+   "share": 6.173,
    "max": 34
   },
   {
    "axis": "coat",
    "option": "Blue",
    "against": "Uncoated",
-   "pixels": 5227,
-   "share": 6.101,
+   "pixels": 5231,
+   "share": 6.105,
    "max": 30
   },
   {
    "axis": "coat",
    "option": "Violet",
    "against": "Uncoated",
-   "pixels": 5126,
-   "share": 5.983,
+   "pixels": 5115,
+   "share": 5.97,
    "max": 23
   },
   {
    "axis": "coat",
    "option": "Gold",
    "against": "Uncoated",
-   "pixels": 5246,
-   "share": 6.123,
+   "pixels": 5262,
+   "share": 6.141,
    "max": 31
   },
   {
    "axis": "clarity",
    "option": "Translucent",
    "against": "Opaque",
-   "pixels": 8561,
-   "share": 9.992,
-   "max": 62
+   "pixels": 8551,
+   "share": 9.98,
+   "max": 61
   },
   {
    "axis": "clarity",
    "option": "Clear",
    "against": "Opaque",
-   "pixels": 8736,
-   "share": 10.196,
-   "max": 133
+   "pixels": 8735,
+   "share": 10.195,
+   "max": 131
   },
   {
    "axis": "adapt",
@@ -2407,17 +2407,17 @@
    "axis": "glow",
    "option": "Glows in the dark",
    "against": "None",
-   "pixels": 5398,
-   "share": 3.946,
+   "pixels": 5443,
+   "share": 3.979,
    "max": 70
   },
   {
    "axis": "glow",
    "option": "Reading lights",
    "against": "None",
-   "pixels": 2326,
-   "share": 1.7,
-   "max": 71
+   "pixels": 2398,
+   "share": 1.753,
+   "max": 75
   },
   {
    "axis": "fold",
@@ -2425,14 +2425,14 @@
    "against": "Fold flat",
    "pixels": 511,
    "share": 0.374,
-   "max": 107
+   "max": 105
   },
   {
    "axis": "fold",
    "option": "Front folds in half too",
    "against": "Fold flat",
-   "pixels": 78,
-   "share": 0.057,
+   "pixels": 74,
+   "share": 0.054,
    "max": 187
   },
   {
@@ -2441,7 +2441,7 @@
    "against": "Single vision",
    "pixels": 541,
    "share": 0.631,
-   "max": 91
+   "max": 90
   },
   {
    "axis": "seg",
@@ -2449,7 +2449,7 @@
    "against": "Single vision",
    "pixels": 353,
    "share": 0.412,
-   "max": 91
+   "max": 90
   },
   {
    "axis": "seg",
@@ -2457,7 +2457,7 @@
    "against": "Single vision",
    "pixels": 848,
    "share": 0.99,
-   "max": 107
+   "max": 106
   },
   {
    "axis": "seg",
@@ -2465,7 +2465,7 @@
    "against": "Single vision",
    "pixels": 933,
    "share": 1.089,
-   "max": 91
+   "max": 90
   },
   {
    "axis": "seg",
@@ -2473,7 +2473,7 @@
    "against": "Single vision",
    "pixels": 1313,
    "share": 1.532,
-   "max": 108
+   "max": 107
   },
   {
    "axis": "seg",
@@ -2487,8 +2487,8 @@
    "axis": "clip",
    "option": "Clip-on, down",
    "against": "None",
-   "pixels": 11376,
-   "share": 19.506,
+   "pixels": 11362,
+   "share": 19.482,
    "max": 186
   },
   {
@@ -2503,25 +2503,25 @@
    "axis": "side",
    "option": "Soft cups",
    "against": "None",
-   "pixels": 12263,
-   "share": 14.313,
-   "max": 220
+   "pixels": 12266,
+   "share": 14.316,
+   "max": 224
   },
   {
    "axis": "side",
    "option": "Clear",
    "against": "None",
-   "pixels": 1290,
-   "share": 1.506,
+   "pixels": 1280,
+   "share": 1.494,
    "max": 149
   },
   {
    "axis": "side",
    "option": "Mesh",
    "against": "None",
-   "pixels": 12280,
-   "share": 14.332,
-   "max": 194
+   "pixels": 12279,
+   "share": 14.331,
+   "max": 191
   },
   {
    "axis": "cord",
@@ -2545,7 +2545,7 @@
    "against": "None",
    "pixels": 1411,
    "share": 1.647,
-   "max": 238
+   "max": 236
   },
   {
    "axis": "audio",
@@ -2553,7 +2553,7 @@
    "against": "None",
    "pixels": 346,
    "share": 0.404,
-   "max": 233
+   "max": 231
   },
   {
    "axis": "disp",
@@ -2561,7 +2561,7 @@
    "against": "None",
    "pixels": 687,
    "share": 0.802,
-   "max": 82
+   "max": 81
   },
   {
    "axis": "disp",
@@ -2569,7 +2569,7 @@
    "against": "None",
    "pixels": 1352,
    "share": 1.578,
-   "max": 82
+   "max": 81
   },
   {
    "axis": "cam",
@@ -2577,7 +2577,7 @@
    "against": "None",
    "pixels": 200,
    "share": 0.233,
-   "max": 218
+   "max": 219
   },
   {
    "axis": "cam",
@@ -2585,7 +2585,7 @@
    "against": "None",
    "pixels": 274,
    "share": 0.32,
-   "max": 219
+   "max": 220
   },
   {
    "axis": "vent",
@@ -2593,7 +2593,7 @@
    "against": "None",
    "pixels": 252,
    "share": 0.294,
-   "max": 152
+   "max": 150
   },
   {
    "axis": "vent",
@@ -2601,15 +2601,15 @@
    "against": "None",
    "pixels": 135,
    "share": 0.158,
-   "max": 146
+   "max": 144
   },
   {
    "axis": "adj",
    "option": "Telescoping length",
    "against": "None",
-   "pixels": 470,
-   "share": 0.604,
-   "max": 172
+   "pixels": 459,
+   "share": 0.59,
+   "max": 170
   },
   {
    "axis": "adj",
@@ -2623,8 +2623,8 @@
    "axis": "padm",
    "option": "Clear, hard",
    "against": "Clear, soft",
-   "pixels": 2765,
-   "share": 3.227,
+   "pixels": 2788,
+   "share": 3.254,
    "max": 48
   },
   {
@@ -2639,25 +2639,25 @@
    "axis": "padm",
    "option": "Frame material",
    "against": "Clear, soft",
-   "pixels": 9216,
-   "share": 10.756,
-   "max": 220
+   "pixels": 9220,
+   "share": 10.761,
+   "max": 221
   },
   {
    "axis": "tipg",
    "option": "Sleeve",
    "against": "Bare",
-   "pixels": 5040,
-   "share": 5.882,
-   "max": 229
+   "pixels": 5031,
+   "share": 5.872,
+   "max": 227
   },
   {
    "axis": "tipg",
    "option": "Ribbed rubber",
    "against": "Bare",
-   "pixels": 4512,
-   "share": 5.266,
-   "max": 229
+   "pixels": 4503,
+   "share": 5.256,
+   "max": 227
   },
   {
    "axis": "tipg",
@@ -2665,47 +2665,47 @@
    "against": "Bare",
    "pixels": 5225,
    "share": 6.098,
-   "max": 230
+   "max": 228
   },
   {
    "axis": "spring",
    "option": "Springs 10°",
    "against": "Firm stop",
-   "pixels": 797,
-   "share": 0.93,
+   "pixels": 796,
+   "share": 0.929,
    "max": 187
   },
   {
    "axis": "spring",
    "option": "Springs 25°",
    "against": "Firm stop",
-   "pixels": 820,
-   "share": 0.957,
+   "pixels": 818,
+   "share": 0.955,
    "max": 187
   },
   {
    "axis": "tthick",
    "option": "1 mm",
    "against": "3.5 mm",
-   "pixels": 3813,
-   "share": 2.787,
-   "max": 230
+   "pixels": 3808,
+   "share": 2.784,
+   "max": 228
   },
   {
    "axis": "tthick",
    "option": "2 mm",
    "against": "3.5 mm",
-   "pixels": 2926,
-   "share": 2.139,
-   "max": 230
+   "pixels": 2925,
+   "share": 2.138,
+   "max": 228
   },
   {
    "axis": "tthick",
    "option": "5 mm",
    "against": "3.5 mm",
-   "pixels": 2967,
-   "share": 2.169,
-   "max": 230
+   "pixels": 2968,
+   "share": 2.17,
+   "max": 228
   },
   {
    "axis": "tthick",
@@ -2713,7 +2713,7 @@
    "against": "3.5 mm",
    "pixels": 4751,
    "share": 3.473,
-   "max": 230
+   "max": 228
   },
   {
    "axis": "snap",
@@ -2721,7 +2721,7 @@
    "against": "Quiet",
    "pixels": 245,
    "share": 0.286,
-   "max": 138
+   "max": 135
   },
   {
    "axis": "snap",
@@ -2729,7 +2729,7 @@
    "against": "Quiet",
    "pixels": 1223,
    "share": 1.427,
-   "max": 138
+   "max": 135
   }
  ],
  "random24": [

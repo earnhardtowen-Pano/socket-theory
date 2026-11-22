@@ -17,7 +17,7 @@
   const AXES = S.AXES;
 
   const TAU = Math.PI * 2, RAD = Math.PI / 180;
-  const PAPER = '#f6f3ec';
+  const PAPER = '#f3f4f1';
   const r2 = x => Math.round(x * 100) / 100;
   const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
   const lerp = (a, b, t) => a + (b - a) * t;

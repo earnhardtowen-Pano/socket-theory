@@ -1,0 +1,25 @@
+{
+  "note": "A record kept by hand of what was looked at by eye. The gate cannot fill this in.",
+  "looked": [
+    "First pass, before the fixes listed above: all 25 per-axis sheets, which cover all 91 axes and every option, and all four random sheets (24 addresses in front, side, top and worn views).",
+    "Second pass, on the final drawing code: 6 per-axis sheets covering 24 axes (Wrap, Lens curve, Forward tilt, Front thickness, Rim, Rim thickness, Brow weight, Outer corner weight, Hinge, Barrel count, Screw head, Front rivets, Rimless mount, Lens edge finish, Lens edge thickness, Rim edge, Finish, Hardware metal, Temple core wire, Engraving, Speakers, Display, Camera, Lens vents), and the random front sheet.",
+    "Close-ups at about twice sheet scale of 28 chosen settings, including the default in all four views, rimless, brow with cord, brow with wire, lower rim, shield with strap, a pilot shape, a cat-eye, a tortoiseshell, a nose-clip pair and a hand-held pair.",
+    "Page screenshots at 390 px: opening state, Room, Loupe, an axis strip, Sheet, Language, Keeps. One wide screenshot in the dark theme."
+  ],
+  "notLooked": [
+    "67 of the 91 axes were not looked at again after the last fixes. Their drawing code did not change, apart from the paper colour and the lens-curve depth in side and top views.",
+    "The random side, top and worn sheets were not looked at again after the fixes.",
+    "Options were looked at one axis at a time with the rest at default. Combinations were seen only in the 24 random addresses and the chosen settings.",
+    "Most Detail axes were seen as close crops on sheets, not through the page's loupe.",
+    "The low-detail drawings were seen only as strips in page screenshots, not on sheets of their own.",
+    "Page screenshots not looked at: Anywhere, Side, Top, the opened Detail section, and the wide light theme."
+  ],
+  "notChecked": [
+    "The hinge sound. The test confirms it runs without an error. Nobody heard it.",
+    "A real phone. The page test uses a headless desktop browser set to 390 px with touch emulation.",
+    "Any browser other than Chromium.",
+    "The page with its fonts loaded. The test blocks them, so every screenshot shows fallback fonts.",
+    "The published copy of the page. The same build was tested from a local file; the hosted page was not opened.",
+    "Whether any version can be manufactured, what it costs, or whether it is good. Out of scope in the kit."
+  ]
+}
