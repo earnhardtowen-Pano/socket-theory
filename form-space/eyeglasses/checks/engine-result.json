@@ -1,0 +1,14 @@
+{
+  "version": "eyeglasses-1.0",
+  "identical": true,
+  "axes": 91,
+  "options": 430,
+  "total": "4814108529147093512387826737772783838115328000000000000",
+  "digits": 55,
+  "tests": {
+    "roundTripBad": 0,
+    "normalizeBad": 0,
+    "edgesOk": true
+  },
+  "pass": true
+}
